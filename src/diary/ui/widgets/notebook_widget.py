@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QGestureEvent, QGraphicsScene, QGraphicsView
 from PyQt6.QtCore import Qt, QEvent
-from PyQt6.QtGui import QNativeGestureEvent, QWheelEvent
+from PyQt6.QtGui import QTabletEvent
 from PyQt6.QtCore import Qt
 
 
@@ -19,6 +19,9 @@ class NotebookWidget(QGraphicsView):
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
 
         self.pages = [PageWidget(), PageWidget()]
+        self.current_zoom = 1
+        self.min_zoom = 0.5
+        self.max_zoom = 1.5
 
         y_position = 0
         spacing = 10
@@ -43,31 +46,55 @@ class NotebookWidget(QGraphicsView):
                 self.setTransformationAnchor(
                     QGraphicsView.ViewportAnchor.AnchorUnderMouse
                 )
-                scale_factor = pinch.scaleFactor()  # type: ignore
+
+                scale_factor = self.current_zoom * pinch.scaleFactor()  # type: ignore
+                new_zoom = max(
+                    self.min_zoom * 1.15, min(scale_factor, self.max_zoom * 1.15)
+                )
+                scale_factor = new_zoom / self.current_zoom
                 self.scale(scale_factor, scale_factor)
+                self.current_zoom = new_zoom
+
                 return True
 
         return super().viewportEvent(event)
 
     def wheelEvent(self, event):
-        # Check if Ctrl is pressed
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            # Get zoom direction
             delta = event.angleDelta().y()
 
             if delta > 0:
-                # Zoom in
-                zoom_factor = 1.15
+                new_zoom = self.current_zoom * 1.15
             else:
-                # Zoom out
-                zoom_factor = 1 / 1.15
+                new_zoom = self.current_zoom / 1.15
+
+            new_zoom = max(self.min_zoom, min(self.max_zoom, new_zoom))
+            zoom_factor = new_zoom / self.current_zoom
 
             # Zoom around mouse cursor position
             self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
             self.scale(zoom_factor, zoom_factor)
+            self.current_zoom = new_zoom
 
             # Prevent event from scrolling
             event.accept()
         else:
-            # Normal scroll behavior
             super().wheelEvent(event)
+
+    def tabletEvent(self, event):
+        """Pen input comes through here, not touch events"""
+        # This is pen drawing - handle normally
+        # Forward to your drawing logic
+
+        if event.type() == QTabletEvent.Type.TabletPress:
+            # Start drawing
+            pass
+        elif event.type() == QTabletEvent.Type.TabletMove:
+            # Continue drawing
+            pass
+        elif event.type() == QTabletEvent.Type.TabletRelease:
+            # Finish stroke
+            pass
+
+        event.accept()
+        return

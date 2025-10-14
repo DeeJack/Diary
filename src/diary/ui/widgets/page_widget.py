@@ -3,7 +3,6 @@ from typing import Optional
 from PyQt6.QtWidgets import QWidget
 from PyQt6 import QtGui
 from PyQt6.QtGui import QPainter, QColor, QPaintEvent, QBrush, QPainterPath
-from PyQt6.QtCore import Qt
 
 from diary.models.page import Page
 from diary.config import settings
@@ -17,6 +16,7 @@ class PageWidget(QWidget):
         self.page_height = settings.PAGE_HEIGHT
 
         self.setFixedSize(self.page_width, self.page_height)
+        self.setMinimumWidth(self.page_width)
 
         self.current_stroke = []
         self.page = page

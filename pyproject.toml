@@ -6,7 +6,11 @@ authors = [{ name = "Lorenzo", email = "lorenzofumi@gmail.com" }]
 license = { text = "Apache 2.0" }
 readme = "README.md"
 requires-python = ">=3.12.3"
-dependencies = ["pyqt6 (>=6.9.1,<7.0.0)", "pydantic-settings (>=2.11.0,<3.0.0)", "pytest (>=8.4.2,<9.0.0)"]
+dependencies = [
+  "pyqt6 (>=6.9.1,<7.0.0)",
+  "pydantic-settings (>=2.11.0,<3.0.0)",
+  "pytest (>=8.4.2,<9.0.0)",
+]
 
 [dependency-groups]
 dev = ["pylint (>=4.0.0,<5.0.0)", "mypy (>=1.18.2,<2.0.0)"]

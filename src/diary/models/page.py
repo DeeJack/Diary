@@ -9,7 +9,7 @@ from diary.models.stroke import Stroke
 class Page:
     def __init__(
         self,
-        strokes: list[Stroke],
+        strokes: list[Stroke] = [],
         created_at: float = time.time(),
         page_id: str = uuid.uuid4().hex,
         metadata: dict = {},

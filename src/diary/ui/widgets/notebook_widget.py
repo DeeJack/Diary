@@ -1,4 +1,10 @@
-from PyQt6.QtWidgets import QGestureEvent, QGraphicsScene, QGraphicsView
+from PyQt6.QtWidgets import (
+    QGestureEvent,
+    QGraphicsScene,
+    QGraphicsView,
+    QGraphicsItem,
+    QGraphicsProxyWidget,
+)
 from PyQt6.QtCore import Qt, QEvent
 from PyQt6.QtGui import QTabletEvent
 from PyQt6.QtCore import Qt
@@ -17,6 +23,7 @@ class NotebookWidget(QGraphicsView):
             Qt.GestureType.PinchGesture, Qt.GestureFlag.ReceivePartialGestures
         )
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        self.viewport().installEventFilter(self)
 
         self.pages = [PageWidget(), PageWidget()]
         self.current_zoom = 1
@@ -32,6 +39,11 @@ class NotebookWidget(QGraphicsView):
             proxy = scene.addWidget(page_widget)
             assert proxy is not None
             proxy.setPos(0, y_position)
+            proxy.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsFocusable, True)
+            proxy.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+
+            # Make sure events propagate
+            proxy.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
             y_position += page_widget.height() + spacing
 
     def viewportEvent(self, event: QEvent | None):
@@ -81,20 +93,33 @@ class NotebookWidget(QGraphicsView):
         else:
             super().wheelEvent(event)
 
-    def tabletEvent(self, event):
-        """Pen input comes through here, not touch events"""
-        # This is pen drawing - handle normally
-        # Forward to your drawing logic
+    def eventFilter(self, obj, event):
+        """Intercept events on viewport"""
 
-        if event.type() == QTabletEvent.Type.TabletPress:
-            # Start drawing
-            pass
-        elif event.type() == QTabletEvent.Type.TabletMove:
-            # Continue drawing
-            pass
-        elif event.type() == QTabletEvent.Type.TabletRelease:
-            # Finish stroke
-            pass
+        if obj == self.viewport():
+            if event.type() in [
+                QEvent.Type.TabletPress,
+                QEvent.Type.TabletMove,
+                QEvent.Type.TabletRelease,
+            ]:
+                # Get position in viewport
+                pos = event.position().toPoint()
 
-        event.accept()
-        return
+                # Map to scene
+                scene_pos = self.mapToScene(pos)
+
+                # Find page at position
+                item = self.scene().itemAt(scene_pos, self.transform())
+
+                if item and isinstance(item, QGraphicsProxyWidget):
+                    page_widget = item.widget()
+
+                    # Map to page coordinates
+                    local_pos = page_widget.mapFromGlobal(self.mapToGlobal(pos))
+
+                    # Forward event
+                    page_widget.handle_tablet_event(event, local_pos)
+
+                    return True  # Event handled
+
+        return super().eventFilter(obj, event)

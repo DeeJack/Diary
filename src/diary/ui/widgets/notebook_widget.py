@@ -1,13 +1,16 @@
+from typing import reveal_type
+from PyQt6.QtGui import QTabletEvent
 from PyQt6.QtWidgets import (
     QGestureEvent,
     QGraphicsScene,
     QGraphicsView,
     QGraphicsItem,
     QGraphicsProxyWidget,
+    QWidget,
 )
-from PyQt6.QtCore import Qt, QEvent
-from PyQt6.QtGui import QTabletEvent
+from PyQt6.QtCore import QPoint, QPointF, Qt, QEvent
 from PyQt6.QtCore import Qt
+from PyQt6.sip import cast
 
 
 from diary.ui.widgets.page_widget import PageWidget
@@ -93,7 +96,7 @@ class NotebookWidget(QGraphicsView):
         else:
             super().wheelEvent(event)
 
-    def eventFilter(self, obj, event):
+    def eventFilter(self, obj: QWidget, event: QEvent) -> bool:
         """Intercept events on viewport"""
 
         if obj == self.viewport():
@@ -101,25 +104,36 @@ class NotebookWidget(QGraphicsView):
                 QEvent.Type.TabletPress,
                 QEvent.Type.TabletMove,
                 QEvent.Type.TabletRelease,
-            ]:
+            ] and isinstance(event, QTabletEvent):
                 # Get position in viewport
-                pos = event.position().toPoint()
+                pos: QPoint = event.position().toPoint()
 
                 # Map to scene
-                scene_pos = self.mapToScene(pos)
+                scene_pos: QPointF = self.mapToScene(pos)
 
                 # Find page at position
-                item = self.scene().itemAt(scene_pos, self.transform())
+                scene = self.scene()
+                if scene is None:
+                    return super().eventFilter(obj, event)
+
+                item = scene.itemAt(scene_pos, self.transform())
 
                 if item and isinstance(item, QGraphicsProxyWidget):
-                    page_widget = item.widget()
+                    widget: QWidget | None = item.widget()
+                    if widget is None:
+                        return super().eventFilter(obj, event)
 
-                    # Map to page coordinates
-                    local_pos = page_widget.mapFromGlobal(self.mapToGlobal(pos))
+                    if isinstance(widget, PageWidget):
+                        page_widget: PageWidget = widget
 
-                    # Forward event
-                    page_widget.handle_tablet_event(event, local_pos)
+                        # Map to page coordinates
+                        local_pos: QPoint = page_widget.mapFromGlobal(
+                            self.mapToGlobal(pos)
+                        )
 
-                    return True  # Event handled
+                        # Forward event
+                        page_widget.handle_tablet_event(event, local_pos)
+
+                        return True  # Event handled
 
         return super().eventFilter(obj, event)

@@ -10,16 +10,25 @@ from PyQt6.QtWidgets import (
     QWidget,
     QPinchGesture,
 )
-from PyQt6.QtCore import QPoint, QPointF, Qt, QEvent
+from PyQt6.QtCore import QPoint, QPointF, Qt, QEvent, QTimer
 
 from diary.ui.widgets.page_widget import PageWidget
+from diary.models import Notebook, NotebookDAO, Page
+from diary.config import settings
 
 
 class NotebookWidget(QGraphicsView):
-    def __init__(self):
+    def __init__(self, notebook: Notebook | None = None):
         super().__init__()
-        self.setScene(QGraphicsScene())
+        self.current_zoom: float = 1
+        self.min_zoom: float = 0.5
+        self.max_zoom: float = 1.5
+        self.notebook: Notebook = notebook or Notebook([Page(), Page()])
+        self.pages: list[PageWidget] = [
+            PageWidget(page) for page in self.notebook.pages
+        ]
 
+        self.setScene(QGraphicsScene())
         # Accept events, handle dragging...
         current_viewport = self.viewport()
         assert current_viewport is not None
@@ -29,11 +38,6 @@ class NotebookWidget(QGraphicsView):
         )
         current_viewport.installEventFilter(self)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
-
-        self.pages: list[PageWidget] = [PageWidget(None), PageWidget(None)]
-        self.current_zoom: float = 1
-        self.min_zoom: float = 0.5
-        self.max_zoom: float = 1.5
 
         # Add all the pages
         y_position = 0
@@ -45,6 +49,11 @@ class NotebookWidget(QGraphicsView):
             assert proxy is not None
             proxy.setPos(0, y_position)
             y_position += page_widget.height() + spacing
+
+        timer = QTimer(self)
+        timer.setInterval(5 * 1000)
+        _ = timer.timeout.connect(self.save_notebook_timer)
+        timer.start()
 
     @override
     def viewportEvent(self, event: QEvent | None):
@@ -144,3 +153,10 @@ class NotebookWidget(QGraphicsView):
         if event.key() == Qt.Key.Key_Q:
             sys.exit(0)
         return super().keyPressEvent(event)
+
+    def save_notebook_timer(self):
+        NotebookDAO.save(
+            self.notebook,
+            settings.NOTEBOOK_FILE_PATH,
+        )
+        print("SAVING")

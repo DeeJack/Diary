@@ -1,3 +1,4 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings
 
 
@@ -6,7 +7,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
 
-    NOTEBOOK_FILE_PATH: str = "data/notebook.json"
+    NOTEBOOK_FILE_PATH: Path = Path("data/notebook.json")
 
     # Page
     PAGE_WIDTH: int = 800

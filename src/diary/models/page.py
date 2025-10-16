@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import time
+from typing import override
 import uuid
 
 from diary.models.stroke import Stroke
@@ -18,3 +19,7 @@ class Page:
         self.created_at: float = created_at or time.time()
         self.page_id: str = page_id or uuid.uuid4().hex
         self.metadata: dict[str, object] = metadata if metadata is not None else {}
+
+    @override
+    def __str__(self) -> str:
+        return f"Page(Strokes={self.strokes}; Created at={self.created_at}; Page ID={self.page_id}; Metadata={self.metadata})"

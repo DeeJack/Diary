@@ -20,9 +20,9 @@ from diary.config import settings
 class NotebookWidget(QGraphicsView):
     def __init__(self, notebook: Notebook | None = None):
         super().__init__()
-        self.current_zoom: float = 1
-        self.min_zoom: float = 0.5
-        self.max_zoom: float = 1.5
+        self.current_zoom: float = 0.7
+        self.min_zoom: float = 0.4
+        self.max_zoom: float = 1.3
         self.notebook: Notebook = notebook or Notebook([Page(), Page()])
         self.pages: list[PageWidget] = [
             PageWidget(page) for page in self.notebook.pages

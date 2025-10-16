@@ -9,12 +9,12 @@ from diary.models.stroke import Stroke
 class Page:
     def __init__(
         self,
-        strokes: list[Stroke] = [],
+        strokes: list[Stroke] | None = None,
         created_at: float = time.time(),
         page_id: str = uuid.uuid4().hex,
-        metadata: dict = {},
+        metadata: dict | None = None,
     ):
-        self.strokes: list[Stroke] = strokes
+        self.strokes: list[Stroke] = strokes if strokes is not None else []
         self.created_at: float = created_at
         self.page_id: str = page_id
-        self.metadata: dict = metadata
+        self.metadata: dict = metadata if metadata is not None else {}

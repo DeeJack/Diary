@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass()
 class Point:
     def __init__(self, x: float, y: float, pressure: float):
         self.x: float = x

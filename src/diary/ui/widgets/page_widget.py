@@ -1,13 +1,17 @@
 from typing import override
+from datetime import datetime
+
 from PyQt6.QtWidgets import QWidget
 from PyQt6 import QtGui
 from PyQt6.QtGui import (
+    QFont,
     QPainter,
     QColor,
     QPaintEvent,
     QBrush,
     QPainterPath,
     QPen,
+    QPointingDevice,
     QTabletEvent,
     QPixmap,
     QResizeEvent,
@@ -30,7 +34,7 @@ class PageWidget(QWidget):
         self.current_stroke: Stroke | None = None
         self.page: Page = page or Page()
         self.is_drawing: bool = False
-        self.base_thickness: float = 5.0
+        self.base_thickness: float = 3.0
         self.needs_full_redraw: bool = True
         self.backing_pixmap: QPixmap | None = None
 
@@ -53,6 +57,7 @@ class PageWidget(QWidget):
         painter.fillRect(self.backing_pixmap.rect(), QColor(0xE0, 0xE0, 0xE0))
         self.draw_horizontal_lines(painter)
         self.draw_previous_strokes(painter)
+        self.draw_date(painter)
         _ = painter.end()
         self.needs_full_redraw = False
 
@@ -183,15 +188,18 @@ class PageWidget(QWidget):
 
     def handle_tablet_event(self, event: QTabletEvent, pos: QPoint):
         """Handles Pen events, forwarded by the Notebook"""
-        if event.type() == QTabletEvent.Type.TabletPress:
-            self.is_drawing = True
-            self.current_stroke = Stroke()
-        elif event.type() == QTabletEvent.Type.TabletMove:
-            if self.is_drawing:
-                self.continue_drawing(event, pos)
-        elif event.type() == QTabletEvent.Type.TabletRelease:
-            if self.is_drawing:
-                self.stop_drawing()
+        if event.pointerType() == QPointingDevice.PointerType.Pen:
+            if event.type() == QTabletEvent.Type.TabletPress:
+                self.is_drawing = True
+                self.current_stroke = Stroke()
+            elif event.type() == QTabletEvent.Type.TabletMove:
+                if self.is_drawing:
+                    self.continue_drawing(event, pos)
+            elif event.type() == QTabletEvent.Type.TabletRelease:
+                if self.is_drawing:
+                    self.stop_drawing()
+        elif event.pointerType() == QPointingDevice.PointerType.Eraser:
+            pass
         event.accept()
 
     @override
@@ -199,6 +207,13 @@ class PageWidget(QWidget):
         """Handle widget resize by invalidating backing pixmap"""
         super().resizeEvent(a0)
         self.needs_full_redraw = True
+
+    def draw_date(self, painter: QPainter):
+        painter.setFont(QFont("Times New Roman", pointSize=16))
+        painter.setPen(QPen(QColor("black")))
+        painter.setOpacity(0.9)
+        date: str = datetime.fromtimestamp(self.page.created_at).strftime("%Y-%m-%d")
+        painter.drawText(10, 30, date)
 
     def clear_page(self):
         """Clear all strokes and force a full redraw"""

@@ -66,33 +66,31 @@ class PageWidget(QWidget):
         # painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         if len(stroke.points) == 1:
             first_point = stroke.points[0]
-            pen = QPen(QColor(stroke.color), first_point.pressure)
+            width = max(1, first_point.pressure * self.base_thickness * 2)
+            pen = QPen(QColor(stroke.color), width)
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             painter.setPen(pen)
             painter.drawPoint(QPointF(first_point.x, first_point.y))
             return
+        path = QPainterPath()
+        first_point = stroke.points[0]
+        path.moveTo(first_point.x, first_point.y)
 
-        for i in range(len(stroke.points) - 1):
-            p1 = stroke.points[i]
-            p2 = stroke.points[i + 1]
-            avg_pressure = (p1.pressure + p2.pressure) / 2
-            width = avg_pressure * self.base_thickness * 2
+        # Draw lines to all subsequent points
+        for i in range(1, len(stroke.points)):
+            point = stroke.points[i]
+            path.lineTo(point.x, point.y)
 
-            path: QPainterPath = QPainterPath()
-            path.moveTo(p1.x, p2.y)
+        # Draw the path with variable width based on average pressure
+        total_pressure = sum(point.pressure for point in stroke.points)
+        avg_pressure = total_pressure / len(stroke.points)
+        width = max(1, avg_pressure * self.base_thickness * 2)
 
-            if i < len(stroke.points) - 2:
-                p3 = stroke.points[i + 2]
-                mid_x = (p2.x + p3.x) / 2
-                mid_y = (p2.y + p3.y) / 2
-                path.quadTo(p2.x, p2.y, mid_x, mid_y)
-            else:
-                path.lineTo(p2.x, p2.y)
-
-            pen = QPen(QColor(stroke.color), width)
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-            painter.setPen(pen)
-            painter.drawPath(path)
+        pen = QPen(QColor(stroke.color), width)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.drawPath(path)
 
     def draw_current_stroke(self, painter: QPainter):
         """Draw the current stroke on the page"""

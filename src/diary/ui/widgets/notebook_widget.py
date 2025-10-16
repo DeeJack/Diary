@@ -1,6 +1,7 @@
 from typing import override
+import sys
 
-from PyQt6.QtGui import QTabletEvent, QWheelEvent
+from PyQt6.QtGui import QTabletEvent, QWheelEvent, QKeyEvent
 from PyQt6.QtWidgets import (
     QGestureEvent,
     QGraphicsScene,
@@ -101,34 +102,45 @@ class NotebookWidget(QGraphicsView):
     @override
     def eventFilter(self, obj: QWidget, event: QEvent) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Intercepts events to forward TabletEvents to the PageWidget"""
-        if obj == self.viewport():
-            if event.type() in [
-                QEvent.Type.TabletPress,
-                QEvent.Type.TabletMove,
-                QEvent.Type.TabletRelease,
-            ] and isinstance(event, QTabletEvent):
-                # Get position in viewport
-                pos: QPoint = event.position().toPoint()
-                scene_pos: QPointF = self.mapToScene(pos)
+        if obj != self.viewport():
+            return super().eventFilter(obj, event)
 
-                # Find page at position
-                scene = self.scene()
-                if scene is None:
-                    return super().eventFilter(obj, event)
-                item = scene.itemAt(scene_pos, self.transform())
+        if event.type() not in [
+            QEvent.Type.TabletPress,
+            QEvent.Type.TabletMove,
+            QEvent.Type.TabletRelease,
+        ] or not isinstance(event, QTabletEvent):
+            return super().eventFilter(obj, event)
 
-                if item and isinstance(item, QGraphicsProxyWidget):
-                    widget: QWidget | None = item.widget()
-                    if widget is None:
-                        return super().eventFilter(obj, event)
+        # Get position in viewport
+        pos: QPoint = event.position().toPoint()
+        scene_pos: QPointF = self.mapToScene(pos)
 
-                    if isinstance(widget, PageWidget):
-                        page_widget: PageWidget = widget
-                        # Map to page coordinates
-                        local_pos: QPoint = page_widget.mapFromGlobal(
-                            self.mapToGlobal(pos)
-                        )
-                        # Forward event
-                        page_widget.handle_tablet_event(event, local_pos)
-                        return True  # Event handled
+        # Find page at position
+        scene = self.scene()
+        if scene is None:
+            return super().eventFilter(obj, event)
+        item = scene.itemAt(scene_pos, self.transform())
+
+        if item and isinstance(item, QGraphicsProxyWidget):
+            widget: QWidget | None = item.widget()
+            if widget is None:
+                return super().eventFilter(obj, event)
+
+            if isinstance(widget, PageWidget):
+                page_widget: PageWidget = widget
+                # Map to page coordinates
+                local_pos: QPoint = page_widget.mapFromGlobal(self.mapToGlobal(pos))
+                # Forward event
+                page_widget.handle_tablet_event(event, local_pos)
+                return True  # Event handled
         return super().eventFilter(obj, event)
+
+    @override
+    def keyPressEvent(self, event: QKeyEvent | None) -> None:
+        """Close app with 'Q'"""
+        if not event:
+            return
+        if event.key() == Qt.Key.Key_Q:
+            sys.exit(0)
+        return super().keyPressEvent(event)

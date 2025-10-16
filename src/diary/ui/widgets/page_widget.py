@@ -8,11 +8,11 @@ from PyQt6.QtGui import (
     QBrush,
     QPainterPath,
     QPen,
+    QTabletEvent,
     QPixmap,
     QResizeEvent,
-    QTabletEvent,
 )
-from PyQt6.QtCore import QPoint, QPointF, QRect, Qt
+from PyQt6.QtCore import QPoint, QPointF, Qt, QRect
 
 from diary.models.page import Page
 from diary.config import settings
@@ -30,7 +30,7 @@ class PageWidget(QWidget):
         self.current_stroke: Stroke | None = None
         self.page: Page = page or Page()
         self.is_drawing: bool = False
-        self.base_thickness: float = 0.5
+        self.base_thickness: float = 5.0
         self.needs_full_redraw: bool = True
         self.backing_pixmap: QPixmap | None = None
 
@@ -38,13 +38,13 @@ class PageWidget(QWidget):
         self.setMinimumWidth(self.page_width)
 
     def ensure_backing_pixmap(self):
-        """Init backing pixmap"""
+        """Initialize or resize the backing pixmap if needed"""
         if self.backing_pixmap is None or self.backing_pixmap.size() != self.size():
             self.backing_pixmap = QPixmap(self.size())
             self.needs_full_redraw = True
 
     def render_backing_pixmap(self):
-        """Renders the pixmap"""
+        """Render the background and all previous strokes to the pixmap"""
         if not self.backing_pixmap:
             return
 
@@ -58,7 +58,7 @@ class PageWidget(QWidget):
 
     @override
     def paintEvent(self, a0: QPaintEvent | None) -> None:
-        """Renders the current page"""
+        """Draw the pixmap and current stroke"""
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.ensure_backing_pixmap()
@@ -68,9 +68,8 @@ class PageWidget(QWidget):
 
         if self.backing_pixmap:
             painter.drawPixmap(0, 0, self.backing_pixmap)
-        # painter.fillRect(self.rect(), QColor(0xE0, 0xE0, 0xE0))
-        # self.draw_horizontal_lines(painter)
-        # self.draw_previous_strokes(painter)
+
+        # Only draw the current stroke on top
         self.draw_current_stroke(painter)
         return super().paintEvent(a0)
 
@@ -92,10 +91,11 @@ class PageWidget(QWidget):
         """Draw a stroke on the painter"""
         if len(stroke.points) < 1:
             return
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         if len(stroke.points) == 1:
             first_point = stroke.points[0]
-            pen = QPen(QColor(stroke.color), first_point.pressure)
+            width = self.calculate_width_from_pressure(first_point.pressure)
+            pen = QPen(QColor(stroke.color), width)
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             painter.setPen(pen)
             painter.drawPoint(QPointF(first_point.x, first_point.y))
             return
@@ -104,7 +104,7 @@ class PageWidget(QWidget):
             p1 = stroke.points[i]
             p2 = stroke.points[i + 1]
             avg_pressure = (p1.pressure + p2.pressure) / 2
-            width = avg_pressure * self.base_thickness * 2
+            width = self.calculate_width_from_pressure(avg_pressure)
 
             path: QPainterPath = QPainterPath()
             path.moveTo(p1.x, p1.y)
@@ -143,28 +143,29 @@ class PageWidget(QWidget):
         if len(self.current_stroke.points) >= 2:
             last_point = self.current_stroke.points[-2]
             current_point = self.current_stroke.points[-1]
-            self.update_stroke_area(last_point, current_point, pressure)
+            self.update_stroke_area(last_point, current_point)
         else:
             self.update()
 
-    def update_stroke_area(self, p1: Point, p2: Point, pressure: float):
+    def update_stroke_area(self, p1: Point, p2: Point):
         """Update only the rectangular area containing the new stroke segment"""
-        # Bounding box for the area
-        width = pressure * self.base_thickness * 2
-        margin = max(10, int(width) + 5)  # Some margin
+        # Calculate the bounding rectangle for this stroke segment
+        avg_pressure = (p1.pressure + p2.pressure) / 2
+        width = self.calculate_width_from_pressure(avg_pressure)
+        margin = max(10, int(width) + 5)  # Add some margin for antialiasing
 
         min_x = min(p1.x, p2.x) - margin
         min_y = min(p1.y, p2.y) - margin
         max_x = max(p1.x, p2.x) + margin
         max_y = max(p1.y, p2.y) + margin
 
-        update_rect: QRect = QRect(
+        update_rect = QRect(
             int(min_x), int(min_y), int(max_x - min_x), int(max_y - min_y)
         )
         self.update(update_rect)
 
     def stop_drawing(self):
-        """Stops current stroke"""
+        """Stops current stroke and adds it to backing pixmap"""
         self.is_drawing = False
         if self.current_stroke is None:
             return
@@ -195,6 +196,20 @@ class PageWidget(QWidget):
 
     @override
     def resizeEvent(self, a0: QResizeEvent | None):
-        """Invalidate the pixmap"""
+        """Handle widget resize by invalidating backing pixmap"""
         super().resizeEvent(a0)
         self.needs_full_redraw = True
+
+    def clear_page(self):
+        """Clear all strokes and force a full redraw"""
+        self.page.strokes.clear()
+        self.current_stroke = None
+        self.needs_full_redraw = True
+        self.update()
+
+    def calculate_width_from_pressure(self, pressure: float) -> float:
+        """Calculate stroke width based on pressure"""
+        # Pressure ranges from 0.0 to 1.0
+        min_width = 1.0
+        max_width = self.base_thickness * 2
+        return min_width + (pressure * (max_width - min_width))

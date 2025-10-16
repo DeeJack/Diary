@@ -16,9 +16,9 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 800, 600)
         self.setStyleSheet("background-color: #2C2C2C;")
 
-        central_widget = QWidget()
-        layout = QVBoxLayout(central_widget)
-        layout.addWidget(PageWidget(), alignment=Qt.AlignmentFlag.AlignCenter)
+        # central_widget = QWidget()
+        # layout = QVBoxLayout(central_widget)
+        # layout.addWidget(PageWidget(), alignment=Qt.AlignmentFlag.AlignCenter)
 
         # scroll_widget = QScrollArea()
         # scroll_widget.setWidget(central_widget)

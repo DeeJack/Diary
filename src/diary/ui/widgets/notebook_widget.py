@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QWidget,
     QPinchGesture,
 )
-from PyQt6.QtCore import QPoint, QPointF, Qt, QEvent, QTimer
+from PyQt6.QtCore import QPoint, QPointF, Qt, QEvent
 
 from diary.ui.widgets.page_widget import PageWidget
 from diary.models import Notebook, NotebookDAO, Page
@@ -27,8 +27,10 @@ class NotebookWidget(QGraphicsView):
         self.pages: list[PageWidget] = [
             PageWidget(page) for page in self.notebook.pages
         ]
+        self.page_proxies: list[QGraphicsProxyWidget] = []
 
-        self.setScene(QGraphicsScene())
+        self.this_scene: QGraphicsScene = QGraphicsScene()
+        self.setScene(self.this_scene)
         # Accept events, handle dragging...
         current_viewport = self.viewport()
         assert current_viewport is not None
@@ -38,22 +40,16 @@ class NotebookWidget(QGraphicsView):
         )
         current_viewport.installEventFilter(self)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        self.setRenderHints(self.renderHints())
 
         # Add all the pages
-        y_position = 0
+        self.y_position: int = 0
         spacing = 10
-        scene = self.scene()
-        assert scene is not None
         for page_widget in self.pages:
-            proxy = scene.addWidget(page_widget)
-            assert proxy is not None
-            proxy.setPos(0, y_position)
-            y_position += page_widget.height() + spacing
-
-        timer = QTimer(self)
-        timer.setInterval(5 * 1000)
-        _ = timer.timeout.connect(self.save_notebook_timer)
-        timer.start()
+            proxy = self.add_page_to_scene(page_widget)
+            self.page_proxies.append(proxy)
+            proxy.setPos(0, self.y_position)
+            self.y_position += page_widget.height() + spacing
 
     @override
     def viewportEvent(self, event: QEvent | None):
@@ -154,9 +150,40 @@ class NotebookWidget(QGraphicsView):
             sys.exit(0)
         return super().keyPressEvent(event)
 
-    def save_notebook_timer(self):
+    def save_notebook(self):
+        """Saves the notebook to file"""
         NotebookDAO.save(
             self.notebook,
             settings.NOTEBOOK_FILE_PATH,
         )
         print("SAVING")
+
+    def add_page_to_scene(self, page_widget: PageWidget):
+        """Add a new PageWidget to the scene"""
+        proxy = self.this_scene.addWidget(page_widget)
+        assert proxy is not None
+        _ = page_widget.add_below.connect(  # pyright: ignore[reportUnknownMemberType]
+            lambda _: self.add_page_below(page_widget.page)  # pyright: ignore[reportUnknownLambdaType]
+        )
+        _ = page_widget.save_notebook.connect(lambda: self.save_notebook())  # pyright: ignore[reportUnknownMemberType]
+        return proxy
+
+    def add_page_below(self, page: Page):
+        """Add a new page below the selected page"""
+        index = self.notebook.pages.index(page)
+        new_page = Page()
+        self.notebook.pages.insert(index + 1, new_page)
+        page_widget = PageWidget(new_page)
+        self.pages.insert(index + 1, page_widget)
+        proxy = self.add_page_to_scene(page_widget)
+        self.page_proxies.insert(index + 1, proxy)
+        self._reposition_all_pages()
+        self.update()
+
+    def _reposition_all_pages(self):
+        """Reposition all pages with correct spacing"""
+        spacing = 10
+        y_position = 0
+        for _, (page_widget, proxy) in enumerate(zip(self.pages, self.page_proxies)):
+            proxy.setPos(0, y_position)
+            y_position += page_widget.height() + spacing

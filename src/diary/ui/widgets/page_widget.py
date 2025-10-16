@@ -1,7 +1,13 @@
 from typing import override
 from datetime import datetime
 
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 from PyQt6 import QtGui
 from PyQt6.QtGui import (
     QFont,
@@ -16,7 +22,7 @@ from PyQt6.QtGui import (
     QPixmap,
     QResizeEvent,
 )
-from PyQt6.QtCore import QPoint, QPointF, Qt, QRect
+from PyQt6.QtCore import QPoint, QPointF, Qt, QRect, pyqtSignal
 
 from diary.models.page import Page
 from diary.config import settings
@@ -26,6 +32,9 @@ from diary.models.stroke import Stroke
 
 class PageWidget(QWidget):
     """Represents the UI of a Page in the Notebook"""
+
+    add_below: pyqtSignal = pyqtSignal(object)
+    save_notebook: pyqtSignal = pyqtSignal()
 
     def __init__(self, page: Page | None):
         super().__init__()
@@ -40,6 +49,28 @@ class PageWidget(QWidget):
 
         self.setFixedSize(self.page_width, self.page_height)
         self.setMinimumWidth(self.page_width)
+        self.add_page_items()
+
+    def add_page_items(self):
+        date: str = datetime.fromtimestamp(self.page.created_at).strftime("%Y-%m-%d")
+        title_label = QLabel(date)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setFont(QFont("Times New Roman", 16))
+        title_label.setStyleSheet("color:black;")
+
+        btn_below = QPushButton("Add below")
+        _ = btn_below.clicked.connect(lambda: self.add_below.emit(self))  # pyright: ignore[reportUnknownMemberType]
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        btn_row.addWidget(btn_below)
+        btn_row.addStretch()
+
+        main = QVBoxLayout(self)
+        main.addWidget(title_label)
+        main.addStretch()
+        main.addLayout(btn_row)
+        main.setContentsMargins(10, 10, 10, 10)
 
     def ensure_backing_pixmap(self):
         """Initialize or resize the backing pixmap if needed"""
@@ -57,7 +88,6 @@ class PageWidget(QWidget):
         painter.fillRect(self.backing_pixmap.rect(), QColor(0xE0, 0xE0, 0xE0))
         self.draw_horizontal_lines(painter)
         self.draw_previous_strokes(painter)
-        self.draw_date(painter)
         _ = painter.end()
         self.needs_full_redraw = False
 
@@ -174,6 +204,7 @@ class PageWidget(QWidget):
         self.is_drawing = False
         if self.current_stroke is None:
             return
+        self.save_notebook.emit()
         self.page.strokes.append(self.current_stroke)
 
         # Render the completed stroke to the backing pixmap
@@ -207,13 +238,6 @@ class PageWidget(QWidget):
         """Handle widget resize by invalidating backing pixmap"""
         super().resizeEvent(a0)
         self.needs_full_redraw = True
-
-    def draw_date(self, painter: QPainter):
-        painter.setFont(QFont("Times New Roman", pointSize=16))
-        painter.setPen(QPen(QColor("black")))
-        painter.setOpacity(0.9)
-        date: str = datetime.fromtimestamp(self.page.created_at).strftime("%Y-%m-%d")
-        painter.drawText(10, 30, date)
 
     def clear_page(self):
         """Clear all strokes and force a full redraw"""

@@ -1,3 +1,5 @@
+"""The main window of the Diary application, containing all other Widgets"""
+
 import secrets
 
 from PyQt6.QtWidgets import (
@@ -15,6 +17,8 @@ from diary.utils.encryption import SecureBuffer, SecureEncryption
 
 
 class MainWindow(QMainWindow):
+    """Main window of the application, containing all other Widgets"""
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Diary Application")
@@ -43,7 +47,7 @@ class MainWindow(QMainWindow):
 
                 # Clear password from memory immediately
                 password_bytes = bytearray(password.encode("utf-8"))
-                for i in range(len(password_bytes)):
+                for i, _ in enumerate(password_bytes):
                     password_bytes[i] = 0
                 password = ""
 
@@ -58,6 +62,7 @@ class MainWindow(QMainWindow):
             _ = self.close()
 
     def open_notebook(self, key_buffer: SecureBuffer, salt: bytes):
+        """Opens the Notebook with the given password"""
         old_notebook = NotebookDAO.load(settings.NOTEBOOK_FILE_PATH, key_buffer)
         notebook = NotebookWidget(key_buffer, salt, old_notebook)
         notebook.setAlignment(Qt.AlignmentFlag.AlignCenter)

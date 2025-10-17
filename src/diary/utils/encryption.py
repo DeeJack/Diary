@@ -27,12 +27,12 @@ class SecureBuffer:
     def __del__(self):
         # Zero out memory before deletion
         if hasattr(self, "_data"):
-            for i in range(len(self._data)):
+            for i, _ in enumerate(self._data):
                 self._data[i] = 0
 
     def wipe(self):
         """Explicitly wipe the data"""
-        for i in range(len(self._data)):
+        for i, _ in enumerate(self._data):
             self._data[i] = 0
 
 
@@ -62,7 +62,6 @@ class SecureEncryption:
 
     def __init__(self):
         """Initialize the encryption system"""
-        pass
 
     @staticmethod
     def derive_key(password: str, salt: bytes) -> SecureBuffer:
@@ -94,7 +93,7 @@ class SecureEncryption:
         finally:
             # Zero out password bytes
             password_bytes = bytearray(password_bytes)
-            for i in range(len(password_bytes)):
+            for i, _ in enumerate(password_bytes):
                 password_bytes[i] = 0
 
     @staticmethod
@@ -198,7 +197,7 @@ class SecureEncryption:
                     progress_callback(bytes_processed, total_size)
         # Zero out data bytes
         data_bytes = bytearray(data_bytes)
-        for i in range(len(data_bytes)):
+        for i, _ in enumerate(data_bytes):
             data_bytes[i] = 0
 
     @staticmethod
@@ -282,13 +281,12 @@ class SecureEncryption:
                     plaintext = box.decrypt(encrypted_chunk)
                     decrypted_chunks.append(plaintext)
                 except Exception as e:
-                    print(e)
                     raise ValueError(
                         "Decryption failed: wrong password or corrupted data"
-                    )
+                    ) from e
                 finally:
                     encrypted_chunk = bytearray(encrypted_chunk)
-                    for i in range(len(encrypted_chunk)):
+                    for i, _ in enumerate(encrypted_chunk):
                         encrypted_chunk[i] = 0
                 bytes_processed += chunk_size
                 if progress_callback:
@@ -299,12 +297,12 @@ class SecureEncryption:
 
             for chunk in decrypted_chunks:
                 chunk_array = bytearray(chunk)
-                for i in range(len(chunk_array)):
+                for i, _ in enumerate(chunk_array):
                     chunk_array[i] = 0
             try:
                 json_string = full_data.decode("utf-8")
                 return json_string
             finally:
                 full_data = bytearray(full_data)
-                for i in range(len(full_data)):
+                for i, _ in enumerate(full_data):
                     full_data[i] = 0

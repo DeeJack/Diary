@@ -1,3 +1,5 @@
+"""Represents a Widget for the Page inside the Notebook"""
+
 from typing import override
 from datetime import datetime
 
@@ -22,7 +24,7 @@ from PyQt6.QtGui import (
     QPixmap,
     QResizeEvent,
 )
-from PyQt6.QtCore import QPoint, QPointF, Qt, QRect, pyqtSignal
+from PyQt6.QtCore import QPointF, Qt, QRect, pyqtSignal
 
 from diary.models.page import Page
 from diary.config import settings
@@ -53,6 +55,7 @@ class PageWidget(QWidget):
         self.add_page_items()
 
     def add_page_items(self):
+        """Adds the labels and buttons to the Page"""
         date: str = datetime.fromtimestamp(self.page.created_at).strftime("%Y-%m-%d")
         title_label = QLabel(date)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -200,7 +203,7 @@ class PageWidget(QWidget):
         )
         self.update(update_rect)
 
-    def stop_drawing(self, event: QTabletEvent, position: QPointF):
+    def stop_drawing(self, position: QPointF):
         """Stops current stroke and adds it to backing pixmap"""
         self.is_drawing = False
         if self.current_stroke is None:
@@ -232,7 +235,7 @@ class PageWidget(QWidget):
                     self.continue_drawing(event, pos)
             elif event.type() == QTabletEvent.Type.TabletRelease:
                 if self.is_drawing:
-                    self.stop_drawing(event, pos)
+                    self.stop_drawing(pos)
         elif event.pointerType() == QPointingDevice.PointerType.Eraser:
             pass
         event.accept()

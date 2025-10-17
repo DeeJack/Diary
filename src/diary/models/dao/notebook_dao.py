@@ -1,3 +1,5 @@
+"""Methods to save and load the Notebook"""
+
 from pathlib import Path
 import json
 from typing import Any, Callable, override
@@ -10,6 +12,8 @@ from diary.utils import encryption
 
 
 class NotebookDAO:
+    """Contains methods to save and load the Notebook"""
+
     @staticmethod
     def save(
         notebook: Notebook,
@@ -18,6 +22,7 @@ class NotebookDAO:
         salt: bytes,
         progress: Callable[[int, int], None] | None = None,
     ) -> None:
+        """Saves the encrypted Notebook using the derived password"""
         notebook_json = json.dumps(notebook, indent=2, cls=MyEncoder)
         encryption.SecureEncryption.encrypt_json_to_file(
             notebook_json, filepath, password, salt, progress
@@ -38,6 +43,7 @@ class NotebookDAO:
         key_buffer: encryption.SecureBuffer,
         progress: Callable[[int, int], None] | None = None,
     ) -> Notebook:
+        """Loads the Notebook using the derived key, or returns an empty one"""
         if not filepath.exists():
             return Notebook(pages=[Page()])
 
@@ -60,6 +66,7 @@ class NotebookDAO:
 
     @staticmethod
     def to_notebook(data: dict[str, Any]) -> Notebook:
+        """Converts a dict to Notebook object"""
         pages = []
         if "pages" in data and isinstance(data["pages"], list):
             for page_data in data["pages"]:
@@ -72,6 +79,7 @@ class NotebookDAO:
 
     @staticmethod
     def to_page(page_data: dict[str, Any]) -> Page:
+        """Converts dict to Page object"""
         strokes = []
         if "strokes" in page_data and isinstance(page_data["strokes"], list):
             for stroke_data in page_data["strokes"]:
@@ -88,6 +96,7 @@ class NotebookDAO:
 
     @staticmethod
     def to_stroke(stroke_data: dict[str, Any]) -> Stroke:
+        """Converts dict to Stroke object"""
         points = []
         if "points" in stroke_data and isinstance(stroke_data["points"], list):
             for point_data in stroke_data["points"]:
@@ -106,6 +115,7 @@ class NotebookDAO:
 
     @staticmethod
     def to_point(point_data: dict[str, Any]) -> Point:
+        """Converts dict to Point object"""
         return Point(
             x=point_data.get("x", 0.0),
             y=point_data.get("y", 0.0),
@@ -114,6 +124,8 @@ class NotebookDAO:
 
 
 class MyEncoder(json.JSONEncoder):
+    """Encodes an object to JSON"""
+
     @override
     def default(self, o: Any) -> Any:
         if hasattr(o, "__dict__"):

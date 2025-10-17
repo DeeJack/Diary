@@ -1,11 +1,17 @@
+"""
+Represents the Notebook model, containing the pages of the Diary
+"""
+
 from dataclasses import dataclass
-from typing import Self, override
+from typing import override
 
 from diary.models.page import Page
 
 
 @dataclass
 class Notebook:
+    """Represents the Notebook with its Pages"""
+
     def __init__(
         self, pages: list[Page] | None = None, metadata: dict[str, object] | None = None
     ):
@@ -15,6 +21,3 @@ class Notebook:
     @override
     def __str__(self) -> str:
         return f"Notebook(Page={self.pages}; Metatada={self.metadata})"
-
-    def copy(self) -> "Notebook":
-        return Notebook(self.pages.copy(), metadata=self.metadata.copy())

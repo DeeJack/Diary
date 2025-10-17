@@ -1,11 +1,19 @@
+"""
+Contains the configuration options for the Diary application
+"""
+
 from pathlib import Path
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    """Settings class for the Diary application"""
+
     class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+        """Where to load configs from"""
+
+        env_file: str = ".env"
+        env_file_encoding: str = "utf-8"
 
     NOTEBOOK_FILE_PATH: Path = Path("data/notebook.json")
 

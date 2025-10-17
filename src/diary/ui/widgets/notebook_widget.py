@@ -1,3 +1,5 @@
+"""The widget for the Notebook containing the PageWidgets"""
+
 from typing import override
 import sys
 
@@ -19,6 +21,8 @@ from diary.utils.encryption import SecureBuffer
 
 
 class NotebookWidget(QGraphicsView):
+    """The widget for the Notebook containing the PageWidgets"""
+
     def __init__(
         self, key_buffer: SecureBuffer, salt: bytes, notebook: Notebook | None = None
     ):
@@ -150,8 +154,9 @@ class NotebookWidget(QGraphicsView):
     def keyPressEvent(self, event: QKeyEvent | None) -> None:
         """Close app with 'Q'"""
         if not event:
-            return
+            return super().keyPressEvent(event)
         if event.key() == Qt.Key.Key_Q:
+            _ = self.close()
             sys.exit(0)
         return super().keyPressEvent(event)
 
@@ -168,7 +173,7 @@ class NotebookWidget(QGraphicsView):
         _ = page_widget.add_below.connect(  # pyright: ignore[reportUnknownMemberType]
             lambda _: self.add_page_below(page_widget.page)  # pyright: ignore[reportUnknownLambdaType]
         )
-        _ = page_widget.save_notebook.connect(lambda: self.save_notebook())  # pyright: ignore[reportUnknownMemberType]
+        _ = page_widget.save_notebook.connect(self.save_notebook)  # pyright: ignore[reportUnknownMemberType]
         _ = page_widget.add_below_dynamic.connect(  # pyright: ignore[reportUnknownMemberType]
             lambda _: self.add_page_below_dynamic(page_widget.page)  # pyright: ignore[reportUnknownLambdaType  # pyright: ignore[reportUnknownLambdaType]
         )

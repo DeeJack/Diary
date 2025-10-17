@@ -1,3 +1,5 @@
+"""The models used to represent object at a high level in the Diary"""
+
 __all__ = ["Stroke", "Point", "Page", "Notebook", "NotebookDAO"]
 
 from .stroke import Stroke

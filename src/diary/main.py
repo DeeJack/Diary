@@ -1,3 +1,7 @@
+"""
+The main file that starts the Diary PyQt6 application
+"""
+
 import sys
 
 from PyQt6.QtWidgets import QApplication

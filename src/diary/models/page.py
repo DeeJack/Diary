@@ -1,3 +1,7 @@
+"""
+Represents a Page inside a Notebook
+"""
+
 from dataclasses import dataclass
 import time
 from typing import override
@@ -8,6 +12,8 @@ from diary.models.stroke import Stroke
 
 @dataclass
 class Page:
+    """Represents a Page inside a Notebook"""
+
     def __init__(
         self,
         strokes: list[Stroke] | None = None,

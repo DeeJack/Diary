@@ -1,3 +1,5 @@
+"""Represents a continuous Stroke of ink in the Page"""
+
 from dataclasses import dataclass
 
 from diary.models.point import Point
@@ -5,9 +7,7 @@ from diary.models.point import Point
 
 @dataclass
 class Stroke:
-    """
-    Represents a stroke of the pen: a set of points drawn without lifting the pen.
-    """
+    """Represents a continuous Stroke of ink in the Page"""
 
     def __init__(
         self,

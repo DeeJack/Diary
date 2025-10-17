@@ -1,31 +1,62 @@
 from pathlib import Path
 import json
-from typing import Any, override
+from typing import Any, Callable, override
 
 from diary.models.notebook import Notebook
 from diary.models.page import Page
 from diary.models.stroke import Stroke
 from diary.models.point import Point
+from diary.utils import encryption
 
 
 class NotebookDAO:
     @staticmethod
-    def save(notebook: Notebook, filepath: Path) -> None:
-        # to_save = notebook.copy()
-        # for page in to_save.pages.copy():  # Iterate over the copy
-        #     if len(page.strokes) == 0:
-        #         to_save.pages.remove(page)
+    def save(
+        notebook: Notebook,
+        filepath: Path,
+        password: encryption.SecureBuffer,
+        salt: bytes,
+        progress: Callable[[int, int], None] | None = None,
+    ) -> None:
+        notebook_json = json.dumps(notebook, indent=2, cls=MyEncoder)
+        encryption.SecureEncryption.encrypt_json_to_file(
+            notebook_json, filepath, password, salt, progress
+        )
+
+    @staticmethod
+    def save_unencrypted(
+        notebook: Notebook,
+        filepath: Path,
+    ) -> None:
+        """Save notebook to unencrypted JSON file (for testing only)"""
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(notebook, f, indent=2, cls=MyEncoder)
 
     @staticmethod
-    def load(filepath: Path) -> Notebook:
+    def load(
+        filepath: Path,
+        key_buffer: encryption.SecureBuffer,
+        progress: Callable[[int, int], None] | None = None,
+    ) -> Notebook:
+        if not filepath.exists():
+            return Notebook(pages=[Page()])
+
+        notebook_str = encryption.SecureEncryption.decrypt_file_to_json_with_key(
+            filepath, key_buffer, progress
+        )
+        return NotebookDAO.to_notebook(json.loads(notebook_str))  # pyright: ignore[reportAny]
+
+    @staticmethod
+    def load_unencrypted(
+        filepath: Path,
+    ) -> Notebook:
+        """Load notebook from unencrypted JSON file (for testing only)"""
         if not filepath.exists():
             return Notebook(pages=[Page()])
 
         with open(filepath, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return NotebookDAO.to_notebook(data)
+            data = json.load(f)  # pyright: ignore[reportAny]
+            return NotebookDAO.to_notebook(data)  # pyright: ignore[reportAny]
 
     @staticmethod
     def to_notebook(data: dict[str, Any]) -> Notebook:

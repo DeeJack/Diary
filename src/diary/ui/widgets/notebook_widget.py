@@ -10,15 +10,18 @@ from PyQt6.QtWidgets import (
     QWidget,
     QPinchGesture,
 )
-from PyQt6.QtCore import QPoint, QPointF, Qt, QEvent
+from PyQt6.QtCore import QObject, QPoint, QPointF, Qt, QEvent
 
 from diary.ui.widgets.page_widget import PageWidget
 from diary.models import Notebook, NotebookDAO, Page
 from diary.config import settings
+from diary.utils.encryption import SecureBuffer
 
 
 class NotebookWidget(QGraphicsView):
-    def __init__(self, notebook: Notebook | None = None):
+    def __init__(
+        self, key_buffer: SecureBuffer, salt: bytes, notebook: Notebook | None = None
+    ):
         super().__init__()
         self.current_zoom: float = 0.7
         self.min_zoom: float = 0.4
@@ -28,6 +31,8 @@ class NotebookWidget(QGraphicsView):
             PageWidget(page) for page in self.notebook.pages
         ]
         self.page_proxies: list[QGraphicsProxyWidget] = []
+        self.key_buffer: SecureBuffer = key_buffer
+        self.salt: bytes = salt
 
         self.this_scene: QGraphicsScene = QGraphicsScene()
         self.setScene(self.this_scene)
@@ -105,9 +110,9 @@ class NotebookWidget(QGraphicsView):
             super().wheelEvent(event)
 
     @override
-    def eventFilter(self, obj: QWidget, event: QEvent) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Intercepts events to forward TabletEvents to the PageWidget"""
-        if obj != self.viewport():
+        if obj != self.viewport() or event is None or obj is None:
             return super().eventFilter(obj, event)
 
         if event.type() not in [
@@ -136,7 +141,6 @@ class NotebookWidget(QGraphicsView):
                 page_widget: PageWidget = widget
                 # Map scene coordinates to page coordinates
                 local_pos: QPointF = item.mapFromScene(scene_pos)
-                # local_pos: QPoint = QPoint(int(proxy_pos.x()), int(proxy_pos.y()))
                 # Forward event
                 page_widget.handle_tablet_event(event, local_pos)
                 return True  # Event handled
@@ -154,10 +158,8 @@ class NotebookWidget(QGraphicsView):
     def save_notebook(self):
         """Saves the notebook to file"""
         NotebookDAO.save(
-            self.notebook,
-            settings.NOTEBOOK_FILE_PATH,
+            self.notebook, settings.NOTEBOOK_FILE_PATH, self.key_buffer, self.salt
         )
-        print("SAVING")
 
     def add_page_to_scene(self, page_widget: PageWidget):
         """Add a new PageWidget to the scene"""
@@ -168,7 +170,7 @@ class NotebookWidget(QGraphicsView):
         )
         _ = page_widget.save_notebook.connect(lambda: self.save_notebook())  # pyright: ignore[reportUnknownMemberType]
         _ = page_widget.add_below_dynamic.connect(  # pyright: ignore[reportUnknownMemberType]
-            lambda _: self.add_page_below_dynamic(page_widget.page)  # pyright: ignore[reportUnknownLambdaType
+            lambda _: self.add_page_below_dynamic(page_widget.page)  # pyright: ignore[reportUnknownLambdaType  # pyright: ignore[reportUnknownLambdaType]
         )
         return proxy
 

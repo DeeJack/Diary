@@ -1,15 +1,17 @@
-import sys
+import secrets
 
 from PyQt6.QtWidgets import (
     QInputDialog,
     QLineEdit,
     QMainWindow,
+    QMessageBox,
 )
 from PyQt6.QtCore import Qt
 
 from diary.models import NotebookDAO
 from diary.ui.widgets.notebook_widget import NotebookWidget
 from diary.config import settings
+from diary.utils.encryption import SecureBuffer, SecureEncryption
 
 
 class MainWindow(QMainWindow):
@@ -19,23 +21,44 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 800, 600)
         self.setStyleSheet("background-color: #2C2C2C;")
 
-        password_popup = QInputDialog(self)
-        password_popup.setWindowTitle("Authentication")
-        password_popup.setLabelText("Insert the password")
-        password_popup.setTextEchoMode(QLineEdit.EchoMode.Password)
-        _ = password_popup.accepted.connect(lambda: self.open_notebook(password_popup))  # pyright: ignore[reportUnknownMemberType]
-        _ = password_popup.rejected.connect(lambda: self.close_app())  # pyright: ignore[reportUnknownMemberType]
-        password_popup.open()  # pyright: ignore[reportUnknownMemberType]
+        password, ok = QInputDialog.getText(
+            self,
+            "Password Required",
+            "Enter your encryption password:",
+            QLineEdit.EchoMode.Password,
+        )
 
-    def open_notebook(self, password_popup: QInputDialog):
-        print(password_popup.textValue())
+        if ok and password:
+            try:
+                if settings.NOTEBOOK_FILE_PATH.exists():
+                    # Read salt from existing file
+                    salt = SecureEncryption.read_salt_from_file(
+                        settings.NOTEBOOK_FILE_PATH
+                    )
+                else:
+                    # Generate new salt for new file
+                    salt = secrets.token_bytes(SecureEncryption.SALT_SIZE)
 
-        old_notebook = NotebookDAO.load(settings.NOTEBOOK_FILE_PATH)
-        print(old_notebook)
-        notebook = NotebookWidget(old_notebook)
+                key_buffer = SecureEncryption.derive_key(password, salt)
+
+                # Clear password from memory immediately
+                password_bytes = bytearray(password.encode("utf-8"))
+                for i in range(len(password_bytes)):
+                    password_bytes[i] = 0
+                password = ""
+
+                status_bar = self.statusBar()
+                if status_bar:
+                    status_bar.showMessage("Password accepted. Key derived.", 5000)
+                self.open_notebook(key_buffer, salt)
+            except ValueError as e:
+                _ = QMessageBox.critical(self, "Error", str(e))
+                _ = self.close()
+        else:
+            _ = self.close()
+
+    def open_notebook(self, key_buffer: SecureBuffer, salt: bytes):
+        old_notebook = NotebookDAO.load(settings.NOTEBOOK_FILE_PATH, key_buffer)
+        notebook = NotebookWidget(key_buffer, salt, old_notebook)
         notebook.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setCentralWidget(notebook)
-
-    def close_app(self):
-        _ = self.close()
-        sys.exit(0)

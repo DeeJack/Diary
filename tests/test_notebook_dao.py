@@ -38,7 +38,7 @@ def test_save_and_load_with_nested_objects():
 
     try:
         # Test save
-        NotebookDAO.save(original_notebook, temp_path)
+        NotebookDAO.save_unencrypted(original_notebook, temp_path)
 
         # Verify file was created and contains nested JSON structure
         assert temp_path.exists()
@@ -51,7 +51,7 @@ def test_save_and_load_with_nested_objects():
             assert "points" in json_data["pages"][0]["strokes"][0]
 
         # Test load
-        loaded_notebook = NotebookDAO.load(temp_path)
+        loaded_notebook = NotebookDAO.load_unencrypted(temp_path)
 
         # Verify it returns a Notebook object (not a dict)
         assert isinstance(loaded_notebook, Notebook), (
@@ -154,7 +154,7 @@ def test_load_nonexistent_file():
     # Test loading a file that doesn't exist
     non_existent_path = Path("does_not_exist.json")
 
-    loaded_notebook = NotebookDAO.load(non_existent_path)
+    loaded_notebook = NotebookDAO.load_unencrypted(non_existent_path)
 
     # Should return a default Notebook with one empty page
     assert isinstance(loaded_notebook, Notebook)
@@ -173,10 +173,10 @@ def test_empty_structures():
 
     try:
         # Save empty notebook
-        NotebookDAO.save(empty_notebook, temp_path)
+        NotebookDAO.save_unencrypted(empty_notebook, temp_path)
 
         # Load it back
-        loaded_notebook = NotebookDAO.load(temp_path)
+        loaded_notebook = NotebookDAO.load_unencrypted(temp_path)
 
         assert isinstance(loaded_notebook, Notebook)
         assert len(loaded_notebook.pages) == 0
@@ -223,7 +223,7 @@ def test_malformed_data_robustness():
             json.dump(malformed_data, f)
 
         # Try to load it - should still return a Notebook object
-        loaded_notebook = NotebookDAO.load(temp_path)
+        loaded_notebook = NotebookDAO.load_unencrypted(temp_path)
         assert isinstance(loaded_notebook, Notebook)
 
         print("✓ Malformed data robustness test passed")

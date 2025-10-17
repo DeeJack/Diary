@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Callable, cast
 
 import nacl.secret
-import nacl.utils
 import nacl
 from argon2.low_level import hash_secret_raw, Type
 
@@ -66,7 +65,7 @@ class SecureEncryption:
         pass
 
     @staticmethod
-    def _derive_key(password: str, salt: bytes) -> SecureBuffer:
+    def derive_key(password: str, salt: bytes) -> SecureBuffer:
         """
         Derive encryption key from password using Argon2id
 
@@ -99,10 +98,49 @@ class SecureEncryption:
                 password_bytes[i] = 0
 
     @staticmethod
+    def read_salt_from_file(input_path: Path) -> bytes:
+        """
+        Read salt from encrypted file header
+
+        Args:
+            input_path: Path to encrypted file
+
+        Returns:
+            Salt bytes
+
+        Raises:
+            ValueError: If file format is invalid
+            FileNotFoundError: If file doesn't exist
+        """
+        input_path = Path(input_path)
+
+        if not input_path.exists():
+            raise FileNotFoundError(f"Input file not found: {input_path}")
+
+        with open(input_path, "rb") as infile:
+            # Read and verify header
+            magic = infile.read(len(SecureEncryption.MAGIC))
+            if magic != SecureEncryption.MAGIC:
+                raise ValueError("Invalid file format: wrong magic bytes")
+
+            version_bytes = infile.read(2)
+            version: int = cast(int, struct.unpack("<H", version_bytes)[0])
+            if version != SecureEncryption.VERSION:
+                raise ValueError(f"Unsupported file version: {version}")
+
+            # Read salt
+            salt = infile.read(SecureEncryption.SALT_SIZE)
+            if len(salt) != SecureEncryption.SALT_SIZE:
+                raise ValueError("Invalid file format: truncated salt")
+
+            return salt
+
+    @staticmethod
     def encrypt_json_to_file(
         json_string: str,
         output_path: Path,
-        password: str,
+        key_buffer: SecureBuffer,
+        salt: bytes,
         progress_callback: Callable[[int, int], None] | None = None,
     ) -> None:
         """
@@ -121,69 +159,60 @@ class SecureEncryption:
         total_size = len(data_bytes)
         bytes_processed = 0
 
-        # Generate random salt
-        salt = secrets.token_bytes(SecureEncryption.SALT_SIZE)
+        # Create cipher
+        box = nacl.secret.Aead(bytes(key_buffer))
 
-        # Derive encryption key
-        key_buffer = SecureEncryption._derive_key(password, salt)
+        with open(output_path, "wb") as outfile:
+            # Write header: magic + version + salt
+            _ = outfile.write(SecureEncryption.MAGIC)
+            _ = outfile.write(struct.pack("<H", SecureEncryption.VERSION))
+            _ = outfile.write(salt)
 
-        try:
-            # Create cipher
-            box = nacl.secret.Aead(bytes(key_buffer))
+            # Encrypt and write chunks
+            chunk_number = 0
+            offset = 0
 
-            with open(output_path, "wb") as outfile:
-                # Write header: magic + version + salt
-                _ = outfile.write(SecureEncryption.MAGIC)
-                _ = outfile.write(struct.pack("<H", SecureEncryption.VERSION))
-                _ = outfile.write(salt)
+            while offset < total_size:
+                # Get next chunk
+                chunk_end = min(offset + SecureEncryption.CHUNK_SIZE, total_size)
+                chunk = data_bytes[offset:chunk_end]
 
-                # Encrypt and write chunks
-                chunk_number = 0
-                offset = 0
+                # Generate unique nonce for this chunk
+                # Using chunk number + random bytes for nonce
+                nonce_base = secrets.token_bytes(SecureEncryption.NONCE_SIZE - 8)
+                nonce = nonce_base + struct.pack("<Q", chunk_number)
 
-                while offset < total_size:
-                    # Get next chunk
-                    chunk_end = min(offset + SecureEncryption.CHUNK_SIZE, total_size)
-                    chunk = data_bytes[offset:chunk_end]
+                # Encrypt chunk (includes MAC tag)
+                encrypted_chunk = box.encrypt(chunk, nonce=nonce)
 
-                    # Generate unique nonce for this chunk
-                    # Using chunk number + random bytes for nonce
-                    nonce_base = secrets.token_bytes(SecureEncryption.NONCE_SIZE - 8)
-                    nonce = nonce_base + struct.pack("<Q", chunk_number)
+                # Write chunk size + encrypted data
+                chunk_size = len(encrypted_chunk)
+                _ = outfile.write(struct.pack("<I", chunk_size))
+                _ = outfile.write(encrypted_chunk)
 
-                    # Encrypt chunk (includes MAC tag)
-                    encrypted_chunk = box.encrypt(chunk, nonce=nonce)
+                bytes_processed += len(chunk)
+                offset = chunk_end
+                chunk_number += 1
 
-                    # Write chunk size + encrypted data
-                    chunk_size = len(encrypted_chunk)
-                    _ = outfile.write(struct.pack("<I", chunk_size))
-                    _ = outfile.write(encrypted_chunk)
-
-                    bytes_processed += len(chunk)
-                    offset = chunk_end
-                    chunk_number += 1
-
-                    if progress_callback:
-                        progress_callback(bytes_processed, total_size)
-            # Zero out data bytes
-            data_bytes = bytearray(data_bytes)
-            for i in range(len(data_bytes)):
-                data_bytes[i] = 0
-        finally:
-            key_buffer.wipe()
+                if progress_callback:
+                    progress_callback(bytes_processed, total_size)
+        # Zero out data bytes
+        data_bytes = bytearray(data_bytes)
+        for i in range(len(data_bytes)):
+            data_bytes[i] = 0
 
     @staticmethod
-    def decrypt_file_to_json(
+    def decrypt_file_to_json_with_key(
         input_path: Path,
-        password: str,
+        key_buffer: SecureBuffer,
         progress_callback: Callable[[int, int], None] | None = None,
     ) -> str:
         """
-        Decrypt a file and return JSON string using streaming decryption
+        Decrypt a file and return JSON string using streaming decryption with derived key
 
         Args:
             input_path: Path to encrypted file
-            password: Decryption password
+            key_buffer: Already derived encryption key
             progress_callback: Optional callback(bytes_processed, total_bytes)
 
         Returns:
@@ -214,75 +243,68 @@ class SecureEncryption:
             if version != SecureEncryption.VERSION:
                 raise ValueError(f"Unsupported file version: {version}")
 
-            # Read salt
+            # Skip salt
             salt = infile.read(SecureEncryption.SALT_SIZE)
             if len(salt) != SecureEncryption.SALT_SIZE:
                 raise ValueError("Invalid file format: truncated salt")
 
-            # Derive decryption key
-            key_buffer = SecureEncryption._derive_key(password, salt)
+            box = nacl.secret.Aead(bytes(key_buffer))
 
-            try:
-                # Create cipher
-                box = nacl.secret.Aead(bytes(key_buffer))
+            # Decrypt chunks
+            while True:
+                # Read chunk size
+                chunk_size_bytes = infile.read(4)
+                if not chunk_size_bytes:
+                    break  # End of file
 
-                # Decrypt chunks
-                while True:
-                    # Read chunk size
-                    chunk_size_bytes = infile.read(4)
-                    if not chunk_size_bytes:
-                        break  # End of file
+                if len(chunk_size_bytes) < 4:
+                    raise ValueError("Invalid file format: truncated chunk size")
 
-                    if len(chunk_size_bytes) < 4:
-                        raise ValueError("Invalid file format: truncated chunk size")
+                chunk_size = cast(int, struct.unpack("<I", chunk_size_bytes)[0])
 
-                    chunk_size = cast(int, struct.unpack("<I", chunk_size_bytes)[0])
+                # Sanity check on chunk size
+                if (
+                    chunk_size
+                    > SecureEncryption.CHUNK_SIZE
+                    + SecureEncryption.NONCE_SIZE
+                    + SecureEncryption.TAG_SIZE
+                    + 100
+                ):
+                    raise ValueError("Invalid file format: chunk size too large")
 
-                    # Sanity check on chunk size
-                    if (
-                        chunk_size
-                        > SecureEncryption.CHUNK_SIZE
-                        + SecureEncryption.NONCE_SIZE
-                        + SecureEncryption.TAG_SIZE
-                        + 100
-                    ):
-                        raise ValueError("Invalid file format: chunk size too large")
+                # Read encrypted chunk
+                encrypted_chunk = infile.read(chunk_size)
+                if len(encrypted_chunk) != chunk_size:
+                    raise ValueError("Invalid file format: truncated chunk")
 
-                    # Read encrypted chunk
-                    encrypted_chunk = infile.read(chunk_size)
-                    if len(encrypted_chunk) != chunk_size:
-                        raise ValueError("Invalid file format: truncated chunk")
-
-                    try:
-                        # Decrypt chunk (verifies MAC automatically)
-                        plaintext = box.decrypt(encrypted_chunk)
-                        decrypted_chunks.append(plaintext)
-                    except Exception as e:
-                        print(e)
-                        raise ValueError(
-                            "Decryption failed: wrong password or corrupted data"
-                        )
-                    finally:
-                        encrypted_chunk = bytearray(encrypted_chunk)
-                        for i in range(len(encrypted_chunk)):
-                            encrypted_chunk[i] = 0
-                    bytes_processed += chunk_size
-                    if progress_callback:
-                        progress_callback(bytes_processed, file_size)
-
-                # Combine all decrypted chunks
-                full_data = b"".join(decrypted_chunks)
-
-                for chunk in decrypted_chunks:
-                    chunk_array = bytearray(chunk)
-                    for i in range(len(chunk_array)):
-                        chunk_array[i] = 0
                 try:
-                    json_string = full_data.decode("utf-8")
-                    return json_string
+                    # Decrypt chunk (verifies MAC automatically)
+                    plaintext = box.decrypt(encrypted_chunk)
+                    decrypted_chunks.append(plaintext)
+                except Exception as e:
+                    print(e)
+                    raise ValueError(
+                        "Decryption failed: wrong password or corrupted data"
+                    )
                 finally:
-                    full_data = bytearray(full_data)
-                    for i in range(len(full_data)):
-                        full_data[i] = 0
+                    encrypted_chunk = bytearray(encrypted_chunk)
+                    for i in range(len(encrypted_chunk)):
+                        encrypted_chunk[i] = 0
+                bytes_processed += chunk_size
+                if progress_callback:
+                    progress_callback(bytes_processed, file_size)
+
+            # Combine all decrypted chunks
+            full_data = b"".join(decrypted_chunks)
+
+            for chunk in decrypted_chunks:
+                chunk_array = bytearray(chunk)
+                for i in range(len(chunk_array)):
+                    chunk_array[i] = 0
+            try:
+                json_string = full_data.decode("utf-8")
+                return json_string
             finally:
-                key_buffer.wipe()
+                full_data = bytearray(full_data)
+                for i in range(len(full_data)):
+                    full_data[i] = 0

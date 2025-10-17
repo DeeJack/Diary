@@ -1,4 +1,5 @@
 import json
+import secrets
 from pathlib import Path
 from typing_extensions import Any
 
@@ -41,18 +42,25 @@ def test_encryption():
     print("Sample of JSON data:")
     print(json_string[:200] + "...\n")
 
+    # Generate salt and derive key
+    salt = secrets.token_bytes(SecureEncryption.SALT_SIZE)
+    key_buffer = SecureEncryption.derive_key(password, salt)
+
     # Encrypt JSON to file
     print("Encrypting JSON to file...")
     SecureEncryption.encrypt_json_to_file(
-        json_string, encrypted_file, password, progress
+        json_string, encrypted_file, key_buffer, salt, progress
     )
     print(f"\n✓ Encrypted to {encrypted_file}")
     print(f"  Encrypted size: {encrypted_file.stat().st_size} bytes\n")
 
     # Decrypt file to JSON
     print("Decrypting file to JSON...")
-    decrypted_json = SecureEncryption.decrypt_file_to_json(
-        encrypted_file, password, progress
+    # Read salt from file and derive key again
+    file_salt = SecureEncryption.read_salt_from_file(encrypted_file)
+    decrypt_key_buffer = SecureEncryption.derive_key(password, file_salt)
+    decrypted_json = SecureEncryption.decrypt_file_to_json_with_key(
+        encrypted_file, decrypt_key_buffer, progress
     )
     print("\n✓ Decrypted JSON string")
 
@@ -75,12 +83,18 @@ def test_encryption():
     # Example: Wrong password
     print("\n=== Testing wrong password ===")
     test_json = json.dumps({"test": "data"})
+    test_salt = secrets.token_bytes(SecureEncryption.SALT_SIZE)
+    test_key_buffer = SecureEncryption.derive_key("correct_password", test_salt)
     SecureEncryption.encrypt_json_to_file(
-        test_json, Path("test.enc"), "correct_password"
+        test_json, Path("test.enc"), test_key_buffer, test_salt
     )
 
     try:
-        _ = SecureEncryption.decrypt_file_to_json(Path("test.enc"), "wrong_password")
+        wrong_salt = SecureEncryption.read_salt_from_file(Path("test.enc"))
+        wrong_key_buffer = SecureEncryption.derive_key("wrong_password", wrong_salt)
+        _ = SecureEncryption.decrypt_file_to_json_with_key(
+            Path("test.enc"), wrong_key_buffer
+        )
         print("✗ ERROR: Should have failed with wrong password!")
         assert False
     except ValueError as e:

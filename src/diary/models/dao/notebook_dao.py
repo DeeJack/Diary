@@ -11,6 +11,10 @@ from diary.models.point import Point
 class NotebookDAO:
     @staticmethod
     def save(notebook: Notebook, filepath: Path) -> None:
+        # to_save = notebook.copy()
+        # for page in to_save.pages.copy():  # Iterate over the copy
+        #     if len(page.strokes) == 0:
+        #         to_save.pages.remove(page)
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(notebook, f, indent=2, cls=MyEncoder)
 

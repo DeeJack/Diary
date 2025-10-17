@@ -23,3 +23,9 @@ class Page:
     @override
     def __str__(self) -> str:
         return f"Page(Strokes={self.strokes}; Created at={self.created_at}; Page ID={self.page_id}; Metadata={self.metadata})"
+
+    @override
+    def __eq__(self, other: object):
+        if not isinstance(other, Page):
+            return False
+        return self.page_id == other.page_id

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     PAGE_HEIGHT: int = 1100
     PAGE_LINES_SPACING: int = 35
     PAGE_LINES_MARING: int = 5
+    PAGE_BETWEEN_SPACING: int = 10
 
 
 settings = Settings()

@@ -44,7 +44,7 @@ class NotebookWidget(QGraphicsView):
 
         # Add all the pages
         self.y_position: int = 0
-        spacing = 10
+        spacing = settings.PAGE_BETWEEN_SPACING
         for page_widget in self.pages:
             proxy = self.add_page_to_scene(page_widget)
             self.page_proxies.append(proxy)
@@ -134,8 +134,9 @@ class NotebookWidget(QGraphicsView):
 
             if isinstance(widget, PageWidget):
                 page_widget: PageWidget = widget
-                # Map to page coordinates
-                local_pos: QPoint = page_widget.mapFromGlobal(self.mapToGlobal(pos))
+                # Map scene coordinates to page coordinates
+                local_pos: QPointF = item.mapFromScene(scene_pos)
+                # local_pos: QPoint = QPoint(int(proxy_pos.x()), int(proxy_pos.y()))
                 # Forward event
                 page_widget.handle_tablet_event(event, local_pos)
                 return True  # Event handled
@@ -166,23 +167,31 @@ class NotebookWidget(QGraphicsView):
             lambda _: self.add_page_below(page_widget.page)  # pyright: ignore[reportUnknownLambdaType]
         )
         _ = page_widget.save_notebook.connect(lambda: self.save_notebook())  # pyright: ignore[reportUnknownMemberType]
+        _ = page_widget.add_below_dynamic.connect(  # pyright: ignore[reportUnknownMemberType]
+            lambda _: self.add_page_below_dynamic(page_widget.page)  # pyright: ignore[reportUnknownLambdaType
+        )
         return proxy
 
-    def add_page_below(self, page: Page):
+    def add_page_below(self, page: Page) -> None:
         """Add a new page below the selected page"""
-        index = self.notebook.pages.index(page)
+        index = self.notebook.pages.index(page) + 1
         new_page = Page()
-        self.notebook.pages.insert(index + 1, new_page)
+        self.notebook.pages.insert(index, new_page)
         page_widget = PageWidget(new_page)
-        self.pages.insert(index + 1, page_widget)
+        self.pages.insert(index, page_widget)
         proxy = self.add_page_to_scene(page_widget)
-        self.page_proxies.insert(index + 1, proxy)
+        self.page_proxies.insert(index, proxy)
         self._reposition_all_pages()
         self.update()
 
-    def _reposition_all_pages(self):
+    def add_page_below_dynamic(self, page: Page) -> None:
+        """Add a page below if this is the last page"""
+        if self.notebook.pages[-1] == page:
+            self.add_page_below(page)
+
+    def _reposition_all_pages(self) -> None:
         """Reposition all pages with correct spacing"""
-        spacing = 10
+        spacing = settings.PAGE_BETWEEN_SPACING
         y_position = 0
         for _, (page_widget, proxy) in enumerate(zip(self.pages, self.page_proxies)):
             proxy.setPos(0, y_position)

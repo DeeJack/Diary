@@ -34,6 +34,7 @@ class PageWidget(QWidget):
     """Represents the UI of a Page in the Notebook"""
 
     add_below: pyqtSignal = pyqtSignal(object)
+    add_below_dynamic: pyqtSignal = pyqtSignal(object)
     save_notebook: pyqtSignal = pyqtSignal()
 
     def __init__(self, page: Page | None):
@@ -168,7 +169,7 @@ class PageWidget(QWidget):
         for stroke in self.page.strokes:
             self.draw_stroke(stroke, painter)
 
-    def continue_drawing(self, event: QTabletEvent, pos: QPoint):
+    def continue_drawing(self, event: QTabletEvent, pos: QPointF):
         """Continues current stroke"""
         if self.current_stroke is None:
             self.current_stroke = Stroke()
@@ -199,7 +200,7 @@ class PageWidget(QWidget):
         )
         self.update(update_rect)
 
-    def stop_drawing(self):
+    def stop_drawing(self, event: QTabletEvent, position: QPointF):
         """Stops current stroke and adds it to backing pixmap"""
         self.is_drawing = False
         if self.current_stroke is None:
@@ -217,7 +218,10 @@ class PageWidget(QWidget):
         self.current_stroke = None
         self.update()
 
-    def handle_tablet_event(self, event: QTabletEvent, pos: QPoint):
+        if position.y() > (float(self.height()) / 10 * 8):
+            self.add_below_dynamic.emit(self)
+
+    def handle_tablet_event(self, event: QTabletEvent, pos: QPointF):
         """Handles Pen events, forwarded by the Notebook"""
         if event.pointerType() == QPointingDevice.PointerType.Pen:
             if event.type() == QTabletEvent.Type.TabletPress:
@@ -228,7 +232,7 @@ class PageWidget(QWidget):
                     self.continue_drawing(event, pos)
             elif event.type() == QTabletEvent.Type.TabletRelease:
                 if self.is_drawing:
-                    self.stop_drawing()
+                    self.stop_drawing(event, pos)
         elif event.pointerType() == QPointingDevice.PointerType.Eraser:
             pass
         event.accept()

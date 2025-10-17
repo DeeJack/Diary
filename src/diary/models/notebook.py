@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import override
+from typing import Self, override
+
 from diary.models.page import Page
 
 
@@ -14,3 +15,6 @@ class Notebook:
     @override
     def __str__(self) -> str:
         return f"Notebook(Page={self.pages}; Metatada={self.metadata})"
+
+    def copy(self) -> "Notebook":
+        return Notebook(self.pages.copy(), metadata=self.metadata.copy())

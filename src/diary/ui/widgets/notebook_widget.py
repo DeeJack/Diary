@@ -17,6 +17,7 @@ from PyQt6.QtCore import QObject, QPoint, QPointF, Qt, QEvent
 from diary.ui.widgets.page_widget import PageWidget
 from diary.models import Notebook, NotebookDAO, Page
 from diary.config import settings
+from diary.utils.backup import BackupManager
 from diary.utils.encryption import SecureBuffer
 
 
@@ -37,6 +38,7 @@ class NotebookWidget(QGraphicsView):
         self.page_proxies: list[QGraphicsProxyWidget] = []
         self.key_buffer: SecureBuffer = key_buffer
         self.salt: bytes = salt
+        self.backup_manager: BackupManager = BackupManager()
 
         self.this_scene: QGraphicsScene = QGraphicsScene()
         self.setScene(self.this_scene)
@@ -165,6 +167,7 @@ class NotebookWidget(QGraphicsView):
         NotebookDAO.save(
             self.notebook, settings.NOTEBOOK_FILE_PATH, self.key_buffer, self.salt
         )
+        self.backup_manager.save_backups()
 
     def add_page_to_scene(self, page_widget: PageWidget):
         """Add a new PageWidget to the scene"""

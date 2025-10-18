@@ -3,19 +3,24 @@ Contains the configuration options for the Diary application
 """
 
 from pathlib import Path
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Settings class for the Diary application"""
 
-    class Config:
-        """Where to load configs from"""
+    model_config: SettingsConfigDict = {  # pyright: ignore[reportIncompatibleVariableOverride]
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+    }
 
-        env_file: str = ".env"
-        env_file_encoding: str = "utf-8"
-
-    NOTEBOOK_FILE_PATH: Path = Path("data/notebook.json")
+    DATA_DIR_PATH: Path = Path("data")
+    NOTEBOOK_FILE_PATH: Path = DATA_DIR_PATH / Path("notebook.json")
+    BACKUP_DIR_PATH: Path = Path("backup")
+    DAILY_BACKUP_PATH: Path = BACKUP_DIR_PATH / Path("daily")
+    WEEKLY_BACKUP_PATH: Path = BACKUP_DIR_PATH / Path("weekly")
+    MONTLY_BACKUP_PATH: Path = BACKUP_DIR_PATH / Path("monthly")
+    CURRENT_BACKUP_PATH: Path = BACKUP_DIR_PATH / "current.enc"
 
     # Page
     PAGE_WIDTH: int = 800

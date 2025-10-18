@@ -1,7 +1,9 @@
 """The main window of the Diary application, containing all other Widgets"""
 
 import secrets
+from typing import override
 
+from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import (
     QInputDialog,
     QLineEdit,
@@ -64,6 +66,12 @@ class MainWindow(QMainWindow):
     def open_notebook(self, key_buffer: SecureBuffer, salt: bytes):
         """Opens the Notebook with the given password"""
         old_notebook = NotebookDAO.load(settings.NOTEBOOK_FILE_PATH, key_buffer)
-        notebook = NotebookWidget(key_buffer, salt, old_notebook)
-        notebook.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setCentralWidget(notebook)
+        self.notebook: NotebookWidget = NotebookWidget(key_buffer, salt, old_notebook)  # pyright: ignore[reportUninitializedInstanceVariable]
+        self.notebook.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setCentralWidget(self.notebook)
+
+    @override
+    def closeEvent(self, a0: QCloseEvent | None):
+        if a0 and self.notebook:
+            self.notebook.save_notebook()
+            a0.accept()

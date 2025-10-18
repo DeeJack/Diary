@@ -5,6 +5,7 @@ import sys
 
 from PyQt6.QtGui import QTabletEvent, QWheelEvent, QKeyEvent
 from PyQt6.QtWidgets import (
+    QApplication,
     QGestureEvent,
     QGraphicsScene,
     QGraphicsView,
@@ -61,6 +62,8 @@ class NotebookWidget(QGraphicsView):
             self.page_proxies.append(proxy)
             proxy.setPos(0, self.y_position)
             self.y_position += page_widget.height() + spacing
+
+        QApplication.setOverrideCursor(Qt.CursorShape.BitmapCursor)
 
     @override
     def viewportEvent(self, event: QEvent | None):

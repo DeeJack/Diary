@@ -46,6 +46,7 @@ class PageWidget(QWidget):
         self.current_stroke: Stroke | None = None
         self.page: Page = page or Page()
         self.is_drawing: bool = False
+        self.is_erasing: bool = False
         self.base_thickness: float = 3.0
         self.needs_full_redraw: bool = True
         self.backing_pixmap: QPixmap | None = None
@@ -224,6 +225,16 @@ class PageWidget(QWidget):
         if position.y() > (float(self.height()) / 10 * 8):
             self.add_below_dynamic.emit(self)
 
+    def erase(self, pos: QPointF):
+        CIRCLE_RADIUS = 3  # 3 pixels circle
+        for stroke in self.page.strokes.copy():
+            if stroke.intersects(Point(pos.x(), pos.y(), 0), CIRCLE_RADIUS):
+                self.page.strokes.remove(stroke)
+                self.save_notebook.emit()
+                self.needs_full_redraw = True
+                self.update()
+                return
+
     def handle_tablet_event(self, event: QTabletEvent, pos: QPointF):
         """Handles Pen events, forwarded by the Notebook"""
         if event.pointerType() == QPointingDevice.PointerType.Pen:
@@ -237,7 +248,13 @@ class PageWidget(QWidget):
                 if self.is_drawing:
                     self.stop_drawing(pos)
         elif event.pointerType() == QPointingDevice.PointerType.Eraser:
-            pass
+            if event.type() == QTabletEvent.Type.TabletPress:
+                self.is_erasing = True
+            elif event.type() == QTabletEvent.Type.TabletMove:
+                if self.is_erasing:
+                    self.erase(pos)
+            elif event.type() == QTabletEvent.Type.TabletRelease:
+                self.is_erasing = False
         event.accept()
 
     @override

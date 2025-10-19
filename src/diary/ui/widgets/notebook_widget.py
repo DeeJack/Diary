@@ -3,7 +3,7 @@
 from typing import override
 import sys
 
-from PyQt6.QtGui import QTabletEvent, QWheelEvent, QKeyEvent
+from PyQt6.QtGui import QCloseEvent, QTabletEvent, QWheelEvent, QKeyEvent
 from PyQt6.QtWidgets import (
     QApplication,
     QGestureEvent,
@@ -167,6 +167,7 @@ class NotebookWidget(QGraphicsView):
 
     def save_notebook(self):
         """Saves the notebook to file"""
+        print("SAVE")
         NotebookDAO.save(
             self.notebook, settings.NOTEBOOK_FILE_PATH, self.key_buffer, self.salt
         )
@@ -209,3 +210,9 @@ class NotebookWidget(QGraphicsView):
         for _, (page_widget, proxy) in enumerate(zip(self.pages, self.page_proxies)):
             proxy.setPos(0, y_position)
             y_position += page_widget.height() + spacing
+
+    @override
+    def closeEvent(self, a0: QCloseEvent | None):
+        if a0 and self.notebook:
+            self.save_notebook()
+            a0.accept()

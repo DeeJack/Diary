@@ -69,9 +69,3 @@ class MainWindow(QMainWindow):
         self.notebook: NotebookWidget = NotebookWidget(key_buffer, salt, old_notebook)  # pyright: ignore[reportUninitializedInstanceVariable]
         self.notebook.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setCentralWidget(self.notebook)
-
-    @override
-    def closeEvent(self, a0: QCloseEvent | None):
-        if a0 and self.notebook:
-            self.notebook.save_notebook()
-            a0.accept()

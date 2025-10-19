@@ -1,5 +1,6 @@
 """The widget for the Notebook containing the PageWidgets"""
 
+import logging
 from typing import override
 import sys
 
@@ -40,6 +41,7 @@ class NotebookWidget(QGraphicsView):
         self.key_buffer: SecureBuffer = key_buffer
         self.salt: bytes = salt
         self.backup_manager: BackupManager = BackupManager()
+        self.logger: logging.Logger = logging.Logger("NotebookWidget")
 
         self.this_scene: QGraphicsScene = QGraphicsScene()
         self.setScene(self.this_scene)
@@ -54,6 +56,7 @@ class NotebookWidget(QGraphicsView):
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setRenderHints(self.renderHints())
 
+        self.logger.debug("Adding %d pages to the page", len(self.notebook.pages))
         # Add all the pages
         self.y_position: int = 0
         spacing = settings.PAGE_BETWEEN_SPACING
@@ -161,20 +164,23 @@ class NotebookWidget(QGraphicsView):
         if not event:
             return super().keyPressEvent(event)
         if event.key() == Qt.Key.Key_Q:
+            self.logger.debug("Pressed 'Q', closing...")
             _ = self.close()
             sys.exit(0)
         return super().keyPressEvent(event)
 
     def save_notebook(self):
         """Saves the notebook to file"""
-        print("SAVE")
+        self.logger.debug("Saving notebook...")
         NotebookDAO.save(
             self.notebook, settings.NOTEBOOK_FILE_PATH, self.key_buffer, self.salt
         )
+        self.logger.debug("Creating backup...")
         self.backup_manager.save_backups()
 
     def add_page_to_scene(self, page_widget: PageWidget):
         """Add a new PageWidget to the scene"""
+        self.logger.debug("Adding page to the scene")
         proxy = self.this_scene.addWidget(page_widget)
         assert proxy is not None
         _ = page_widget.add_below.connect(  # pyright: ignore[reportUnknownMemberType]
@@ -188,6 +194,7 @@ class NotebookWidget(QGraphicsView):
 
     def add_page_below(self, page: Page) -> None:
         """Add a new page below the selected page"""
+        self.logger.debug("Adding page below")
         index = self.notebook.pages.index(page) + 1
         new_page = Page()
         self.notebook.pages.insert(index, new_page)
@@ -213,6 +220,7 @@ class NotebookWidget(QGraphicsView):
 
     @override
     def closeEvent(self, a0: QCloseEvent | None):
+        self.logger.debug("Close app event!")
         if a0 and self.notebook:
             self.save_notebook()
             a0.accept()

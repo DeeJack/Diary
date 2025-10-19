@@ -1,7 +1,9 @@
 """Represents a Widget for the Page inside the Notebook"""
 
+import logging
 from typing import override
 from datetime import datetime
+from venv import logger
 
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -50,9 +52,11 @@ class PageWidget(QWidget):
         self.base_thickness: float = 3.0
         self.needs_full_redraw: bool = True
         self.backing_pixmap: QPixmap | None = None
+        self.logger: logging.Logger = logging.Logger("PageWidget")
 
         self.setFixedSize(self.page_width, self.page_height)
         self.setMinimumWidth(self.page_width)
+        self.logger.debug("Adding all page items")
         self.add_page_items()
 
     def add_page_items(self):
@@ -265,6 +269,7 @@ class PageWidget(QWidget):
 
     def clear_page(self):
         """Clear all strokes and force a full redraw"""
+        self.logger.debug("Clearing page")
         self.page.strokes.clear()
         self.current_stroke = None
         self.needs_full_redraw = True

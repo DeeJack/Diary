@@ -3,6 +3,7 @@
 from pathlib import Path
 import json
 from typing import Any, Callable, override
+import logging
 
 from diary.models.notebook import Notebook
 from diary.models.page import Page
@@ -24,6 +25,7 @@ class NotebookDAO:
     ) -> None:
         """Saves the encrypted Notebook using the derived password"""
         notebook_json = json.dumps(notebook, indent=2, cls=MyEncoder)
+        logging.getLogger("NotebookDAO").debug("Encrypting and saving the notebook")
         encryption.SecureEncryption.encrypt_json_to_file(
             notebook_json, filepath, password, salt, progress
         )
@@ -45,11 +47,16 @@ class NotebookDAO:
     ) -> Notebook:
         """Loads the Notebook using the derived key, or returns an empty one"""
         if not filepath.exists():
+            logging.getLogger("NotebookDAO").debug(
+                "Notebook does not exists, returning a new notebook"
+            )
             return Notebook(pages=[Page()])
 
+        logging.getLogger("NotebookDAO").debug("Notebook exists, decrypting")
         notebook_str = encryption.SecureEncryption.decrypt_file_to_json_with_key(
             filepath, key_buffer, progress
         )
+        logging.getLogger("NotebookDAO").debug("Decryption completed successfully!")
         return NotebookDAO.to_notebook(json.loads(notebook_str))  # pyright: ignore[reportAny]
 
     @staticmethod

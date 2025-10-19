@@ -1,8 +1,10 @@
 """Backup management system for the Diary"""
 
 from datetime import timedelta, datetime
+import logging
 from pathlib import Path
 import shutil
+from venv import logger
 
 from diary.config import settings
 
@@ -17,8 +19,10 @@ class BackupManager:
         settings.DAILY_BACKUP_PATH.mkdir(parents=True, exist_ok=True)
         settings.WEEKLY_BACKUP_PATH.mkdir(parents=True, exist_ok=True)
         settings.MONTLY_BACKUP_PATH.mkdir(parents=True, exist_ok=True)
+        self.logger: logging.Logger = logging.Logger("Backup")
 
     def save_backups(self):
+        self.logger.debug("Saving backups")
         _ = shutil.copy2(settings.NOTEBOOK_FILE_PATH, settings.CURRENT_BACKUP_PATH)
 
         now = datetime.now()
@@ -40,6 +44,11 @@ class BackupManager:
                 backup_date = datetime.strptime(date_str, "%Y-%m-%d")
 
                 if backup_date < cutoff_date:
+                    self.logger.debug(
+                        "Deleting %s due to cutoff date %s",
+                        backup_file,
+                        backup_date.isoformat(),
+                    )
                     _ = self._maybe_promote_to_weekly(backup_file, backup_date)
                     backup_file.unlink()
             except (ValueError, OSError) as e:
@@ -57,6 +66,11 @@ class BackupManager:
                 backup_date = datetime.strptime(f"{year}-W{week}-1", "%Y-W%W-%w")
 
                 if backup_date < cutoff_date:
+                    self.logger.debug(
+                        "Deleting %s due to cutoff date %s",
+                        backup_file,
+                        cutoff_date.isoformat(),
+                    )
                     _ = self._maybe_promote_to_monthly(backup_file, backup_date)
                     backup_file.unlink()
             except (ValueError, OSError) as e:
@@ -72,6 +86,11 @@ class BackupManager:
                 backup_date = datetime.strptime(date_str, "%Y-%m-%d")
 
                 if backup_date < cutoff_date:
+                    self.logger.debug(
+                        "Deleting %s due to cutoff date %s",
+                        backup_file,
+                        cutoff_date.isoformat(),
+                    )
                     backup_file.unlink()
             except (ValueError, OSError) as e:
                 raise e
@@ -82,36 +101,38 @@ class BackupManager:
         daily_path = settings.DAILY_BACKUP_PATH / daily_str
 
         if not daily_path.exists():
+            self.logger.debug("Promoting %s to daily", backup_file)
             _ = shutil.copy2(backup_file, daily_path)
             return True
 
         last_daily_date = datetime.fromtimestamp(daily_path.stat().st_mtime)
         cutoff_date = last_daily_date + timedelta(minutes=10)
         if now > cutoff_date:
+            self.logger.debug("Promoting %s to daily", backup_file)
             _ = shutil.copy2(backup_file, daily_path)
             return True
         return False
 
-    def _maybe_promote_to_weekly(self, daily_backup_file: Path, backup_date: datetime):
+    def _maybe_promote_to_weekly(self, backup_file: Path, backup_date: datetime):
         """Promote daily to weekly if it's a monday"""
         if backup_date.weekday() == 0:
             weekly_str = backup_date.strftime("%Y-W%W.enc")
             weekly_path = settings.WEEKLY_BACKUP_PATH / weekly_str
 
             if not weekly_path.exists():
-                _ = shutil.copy2(daily_backup_file, weekly_path)
+                self.logger.debug("Promoting %s to weekly", backup_file)
+                _ = shutil.copy2(backup_file, weekly_path)
                 return True
         return False
 
-    def _maybe_promote_to_monthly(
-        self, weekly_backup_file: Path, backup_date: datetime
-    ):
+    def _maybe_promote_to_monthly(self, backup_file: Path, backup_date: datetime):
         """Promote weekly to monthly if it's the first week"""
         if backup_date.day <= 7:
             montly_str = backup_date.strftime("%Y-%m.enc")
             monthly_path = settings.MONTLY_BACKUP_PATH / montly_str
 
             if not monthly_path.exists():
-                _ = shutil.copy2(weekly_backup_file, monthly_path)
+                self.logger.debug("Promoting %s to monthly", backup_file)
+                _ = shutil.copy2(backup_file, monthly_path)
                 return True
         return False

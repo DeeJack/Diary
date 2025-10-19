@@ -3,6 +3,7 @@ The main file that starts the Diary PyQt6 application
 """
 
 import sys
+import logging
 
 from PyQt6.QtWidgets import QApplication
 
@@ -11,6 +12,7 @@ from diary.logger import configure_logging
 
 if __name__ == "__main__":
     configure_logging()
+    logging.debug("Starting the application...")
 
     app = QApplication([])
     main_window = MainWindow()

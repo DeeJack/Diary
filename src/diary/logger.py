@@ -11,7 +11,7 @@ def configure_logging():
     FILE_NAME = settings.LOGGING_DIR_PATH / f"{now}.log"
 
     formatter = logging.Formatter(
-        fmt="%(asctime)s - [%(name)s]- %(levelname)s - [%(module)s:%(levelno)s] - %(message)s"
+        fmt="%(asctime)s - [%(name)s]- %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s"
     )
 
     file_handler = logging.FileHandler(FILE_NAME, encoding="UTF-8")
@@ -38,9 +38,7 @@ class CustomFormatter(logging.Formatter):
     red: str = "\x1b[31;20m"
     bold_red: str = "\x1b[31;1m"
     reset: str = "\x1b[0m"
-    custom_format: str = (
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
-    )
+    custom_format: str = "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s"
 
     FORMATS = {
         logging.DEBUG: grey + custom_format + reset,

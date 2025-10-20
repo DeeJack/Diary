@@ -2,9 +2,7 @@
 
 import logging
 import secrets
-from typing import override
 
-from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import (
     QInputDialog,
     QLineEdit,

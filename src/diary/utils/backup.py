@@ -4,7 +4,6 @@ from datetime import timedelta, datetime
 import logging
 from pathlib import Path
 import shutil
-from venv import logger
 
 from diary.config import settings
 
@@ -62,7 +61,7 @@ class BackupManager:
             try:
                 parts = backup_file.stem.split("-")
                 year = parts[0]
-                week = parts[1]
+                week = parts[1].replace("W", "")
                 backup_date = datetime.strptime(f"{year}-W{week}-1", "%Y-W%W-%w")
 
                 if backup_date < cutoff_date:

@@ -3,7 +3,7 @@
 import logging
 from typing import override
 from datetime import datetime
-from venv import logger
+
 
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -19,8 +19,6 @@ from PyQt6.QtGui import (
     QColor,
     QPaintEvent,
     QBrush,
-    QPainterPath,
-    QPen,
     QPointingDevice,
     QTabletEvent,
     QPixmap,
@@ -32,6 +30,11 @@ from diary.models.page import Page
 from diary.config import settings
 from diary.models.point import Point
 from diary.models.stroke import Stroke
+from diary.models.page_element import PageElement
+from diary.ui.adapters import adapter_registry
+from diary.ui.adapters.stroke_adapter import StrokeAdapter
+from diary.ui.adapters.image_adapter import ImageAdapter
+from diary.ui.adapters.voice_memo_adapter import VoiceMemoAdapter
 
 
 class PageWidget(QWidget):
@@ -57,7 +60,22 @@ class PageWidget(QWidget):
         self.setFixedSize(self.page_width, self.page_height)
         self.setMinimumWidth(self.page_width)
         self.logger.debug("Adding all page items")
+
+        # Initialize adapters
+        self._setup_adapters()
+
         self.add_page_items()
+
+    def _setup_adapters(self):
+        """Setup the element adapters for rendering"""
+        # Register all available adapters
+        stroke_adapter = StrokeAdapter(self.base_thickness)
+        image_adapter = ImageAdapter()
+        voice_memo_adapter = VoiceMemoAdapter()
+
+        adapter_registry.register(stroke_adapter)
+        adapter_registry.register(image_adapter)
+        adapter_registry.register(voice_memo_adapter)
 
     def add_page_items(self):
         """Adds the labels and buttons to the Page"""
@@ -96,7 +114,7 @@ class PageWidget(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.fillRect(self.backing_pixmap.rect(), QColor(0xE0, 0xE0, 0xE0))
         self.draw_horizontal_lines(painter)
-        self.draw_previous_strokes(painter)
+        self.draw_previous_elements(painter)
         _ = painter.end()
         self.needs_full_redraw = False
 
@@ -131,51 +149,22 @@ class PageWidget(QWidget):
                 line,
             )
 
-    def draw_stroke(self, stroke: Stroke, painter: QPainter):
-        """Draw a stroke on the painter"""
-        if len(stroke.points) < 1:
-            return
-        if len(stroke.points) == 1:
-            first_point = stroke.points[0]
-            width = self.calculate_width_from_pressure(first_point.pressure)
-            pen = QPen(QColor(stroke.color), width)
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            painter.setPen(pen)
-            painter.drawPoint(QPointF(first_point.x, first_point.y))
-            return
-
-        for i in range(len(stroke.points) - 1):
-            p1 = stroke.points[i]
-            p2 = stroke.points[i + 1]
-            avg_pressure = (p1.pressure + p2.pressure) / 2
-            width = self.calculate_width_from_pressure(avg_pressure)
-
-            path: QPainterPath = QPainterPath()
-            path.moveTo(p1.x, p1.y)
-
-            if i < len(stroke.points) - 2:
-                p3 = stroke.points[i + 2]
-                mid_x = (p2.x + p3.x) / 2
-                mid_y = (p2.y + p3.y) / 2
-                path.quadTo(p2.x, p2.y, mid_x, mid_y)
-            else:
-                path.lineTo(p2.x, p2.y)
-
-            pen = QPen(QColor(stroke.color), width)
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-            painter.setPen(pen)
-            painter.drawPath(path)
+    def draw_element(self, element: PageElement, painter: QPainter):
+        """Draw an element using the appropriate adapter"""
+        if not adapter_registry.render_element(element, painter):
+            self.logger.warning(
+                f"No adapter found for element type: {element.element_type}"
+            )
 
     def draw_current_stroke(self, painter: QPainter):
         """Draw the current stroke on the page"""
         if self.current_stroke is not None:
-            self.draw_stroke(self.current_stroke, painter)
+            self.draw_element(self.current_stroke, painter)
 
-    def draw_previous_strokes(self, painter: QPainter):
-        """Draw the strokes that have already been saved"""
-        for stroke in self.page.strokes:
-            self.draw_stroke(stroke, painter)
+    def draw_previous_elements(self, painter: QPainter):
+        """Draw the elements that have already been saved"""
+        for element in self.page.elements:
+            self.draw_element(element, painter)
 
     def continue_drawing(self, event: QTabletEvent, pos: QPointF):
         """Continues current stroke"""
@@ -214,13 +203,13 @@ class PageWidget(QWidget):
         if self.current_stroke is None:
             return
         self.save_notebook.emit()
-        self.page.strokes.append(self.current_stroke)
+        self.page.add_element(self.current_stroke)
 
         # Render the completed stroke to the backing pixmap
         if self.backing_pixmap:
             painter = QPainter(self.backing_pixmap)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            self.draw_stroke(self.current_stroke, painter)
+            self.draw_element(self.current_stroke, painter)
             _ = painter.end()
 
         self.current_stroke = None
@@ -231,9 +220,9 @@ class PageWidget(QWidget):
 
     def erase(self, pos: QPointF):
         CIRCLE_RADIUS = 3  # 3 pixels circle
-        for stroke in self.page.strokes.copy():
-            if stroke.intersects(Point(pos.x(), pos.y(), 0), CIRCLE_RADIUS):
-                self.page.strokes.remove(stroke)
+        for element in self.page.elements.copy():
+            if element.intersects(Point(pos.x(), pos.y(), 0), CIRCLE_RADIUS):
+                self.page.remove_element(element)
                 self.save_notebook.emit()
                 self.needs_full_redraw = True
                 self.update()
@@ -268,9 +257,9 @@ class PageWidget(QWidget):
         self.needs_full_redraw = True
 
     def clear_page(self):
-        """Clear all strokes and force a full redraw"""
+        """Clear all elements and force a full redraw"""
         self.logger.debug("Clearing page")
-        self.page.strokes.clear()
+        self.page.clear_elements()
         self.current_stroke = None
         self.needs_full_redraw = True
         self.update()

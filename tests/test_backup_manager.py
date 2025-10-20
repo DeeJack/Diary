@@ -7,7 +7,6 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 import shutil
-import time
 from typing import Any
 from unittest.mock import patch
 
@@ -91,7 +90,10 @@ class TestBackupManager:
             manager.save_backups()
 
             # Call promotion manually
-            manager._maybe_promote_to_daily(self.test_settings.CURRENT_BACKUP_PATH, now)  # pyright: ignore[reportPrivateUsage]
+            res = manager._maybe_promote_to_daily(  # pyright: ignore[reportPrivateUsage]
+                self.test_settings.CURRENT_BACKUP_PATH, now
+            )
+            assert res
 
             # Check daily backup was created
             expected_daily = self.test_settings.DAILY_BACKUP_PATH / "2024-01-15.enc"

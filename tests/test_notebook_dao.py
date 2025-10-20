@@ -19,12 +19,12 @@ def test_save_and_load_with_nested_objects():
     stroke1 = Stroke(points=[point1, point2], color="blue", size=2.5, tool="pen")
     stroke2 = Stroke(points=[point3, point4], color="red", size=1.8, tool="marker")
 
-    # Create test pages with strokes
+    # Create test pages with elements
     page1 = Page(
-        strokes=[stroke1], metadata={"title": "Test Page 1", "background": "white"}
+        elements=[stroke1], metadata={"title": "Test Page 1", "background": "white"}
     )
     page2 = Page(
-        strokes=[stroke2], metadata={"title": "Test Page 2", "background": "yellow"}
+        elements=[stroke2], metadata={"title": "Test Page 2", "background": "yellow"}
     )
 
     # Create test notebook
@@ -47,8 +47,8 @@ def test_save_and_load_with_nested_objects():
             assert "pages" in json_data
             assert "metadata" in json_data
             assert len(json_data["pages"]) == 2
-            assert "strokes" in json_data["pages"][0]
-            assert "points" in json_data["pages"][0]["strokes"][0]
+            assert "elements" in json_data["pages"][0]
+            assert "points" in json_data["pages"][0]["elements"][0]
 
         # Test load
         loaded_notebook = NotebookDAO.load_unencrypted(temp_path)
@@ -82,12 +82,14 @@ def test_save_and_load_with_nested_objects():
         assert page_2.metadata["title"] == "Test Page 2"
         assert page_2.metadata["background"] == "yellow"
 
-        # Verify strokes are Stroke objects (not dicts)
-        assert len(page_1.strokes) == 1
+        # Verify elements are PageElement objects (not dicts) and strokes property works
+        assert len(page_1.elements) == 1
+        assert len(page_2.elements) == 1
+        assert len(page_1.strokes) == 1  # Test backward compatibility property
         assert len(page_2.strokes) == 1
 
-        stroke_1 = page_1.strokes[0]
-        stroke_2 = page_2.strokes[0]
+        stroke_1 = page_1.elements[0]
+        stroke_2 = page_2.elements[0]
 
         assert isinstance(stroke_1, Stroke), f"Expected Stroke, got {type(stroke_1)}"
         assert isinstance(stroke_2, Stroke), f"Expected Stroke, got {type(stroke_2)}"
@@ -159,7 +161,7 @@ def test_load_nonexistent_file():
     # Should return a default Notebook with one empty page
     assert isinstance(loaded_notebook, Notebook)
     assert len(loaded_notebook.pages) == 1
-    assert len(loaded_notebook.pages[0].strokes) == 0
+    assert len(loaded_notebook.pages[0].elements) == 0
 
     print("✓ Non-existent file test passed - Returns default Notebook")
 
@@ -194,7 +196,7 @@ def test_malformed_data_robustness():
     malformed_data = {
         "pages": [
             {
-                "strokes": [
+                "elements": [
                     {
                         "points": [
                             {"x": "invalid", "y": 10},  # Invalid x value

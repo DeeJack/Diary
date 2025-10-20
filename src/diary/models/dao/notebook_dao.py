@@ -9,6 +9,9 @@ from diary.models.notebook import Notebook
 from diary.models.page import Page
 from diary.models.stroke import Stroke
 from diary.models.point import Point
+from diary.models.page_element import PageElement
+from diary.models.image import Image
+from diary.models.voice_memo import VoiceMemo
 from diary.utils import encryption
 
 
@@ -87,23 +90,40 @@ class NotebookDAO:
     @staticmethod
     def to_page(page_data: dict[str, Any]) -> Page:
         """Converts dict to Page object"""
-        strokes = []
-        if "strokes" in page_data and isinstance(page_data["strokes"], list):
-            for stroke_data in page_data["strokes"]:
-                if isinstance(stroke_data, dict):
-                    stroke = NotebookDAO.to_stroke(stroke_data)
-                    strokes.append(stroke)
+        elements = []
+
+        # Handle new elements format
+        if "elements" in page_data and isinstance(page_data["elements"], list):
+            for element_data in page_data["elements"]:
+                if isinstance(element_data, dict):
+                    element = NotebookDAO.to_element(element_data)
+                    if element:
+                        elements.append(element)
 
         return Page(
-            strokes=strokes,
+            elements=elements,
             created_at=page_data.get("created_at"),
             metadata=page_data.get("metadata", {}),
             page_id=page_data.get("page_id"),
         )
 
     @staticmethod
+    def to_element(element_data: dict[str, Any]) -> PageElement | None:
+        """Converts dict to PageElement object based on element_type"""
+        element_type = element_data.get("element_type", "stroke")
+
+        if element_type == "stroke":
+            return Stroke.from_dict(element_data)
+        elif element_type == "image":
+            return Image.from_dict(element_data)
+        elif element_type == "voice_memo":
+            return VoiceMemo.from_dict(element_data)
+
+        return None
+
+    @staticmethod
     def to_stroke(stroke_data: dict[str, Any]) -> Stroke:
-        """Converts dict to Stroke object"""
+        """Converts dict to Stroke object (legacy method for backward compatibility)"""
         points = []
         if "points" in stroke_data and isinstance(stroke_data["points"], list):
             for point_data in stroke_data["points"]:
@@ -135,6 +155,9 @@ class MyEncoder(json.JSONEncoder):
 
     @override
     def default(self, o: Any) -> Any:
-        if hasattr(o, "__dict__"):
+        # Handle PageElement serialization using their to_dict method
+        if isinstance(o, PageElement):
+            return o.to_dict()
+        elif hasattr(o, "__dict__"):
             return o.__dict__
         return super().default(o)

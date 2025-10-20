@@ -42,7 +42,6 @@ class PageWidget(QWidget):
 
     add_below: pyqtSignal = pyqtSignal(object)
     add_below_dynamic: pyqtSignal = pyqtSignal(object)
-    save_notebook: pyqtSignal = pyqtSignal()
 
     def __init__(self, page: Page | None):
         super().__init__()
@@ -202,7 +201,6 @@ class PageWidget(QWidget):
         self.is_drawing = False
         if self.current_stroke is None:
             return
-        self.save_notebook.emit()
         self.page.add_element(self.current_stroke)
 
         # Render the completed stroke to the backing pixmap
@@ -223,7 +221,6 @@ class PageWidget(QWidget):
         for element in self.page.elements.copy():
             if element.intersects(Point(pos.x(), pos.y(), 0), CIRCLE_RADIUS):
                 self.page.remove_element(element)
-                self.save_notebook.emit()
                 self.needs_full_redraw = True
                 self.update()
                 return

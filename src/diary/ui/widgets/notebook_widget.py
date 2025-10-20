@@ -1,7 +1,6 @@
 """The widget for the Notebook containing the PageWidgets"""
 
 import logging
-from pathlib import Path
 from typing import override
 import sys
 
@@ -15,7 +14,7 @@ from PyQt6.QtWidgets import (
     QWidget,
     QPinchGesture,
 )
-from PyQt6.QtCore import QObject, QPoint, QPointF, Qt, QEvent
+from PyQt6.QtCore import QObject, QPoint, QPointF, QTimer, Qt, QEvent
 
 from diary.ui.widgets.page_widget import PageWidget
 from diary.models import Notebook, NotebookDAO, Page
@@ -68,6 +67,10 @@ class NotebookWidget(QGraphicsView):
             self.y_position += page_widget.height() + spacing
 
         QApplication.setOverrideCursor(Qt.CursorShape.BitmapCursor)
+
+        timer = QTimer()
+        timer.setInterval(60)
+        _ = timer.timeout.connect(lambda: self.save_notebook)  # pyright: ignore[reportUnknownMemberType]
 
     @override
     def viewportEvent(self, event: QEvent | None):
@@ -173,14 +176,11 @@ class NotebookWidget(QGraphicsView):
     def save_notebook(self):
         """Saves the notebook to file"""
         self.logger.debug("Saving notebook (%d pages)...", len(self.notebook.pages))
-        # NotebookDAO.save(
-        #     self.notebook, settings.NOTEBOOK_FILE_PATH, self.key_buffer, self.salt
-        # )
-        self.logger.debug("Creating backup...")
-        # self.backup_manager.save_backups()
-        NotebookDAO.save_unencrypted(
-            self.notebook, Path("data/notebook_encrypted.json")
+        NotebookDAO.save(
+            self.notebook, settings.NOTEBOOK_FILE_PATH, self.key_buffer, self.salt
         )
+        self.logger.debug("Creating backup...")
+        self.backup_manager.save_backups()
 
     def add_page_to_scene(self, page_widget: PageWidget):
         """Add a new PageWidget to the scene"""
@@ -190,7 +190,6 @@ class NotebookWidget(QGraphicsView):
         _ = page_widget.add_below.connect(  # pyright: ignore[reportUnknownMemberType]
             lambda _: self.add_page_below(page_widget.page)  # pyright: ignore[reportUnknownLambdaType]
         )
-        _ = page_widget.save_notebook.connect(self.save_notebook)  # pyright: ignore[reportUnknownMemberType]
         _ = page_widget.add_below_dynamic.connect(  # pyright: ignore[reportUnknownMemberType]
             lambda _: self.add_page_below_dynamic(page_widget.page)  # pyright: ignore[reportUnknownLambdaType  # pyright: ignore[reportUnknownLambdaType]
         )

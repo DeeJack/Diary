@@ -57,15 +57,11 @@ class NotebookDAO:
             return Notebook(pages=[Page()])
 
         logging.getLogger("NotebookDAO").debug("Notebook exists, decrypting")
-        notebook_str = NotebookDAO.load_unencrypted(
-            Path("data/notebook_encrypted.json")
+        notebook_str = encryption.SecureEncryption.decrypt_file_to_json_with_key(
+            filepath, key_buffer, progress
         )
-        # notebook_str = encryption.SecureEncryption.decrypt_file_to_json_with_key(
-        #     filepath, key_buffer, progress
-        # )
         logging.getLogger("NotebookDAO").debug("Decryption completed successfully!")
-        # return NotebookDAO.to_notebook(json.loads(notebook_str))  # pyright: ignore[reportAny]
-        return notebook_str  # pyright: ignore[reportAny]
+        return NotebookDAO.to_notebook(json.loads(notebook_str))  # pyright: ignore[reportAny]
 
     @staticmethod
     def load_unencrypted(
@@ -90,6 +86,9 @@ class NotebookDAO:
                     pages.append(page)
 
         metadata = data.get("metadata", {}) if isinstance(data, dict) else {}
+        logging.getLogger("NotebookDAO").debug(
+            "Creating notebook with %d pages", len(pages)
+        )
         return Notebook(pages=pages, metadata=metadata)
 
     @staticmethod

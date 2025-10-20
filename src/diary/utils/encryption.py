@@ -200,7 +200,6 @@ class SecureEncryption:
                 nonce = nonce_base + struct.pack("<Q", chunk_number)
 
                 # Encrypt chunk (includes MAC tag)
-                logging.getLogger("Encryption").debug("Encrypting chunk...")
                 encrypted_chunk = box.encrypt(chunk, nonce=nonce)
 
                 # Write chunk size + encrypted data

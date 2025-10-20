@@ -2,6 +2,7 @@
 
 import logging
 import secrets
+import sys
 from typing import override
 
 from PyQt6.QtGui import QCloseEvent
@@ -30,6 +31,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Diary Application")
         self.setGeometry(100, 100, 800, 600)
         self.setStyleSheet("background-color: #2C2C2C;")
+
+        self.show()
 
         self.logger.debug("Opening input dialog")
         password, ok = QInputDialog.getText(
@@ -74,22 +77,24 @@ class MainWindow(QMainWindow):
             except ValueError as e:
                 _ = QMessageBox.critical(self, "Error", str(e))
                 _ = self.close()
+                sys.exit(0)
         else:
             _ = self.close()
+            sys.exit(0)
 
     def open_notebook(self, key_buffer: SecureBuffer, salt: bytes):
         """Opens the Notebook with the given password"""
         old_notebook = NotebookDAO.load(settings.NOTEBOOK_FILE_PATH, key_buffer)
         self.logger.debug("Loaded notebook, creating and opening NotebookWidget")
-        self.notebook: NotebookWidget = NotebookWidget(
+        self.notebook: NotebookWidget = NotebookWidget(  # pyright: ignore[reportUninitializedInstanceVariable]
             key_buffer, salt, self.statusBar() or QStatusBar(), old_notebook
-        )  # pyright: ignore[reportUninitializedInstanceVariable]
+        )
         self.notebook.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setCentralWidget(self.notebook)
 
     @override
     def closeEvent(self, a0: QCloseEvent | None):
         self.logger.debug("Close app event!")
-        if a0 and self.notebook:
+        if a0 and hasattr(self, "notebook") and self.notebook:
             self.notebook.save()
             a0.accept()

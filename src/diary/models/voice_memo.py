@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import cast, override, Any
 
+from diary.config import settings
 from diary.models.point import Point
 from diary.models.page_element import PageElement
 
@@ -52,50 +53,50 @@ class VoiceMemo(PageElement):
     def to_dict(self) -> dict[str, Any]:
         """Serialize this voice memo to a dictionary for JSON storage"""
         return {
-            "element_type": self.element_type,
-            "element_id": self.element_id,
-            "position": {
-                "x": self.position.x,
-                "y": self.position.y,
-                "pressure": self.position.pressure,
-            },
-            "duration": self.duration,
-            "audio_path": self.audio_path,
-            "audio_data": self.audio_data.hex() if self.audio_data else None,
-            "transcript": self.transcript,
-            "created_at": self.created_at,
-            "width": self.width,
-            "height": self.height,
+            settings.SERIALIZATION_KEYS.ELEMENT_TYPE.value: self.element_type,
+            settings.SERIALIZATION_KEYS.ELEMENT_ID.value: self.element_id,
+            settings.SERIALIZATION_KEYS.POSITION.value: [
+                self.position.x,
+                self.position.y,
+                self.position.pressure,
+            ],
+            settings.SERIALIZATION_KEYS.DURATION.value: self.duration,
+            settings.SERIALIZATION_KEYS.PATH.value: self.audio_path,
+            settings.SERIALIZATION_KEYS.DATA.value: self.audio_data.hex()
+            if self.audio_data
+            else None,
+            settings.SERIALIZATION_KEYS.TRANSCRIPT.value: self.transcript,
+            settings.SERIALIZATION_KEYS.CREATED_AT.value: self.created_at,
+            settings.SERIALIZATION_KEYS.WIDTH.value: self.width,
+            settings.SERIALIZATION_KEYS.HEIGHT.value: self.height,
         }
 
     @classmethod
     @override
     def from_dict(cls, data: dict[str, Any]) -> "VoiceMemo":
         """Deserialize this voice memo from a dictionary loaded from JSON"""
-        position_data: dict[str, float] = data.get("position", {})
+        position_data: list[float] = data.get("p", {})
         position = Point(
-            x=position_data.get("x", 0.0),
-            y=position_data.get("y", 0.0),
-            pressure=position_data.get("pressure", 1.0),
+            x=position_data[0], y=position_data[1], pressure=position_data[2]
         )
 
         audio_data = None
-        if data.get("audio_data"):
+        if data.get("d"):
             try:
-                audio_data = bytes.fromhex(data["audio_data"])
+                audio_data = bytes.fromhex(data["d"])
             except ValueError:
                 audio_data = None
 
         return cls(
             position=position,
-            duration=cast(float, data.get("duration", 0.0)),
-            audio_path=data.get("audio_path"),
+            duration=cast(float, data.get("du", 0.0)),
+            audio_path=data.get("p"),
             audio_data=audio_data,
-            transcript=data.get("transcript"),
-            created_at=data.get("created_at"),
-            width=cast(float, data.get("width", 50.0)),
-            height=cast(float, data.get("height", 50.0)),
-            element_id=data.get("element_id"),
+            transcript=data.get("t"),
+            created_at=data.get("c"),
+            width=cast(float, data.get("w", 50.0)),
+            height=cast(float, data.get("h", 50.0)),
+            element_id=data.get("id"),
         )
 
     @override

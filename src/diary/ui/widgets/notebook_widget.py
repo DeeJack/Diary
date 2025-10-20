@@ -1,6 +1,7 @@
 """The widget for the Notebook containing the PageWidgets"""
 
 import logging
+from pathlib import Path
 from typing import override
 import sys
 

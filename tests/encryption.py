@@ -48,7 +48,7 @@ def test_encryption():
 
     # Encrypt JSON to file
     print("Encrypting JSON to file...")
-    SecureEncryption.encrypt_json_to_file(
+    SecureEncryption.encrypt_bytes_to_file(
         json_string, encrypted_file, key_buffer, salt, progress
     )
     print(f"\n✓ Encrypted to {encrypted_file}")
@@ -59,7 +59,7 @@ def test_encryption():
     # Read salt from file and derive key again
     file_salt = SecureEncryption.read_salt_from_file(encrypted_file)
     decrypt_key_buffer = SecureEncryption.derive_key(password, file_salt)
-    decrypted_json = SecureEncryption.decrypt_file_to_json_with_key(
+    decrypted_json = SecureEncryption.decrypt_file(
         encrypted_file, decrypt_key_buffer, progress
     )
     print("\n✓ Decrypted JSON string")
@@ -85,14 +85,14 @@ def test_encryption():
     test_json = json.dumps({"test": "data"})
     test_salt = secrets.token_bytes(SecureEncryption.SALT_SIZE)
     test_key_buffer = SecureEncryption.derive_key("correct_password", test_salt)
-    SecureEncryption.encrypt_json_to_file(
+    SecureEncryption.encrypt_bytes_to_file(
         test_json, Path("test.enc"), test_key_buffer, test_salt
     )
 
     try:
         wrong_salt = SecureEncryption.read_salt_from_file(Path("test.enc"))
         wrong_key_buffer = SecureEncryption.derive_key("wrong_password", wrong_salt)
-        _ = SecureEncryption.decrypt_file_to_json_with_key(
+        _ = SecureEncryption.decrypt_file(
             Path("test.enc"), wrong_key_buffer
         )
         print("✗ ERROR: Should have failed with wrong password!")

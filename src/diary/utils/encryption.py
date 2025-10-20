@@ -146,8 +146,8 @@ class SecureEncryption:
             return salt
 
     @staticmethod
-    def encrypt_json_to_file(
-        json_string: str,
+    def encrypt_bytes_to_file(
+        data_bytes: bytes,
         output_path: Path,
         key_buffer: SecureBuffer,
         salt: bytes,
@@ -168,7 +168,6 @@ class SecureEncryption:
         output_path = Path(output_path)
 
         # Convert JSON string to bytes
-        data_bytes = json_string.encode("utf-8")
         total_size = len(data_bytes)
         bytes_processed = 0
 
@@ -214,17 +213,17 @@ class SecureEncryption:
                 if progress_callback:
                     progress_callback(bytes_processed, total_size)
         # Zero out data bytes
-        data_bytes = bytearray(data_bytes)
+        data_bytes_arr = bytearray(data_bytes)
         for i, _ in enumerate(data_bytes):
-            data_bytes[i] = 0
+            data_bytes_arr[i] = 0
         logging.getLogger("Encryption").debug("Encryption completed...")
 
     @staticmethod
-    def decrypt_file_to_json_with_key(
+    def decrypt_file(
         input_path: Path,
         key_buffer: SecureBuffer,
         progress_callback: Callable[[int, int], None] | None = None,
-    ) -> str:
+    ) -> bytes:
         """
         Decrypt a file and return JSON string using streaming decryption with derived key
 
@@ -340,9 +339,8 @@ class SecureEncryption:
                 for i, _ in enumerate(chunk_array):
                     chunk_array[i] = 0
             try:
-                json_string = full_data.decode("utf-8")
                 logging.getLogger("Encryption").debug("Decryption completed")
-                return json_string
+                return full_data
             finally:
                 full_data = bytearray(full_data)
                 for i, _ in enumerate(full_data):

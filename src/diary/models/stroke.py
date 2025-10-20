@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import math
 from typing import override, Any, cast
 
+from diary.config import settings
 from diary.models.point import Point
 from diary.models.page_element import PageElement
 
@@ -38,19 +39,16 @@ class Stroke(PageElement):
     def to_dict(self) -> dict[str, Any]:
         """Serialize this stroke to a dictionary for JSON storage"""
         return {
-            "element_type": self.element_type,
-            "element_id": self.element_id,
-            "points": [
-                (
-                    float("{:.1f}".format(p.x)),
-                    float("{:.1f}".format(p.y)),
-                    float("{:.1f}".format(p.pressure)),
-                )
-                for p in self.points
+            settings.SERIALIZATION_KEYS.ELEMENT_TYPE.value: self.element_type,
+            settings.SERIALIZATION_KEYS.ELEMENT_ID.value: self.element_id,
+            settings.SERIALIZATION_KEYS.POINTS.value: [
+                p.to_dict() for p in self.points
             ],
-            "color": self.color,
-            "thickness": "{:.1f}".format(self.thickness),
-            "tool": self.tool,
+            settings.SERIALIZATION_KEYS.COLOR.value: self.color,
+            settings.SERIALIZATION_KEYS.THICKNESS.value: float(
+                "{:.1f}".format(self.thickness)
+            ),
+            settings.SERIALIZATION_KEYS.TOOL.value: self.tool,
         }
 
     @classmethod
@@ -58,22 +56,24 @@ class Stroke(PageElement):
     def from_dict(cls, data: dict[str, Any]) -> "Stroke":
         """Deserialize this stroke from a dictionary loaded from JSON"""
         points: list[Point] = []
-        if "points" in data and isinstance(data["points"], list):
-            for point_data in data["points"]:
+        if settings.SERIALIZATION_KEYS.POINTS.value in data and isinstance(
+            data[settings.SERIALIZATION_KEYS.POINTS.value], list
+        ):
+            for point_data in data[settings.SERIALIZATION_KEYS.POINTS.value]:
                 if isinstance(point_data, tuple) or isinstance(point_data, list):
                     point = Point(
-                        x=float(point_data[0]) or 0.0,
-                        y=float(point_data[1]) or 0.0,
-                        pressure=float(point_data[2]) or 0.0,
+                        x=float(point_data[0]),
+                        y=float(point_data[1]),
+                        pressure=float(point_data[2]),
                     )
                     points.append(point)
 
         return cls(
             points=points,
-            color=cast(str, data.get("color", "black")),
-            size=float(data.get("thickness", 1.0)),
-            tool=cast(str, data.get("tool", "pen")),
-            element_id=data.get("element_id"),
+            color=cast(str, data.get(settings.SERIALIZATION_KEYS.COLOR.value, "black")),
+            size=float(data.get(settings.SERIALIZATION_KEYS.THICKNESS.value, 1.0)),
+            tool=cast(str, data.get(settings.SERIALIZATION_KEYS.TOOL.value, "pen")),
+            element_id=data.get(settings.SERIALIZATION_KEYS.ELEMENT_ID.value),
         )
 
     @override

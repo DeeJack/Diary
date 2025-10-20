@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import cast, override, Any
 
+from diary.config import settings
 from diary.models.point import Point
 from diary.models.page_element import PageElement
 
@@ -48,46 +49,54 @@ class Image(PageElement):
     def to_dict(self) -> dict[str, Any]:
         """Serialize this image to a dictionary for JSON storage"""
         return {
-            "element_type": self.element_type,
-            "element_id": self.element_id,
-            "position": {
-                "x": self.position.x,
-                "y": self.position.y,
-                "pressure": self.position.pressure,
-            },
-            "width": self.width,
-            "height": self.height,
-            "image_path": self.image_path,
-            "image_data": self.image_data.hex() if self.image_data else None,
-            "rotation": self.rotation,
+            settings.SERIALIZATION_KEYS.ELEMENT_TYPE.value: self.element_type,
+            settings.SERIALIZATION_KEYS.ELEMENT_ID.value: self.element_id,
+            settings.SERIALIZATION_KEYS.POSITION.value: [
+                self.position.x,
+                self.position.y,
+                self.position.pressure,
+            ],
+            settings.SERIALIZATION_KEYS.WIDTH.value: self.width,
+            settings.SERIALIZATION_KEYS.HEIGHT.value: self.height,
+            settings.SERIALIZATION_KEYS.PATH.value: self.image_path,
+            settings.SERIALIZATION_KEYS.DATA.value: self.image_data.hex()
+            if self.image_data
+            else None,
+            settings.SERIALIZATION_KEYS.ROTATION.value: self.rotation,
         }
 
     @classmethod
     @override
     def from_dict(cls, data: dict[str, Any]) -> "Image":
         """Deserialize this image from a dictionary loaded from JSON"""
-        position_data: dict[str, float] = data.get("position", {})
+        position_data: list[float] = data.get(
+            settings.SERIALIZATION_KEYS.POSITION.value, []
+        )
         position = Point(
-            x=position_data.get("x", 0.0),
-            y=position_data.get("y", 0.0),
-            pressure=position_data.get("pressure", 1.0),
+            x=position_data[0],
+            y=position_data[1],
+            pressure=position_data[2],
         )
 
         image_data = None
-        if data.get("image_data"):
+        if data.get(settings.SERIALIZATION_KEYS.DATA.value):
             try:
-                image_data = bytes.fromhex(data["image_data"])
+                image_data = bytes.fromhex(data[settings.SERIALIZATION_KEYS.DATA.value])
             except ValueError:
                 image_data = None
 
         return cls(
             position=position,
-            width=cast(float, data.get("width", 100.0)),
-            height=cast(float, data.get("height", 100.0)),
-            image_path=data.get("image_path"),
+            width=cast(float, data.get(settings.SERIALIZATION_KEYS.WIDTH.value, 100.0)),
+            height=cast(
+                float, data.get(settings.SERIALIZATION_KEYS.HEIGHT.value, 100.0)
+            ),
+            image_path=data.get(settings.SERIALIZATION_KEYS.PATH.value),
             image_data=image_data,
-            rotation=cast(float, data.get("rotation", 0.0)),
-            element_id=data.get("element_id"),
+            rotation=cast(
+                float, data.get(settings.SERIALIZATION_KEYS.ROTATION.value, 0.0)
+            ),
+            element_id=data.get(settings.SERIALIZATION_KEYS.ELEMENT_ID.value),
         )
 
     @override

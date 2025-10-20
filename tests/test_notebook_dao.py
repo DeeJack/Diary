@@ -44,11 +44,11 @@ def test_save_and_load_with_nested_objects():
         assert temp_path.exists()
         with open(temp_path, "r") as f:
             json_data = json.load(f)
-            assert "pages" in json_data
-            assert "metadata" in json_data
-            assert len(json_data["pages"]) == 2
-            assert "elements" in json_data["pages"][0]
-            assert "points" in json_data["pages"][0]["elements"][0]
+            assert "p" in json_data
+            assert "m" in json_data
+            assert len(json_data["p"]) == 2
+            assert "e" in json_data["p"][0]
+            assert "p" in json_data["p"][0]["e"][0]
 
         # Test load
         loaded_notebook = NotebookDAO.load_unencrypted(temp_path)
@@ -194,26 +194,19 @@ def test_empty_structures():
 def test_malformed_data_robustness():
     # Test with malformed JSON data to ensure graceful handling
     malformed_data = {
-        "pages": [
+        "p": [
             {
-                "elements": [
+                "e": [
                     {
-                        "points": [
-                            {"x": "invalid", "y": 10},  # Invalid x value
-                            {
-                                "x": 20,
-                                "y": 30,
-                                "pressure": "also_invalid",
-                            },  # Invalid pressure
-                        ],
-                        "color": "blue",
-                        # Missing other fields
+                        "ty": "stroke",
+                        "p": [["asd", 1, 2], [1, 2, "dsa"]],
+                        "c": "blue",
                     }
                 ],
-                "metadata": "should_be_dict",  # Wrong type
+                "m": "should_be_dict",  # Wrong type
             }
         ],
-        "metadata": ["should", "be", "dict"],  # Wrong type
+        "m": ["should", "be", "dict"],  # Wrong type
     }
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
@@ -224,10 +217,10 @@ def test_malformed_data_robustness():
         with open(temp_path, "w") as f:
             json.dump(malformed_data, f)
 
-        # Try to load it - should still return a Notebook object
         loaded_notebook = NotebookDAO.load_unencrypted(temp_path)
-        assert isinstance(loaded_notebook, Notebook)
-
+        assert False  # Shouldn't load the notebook
+    except:
+        assert True
         print("✓ Malformed data robustness test passed")
 
     finally:

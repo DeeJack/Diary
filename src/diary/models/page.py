@@ -4,11 +4,14 @@ Represents a Page inside a Notebook
 
 from dataclasses import dataclass
 import time
-from typing import override
+from typing import Any, override
 import uuid
 
+from diary.config import settings
+from diary.models.image import Image
 from diary.models.stroke import Stroke
 from diary.models.page_element import PageElement
+from diary.models.voice_memo import VoiceMemo
 
 
 @dataclass
@@ -54,3 +57,41 @@ class Page:
         if not isinstance(other, Page):
             return False
         return self.page_id == other.page_id
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            settings.SERIALIZATION_KEYS.ELEMENTS.value: [
+                element.to_dict() for element in self.elements
+            ],
+            settings.SERIALIZATION_KEYS.ELEMENT_ID.value: self.page_id,
+            settings.SERIALIZATION_KEYS.CREATED_AT.value: self.created_at,
+            settings.SERIALIZATION_KEYS.METADATA.value: self.metadata,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]):
+        elements: list[PageElement] = []
+
+        for element in data[settings.SERIALIZATION_KEYS.ELEMENTS.value]:
+            if (
+                element[settings.SERIALIZATION_KEYS.ELEMENT_TYPE.value]
+                == settings.SERIALIZATION_KEYS.TYPE_STROKE.value
+            ):
+                elements.append(Stroke.from_dict(element))
+            elif (
+                element[settings.SERIALIZATION_KEYS.ELEMENT_TYPE.value]
+                == settings.SERIALIZATION_KEYS.TYPE_IMAGE.value
+            ):
+                elements.append(Image.from_dict(element))
+            elif (
+                element[settings.SERIALIZATION_KEYS.ELEMENT_TYPE.value]
+                == settings.SERIALIZATION_KEYS.TYPE_VOICE.value
+            ):
+                elements.append(VoiceMemo.from_dict(element))
+
+        return cls(
+            elements,
+            data[settings.SERIALIZATION_KEYS.CREATED_AT.value],
+            data[settings.SERIALIZATION_KEYS.ELEMENT_ID.value],
+            data[settings.SERIALIZATION_KEYS.METADATA.value],
+        )

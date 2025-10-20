@@ -2,6 +2,7 @@
 Contains the configuration options for the Diary application
 """
 
+from enum import Enum
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -15,7 +16,7 @@ class Settings(BaseSettings):
     }
 
     DATA_DIR_PATH: Path = Path("data")
-    NOTEBOOK_FILE_PATH: Path = DATA_DIR_PATH / Path("notebook.json")
+    NOTEBOOK_FILE_PATH: Path = DATA_DIR_PATH / Path("notebook.enc")
     BACKUP_DIR_PATH: Path = DATA_DIR_PATH / Path("backup")
     DAILY_BACKUP_PATH: Path = BACKUP_DIR_PATH / Path("daily")
     WEEKLY_BACKUP_PATH: Path = BACKUP_DIR_PATH / Path("weekly")
@@ -31,6 +32,29 @@ class Settings(BaseSettings):
     PAGE_BETWEEN_SPACING: int = 10
 
     AUTOSAVE_NOTEBOOK_TIMEOUT: int = 120  # in seconds
+
+    class SERIALIZATION_KEYS(Enum):
+        ELEMENT_ID = "id"
+        ELEMENT_TYPE = "type"
+        POSITION = "pos"
+        PAGES = "pages"
+        CREATED_AT = "created_at"
+        ELEMENTS = "elements"
+        TYPE_STROKE = "stroke"
+        TYPE_IMAGE = "image"
+        TYPE_VOICE = "voice"
+        METADATA = "metadata"
+        POINTS = "points"
+        COLOR = "color"
+        THICKNESS = "thickness"
+        TOOL = "tool"
+        WIDTH = "width"
+        HEIGHT = "height"
+        PATH = "path"
+        DATA = "data"
+        ROTATION = "rotation"
+        TRANSCRIPT = "transcript"
+        DURATION = "duration"
 
 
 settings = Settings()

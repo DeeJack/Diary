@@ -1,16 +1,15 @@
 """Tests for the PageElement system and adapters"""
 
 import unittest
-from unittest.mock import Mock, MagicMock
-from PyQt6.QtGui import QPainter, QPixmap
-from PyQt6.QtCore import QSize
+from unittest.mock import Mock
+from PyQt6.QtGui import QPainter
 
 from diary.models.page import Page
 from diary.models.stroke import Stroke
 from diary.models.image import Image
 from diary.models.voice_memo import VoiceMemo
 from diary.models.point import Point
-from diary.ui.adapters import adapter_registry, AdapterRegistry
+from diary.ui.adapters import AdapterRegistry
 from diary.ui.adapters.stroke_adapter import StrokeAdapter
 from diary.ui.adapters.image_adapter import ImageAdapter
 from diary.ui.adapters.voice_memo_adapter import VoiceMemoAdapter
@@ -106,25 +105,25 @@ class TestPageElements(unittest.TestCase):
         voice_memo_dict = self.voice_memo.to_dict()
 
         # Check stroke serialization
-        self.assertEqual(stroke_dict["element_type"], "stroke")
-        self.assertEqual(len(stroke_dict["points"]), 2)
-        self.assertEqual(stroke_dict["color"], "red")
-        self.assertIn("element_id", stroke_dict)
-        self.assertEqual(stroke_dict["element_id"], self.stroke.element_id)
+        self.assertEqual(stroke_dict["ty"], "stroke")
+        self.assertEqual(len(stroke_dict["p"]), 2)
+        self.assertEqual(stroke_dict["c"], "red")
+        self.assertIn("id", stroke_dict)
+        self.assertEqual(stroke_dict["id"], self.stroke.element_id)
 
         # Check image serialization
-        self.assertEqual(image_dict["element_type"], "image")
-        self.assertEqual(image_dict["width"], 100)
-        self.assertEqual(image_dict["height"], 80)
-        self.assertIn("element_id", image_dict)
-        self.assertEqual(image_dict["element_id"], self.image.element_id)
+        self.assertEqual(image_dict["ty"], "image")
+        self.assertEqual(image_dict["w"], 100)
+        self.assertEqual(image_dict["h"], 80)
+        self.assertIn("id", image_dict)
+        self.assertEqual(image_dict["id"], self.image.element_id)
 
         # Check voice memo serialization
-        self.assertEqual(voice_memo_dict["element_type"], "voice_memo")
-        self.assertEqual(voice_memo_dict["duration"], 30.5)
-        self.assertEqual(voice_memo_dict["transcript"], "Hello world")
-        self.assertIn("element_id", voice_memo_dict)
-        self.assertEqual(voice_memo_dict["element_id"], self.voice_memo.element_id)
+        self.assertEqual(voice_memo_dict["ty"], "voice_memo")
+        self.assertEqual(voice_memo_dict["d"], 30.5)
+        self.assertEqual(voice_memo_dict["t"], "Hello world")
+        self.assertIn("id", voice_memo_dict)
+        self.assertEqual(voice_memo_dict["id"], self.voice_memo.element_id)
 
     def test_element_deserialization(self):
         """Test element deserialization from dict"""

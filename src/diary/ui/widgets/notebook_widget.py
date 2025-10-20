@@ -42,6 +42,8 @@ class NotebookWidget(QGraphicsView):
         self.salt: bytes = salt
         self.backup_manager: BackupManager = BackupManager()
         self.logger: logging.Logger = logging.Logger("NotebookWidget")
+        self.loaded_pages: dict[int, QGraphicsProxyWidget] = {}
+        self.load_distance: int = 2
 
         self.this_scene: QGraphicsScene = QGraphicsScene()
         self.setScene(self.this_scene)
@@ -69,7 +71,7 @@ class NotebookWidget(QGraphicsView):
         QApplication.setOverrideCursor(Qt.CursorShape.BitmapCursor)
 
         timer = QTimer()
-        timer.setInterval(60)
+        timer.setInterval(1000 * 60)
         _ = timer.timeout.connect(lambda: self.save_notebook)  # pyright: ignore[reportUnknownMemberType]
 
     @override

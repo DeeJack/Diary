@@ -41,10 +41,15 @@ class Stroke(PageElement):
             "element_type": self.element_type,
             "element_id": self.element_id,
             "points": [
-                {"x": p.x, "y": p.y, "pressure": p.pressure} for p in self.points
+                (
+                    float("{:.1f}".format(p.x)),
+                    float("{:.1f}".format(p.y)),
+                    float("{:.1f}".format(p.pressure)),
+                )
+                for p in self.points
             ],
             "color": self.color,
-            "thickness": self.thickness,
+            "thickness": "{:.1f}".format(self.thickness),
             "tool": self.tool,
         }
 
@@ -55,18 +60,18 @@ class Stroke(PageElement):
         points: list[Point] = []
         if "points" in data and isinstance(data["points"], list):
             for point_data in data["points"]:
-                if isinstance(point_data, dict):
+                if isinstance(point_data, tuple) or isinstance(point_data, list):
                     point = Point(
-                        x=cast(float, point_data.get("x", 0.0)),
-                        y=cast(float, point_data.get("y", 0.0)),
-                        pressure=cast(float, point_data.get("pressure", 1.0)),
+                        x=float(point_data[0]) or 0.0,
+                        y=float(point_data[1]) or 0.0,
+                        pressure=float(point_data[2]) or 0.0,
                     )
                     points.append(point)
 
         return cls(
             points=points,
             color=cast(str, data.get("color", "black")),
-            size=cast(float, data.get("thickness", 1.0)),
+            size=float(data.get("thickness", 1.0)),
             tool=cast(str, data.get("tool", "pen")),
             element_id=data.get("element_id"),
         )

@@ -39,6 +39,7 @@ class NotebookDAO:
         filepath: Path,
     ) -> None:
         """Save notebook to unencrypted JSON file (for testing only)"""
+        logging.getLogger("NotebookDAO").debug("Num pages: %d", len(notebook.pages))
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(notebook, f, indent=2, cls=MyEncoder)
 
@@ -56,11 +57,15 @@ class NotebookDAO:
             return Notebook(pages=[Page()])
 
         logging.getLogger("NotebookDAO").debug("Notebook exists, decrypting")
-        notebook_str = encryption.SecureEncryption.decrypt_file_to_json_with_key(
-            filepath, key_buffer, progress
+        notebook_str = NotebookDAO.load_unencrypted(
+            Path("data/notebook_encrypted.json")
         )
+        # notebook_str = encryption.SecureEncryption.decrypt_file_to_json_with_key(
+        #     filepath, key_buffer, progress
+        # )
         logging.getLogger("NotebookDAO").debug("Decryption completed successfully!")
-        return NotebookDAO.to_notebook(json.loads(notebook_str))  # pyright: ignore[reportAny]
+        # return NotebookDAO.to_notebook(json.loads(notebook_str))  # pyright: ignore[reportAny]
+        return notebook_str  # pyright: ignore[reportAny]
 
     @staticmethod
     def load_unencrypted(

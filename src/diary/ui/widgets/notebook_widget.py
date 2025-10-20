@@ -1,6 +1,7 @@
 """The widget for the Notebook containing the PageWidgets"""
 
 import logging
+from pathlib import Path
 from typing import override
 import sys
 
@@ -171,12 +172,15 @@ class NotebookWidget(QGraphicsView):
 
     def save_notebook(self):
         """Saves the notebook to file"""
-        self.logger.debug("Saving notebook...")
-        NotebookDAO.save(
-            self.notebook, settings.NOTEBOOK_FILE_PATH, self.key_buffer, self.salt
-        )
+        self.logger.debug("Saving notebook (%d pages)...", len(self.notebook.pages))
+        # NotebookDAO.save(
+        #     self.notebook, settings.NOTEBOOK_FILE_PATH, self.key_buffer, self.salt
+        # )
         self.logger.debug("Creating backup...")
-        self.backup_manager.save_backups()
+        # self.backup_manager.save_backups()
+        NotebookDAO.save_unencrypted(
+            self.notebook, Path("data/notebook_encrypted.json")
+        )
 
     def add_page_to_scene(self, page_widget: PageWidget):
         """Add a new PageWidget to the scene"""

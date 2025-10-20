@@ -70,9 +70,10 @@ class NotebookWidget(QGraphicsView):
 
         QApplication.setOverrideCursor(Qt.CursorShape.BitmapCursor)
 
-        timer = QTimer()
+        timer = QTimer(self)
         timer.setInterval(1000 * 60)
-        _ = timer.timeout.connect(lambda: self.save_notebook)  # pyright: ignore[reportUnknownMemberType]
+        _ = timer.timeout.connect(self.save_notebook)  # pyright: ignore[reportUnknownMemberType]
+        timer.start()
 
     @override
     def viewportEvent(self, event: QEvent | None):

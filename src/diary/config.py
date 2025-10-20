@@ -30,5 +30,7 @@ class Settings(BaseSettings):
     PAGE_LINES_MARING: int = 5
     PAGE_BETWEEN_SPACING: int = 10
 
+    AUTOSAVE_NOTEBOOK_TIMEOUT: int = 120  # in seconds
+
 
 settings = Settings()

@@ -34,7 +34,7 @@ class StrokeAdapter(ElementAdapter):
             first_point = stroke.points[0]
             width = self._calculate_width_from_pressure(first_point.pressure)
             pen = QPen(QColor(stroke.color), width)
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            # pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             painter.setPen(pen)
             painter.drawPoint(QPointF(first_point.x, first_point.y))
             return
@@ -57,8 +57,8 @@ class StrokeAdapter(ElementAdapter):
                 path.lineTo(p2.x, p2.y)
 
             pen = QPen(QColor(stroke.color), width)
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            # pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            # pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
             painter.setPen(pen)
             painter.drawPath(path)
 

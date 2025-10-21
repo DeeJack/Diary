@@ -110,7 +110,7 @@ class PageWidget(QWidget):
             return
 
         painter = QPainter(self.backing_pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        # painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.fillRect(self.backing_pixmap.rect(), QColor(0xE0, 0xE0, 0xE0))
         self.draw_horizontal_lines(painter)
         self.draw_previous_elements(painter)
@@ -121,7 +121,7 @@ class PageWidget(QWidget):
     def paintEvent(self, a0: QPaintEvent | None) -> None:
         """Draw the pixmap and current stroke"""
         painter = QtGui.QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
 
         if self.is_loaded and self.backing_pixmap:
             painter.drawPixmap(0, 0, self.backing_pixmap)
@@ -204,7 +204,7 @@ class PageWidget(QWidget):
         # Render the completed stroke to the backing pixmap
         if self.backing_pixmap:
             painter = QPainter(self.backing_pixmap)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            # painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             self.draw_element(self.current_stroke, painter)
             _ = painter.end()
 

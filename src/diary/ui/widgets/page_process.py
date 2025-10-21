@@ -2,7 +2,7 @@ import logging
 import pickle
 from PyQt6.QtGui import QPixmap, QPainter, QColor
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import QBuffer, QIODevice
+from PyQt6.QtCore import QBuffer, QIODevice, Qt
 
 from diary.ui.widgets.page_widget import PageWidget
 
@@ -20,23 +20,29 @@ def render_page_in_process(pickled_page_data: bytes) -> bytes:
     logger.debug("Loading page")
 
     page = pickle.loads(pickled_page_data)
-
     dummy_widget = PageWidget(page)
 
-    pixmap = QPixmap(dummy_widget.size())
-    pixmap.fill(QColor(0xE0, 0xE0, 0xE0))
+    final_pixmap = QPixmap(dummy_widget.size())
+    final_pixmap.fill(QColor(0xE0, 0xE0, 0xE0))
 
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    stroke_buffer = QPixmap(dummy_widget.size())
+    stroke_buffer.fill(Qt.GlobalColor.transparent)
 
-    # Use the dummy widget's methods to perform the drawing
-    dummy_widget.draw_horizontal_lines(painter)
-    dummy_widget.draw_previous_elements(painter)
+    buffer_painter = QPainter(stroke_buffer)
+    buffer_painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-    _ = painter.end()
+    dummy_widget.draw_previous_elements(buffer_painter)
+    _ = buffer_painter.end()
+
+    final_painter = QPainter(final_pixmap)
+    final_painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    dummy_widget.draw_horizontal_lines(final_painter)
+    final_painter.drawPixmap(0, 0, stroke_buffer)
+    _ = final_painter.end()
 
     buffer = QBuffer()
     _ = buffer.open(QIODevice.OpenModeFlag.WriteOnly)
-    _ = pixmap.save(buffer, "PNG")  # Save as PNG format to the buffer
+    _ = final_pixmap.save(buffer, "PNG")  # Save as PNG format to the buffer
 
     return buffer.data().data()  # Return the raw bytes

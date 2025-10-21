@@ -36,7 +36,6 @@ from diary.config import settings
 from diary.ui.widgets.save_worker import SaveWorker
 from diary.utils.backup import BackupManager
 from diary.utils.encryption import SecureBuffer
-from diary.ui.widgets.page_worker import PageLoader
 from diary.ui.widgets.page_process import render_page_in_process
 
 
@@ -94,7 +93,7 @@ class NotebookWidget(QGraphicsView):
 
         self.scroll_timer: QTimer = QTimer()
         self.scroll_timer.setSingleShot(True)
-        self.scroll_timer.setInterval(500)
+        self.scroll_timer.setInterval(150)
         _ = self.scroll_timer.timeout.connect(self._on_scroll)
 
         self.setup_notebook_widget()
@@ -352,7 +351,10 @@ class NotebookWidget(QGraphicsView):
 
     def on_scroll_timer(self, _):
         """Call the timer to load the new pages, overriding the previous timer if already called"""
-        self.scroll_timer.start()
+        try:
+            self.scroll_timer.start()
+        except Exception as _:
+            pass
 
     def _on_scroll(self):
         """Load the new visible pages after scrolling"""
@@ -384,17 +386,6 @@ class NotebookWidget(QGraphicsView):
 
         self._dispatch_tasks()
 
-    def load_page(self, page_index: int):
-        """Load the page in another thread"""
-        self.logger.debug("Queuing page %d for loading", page_index)
-        if page_index in self.page_cache:
-            self.pages_to_load.add(page_index)
-            page_widget = self.page_cache[page_index]
-
-            worker = PageLoader(page_index, page_widget)
-            _ = worker.signals.finished.connect(self.on_page_loaded)
-            self.thread_pool.start(worker)
-
     def _get_current_page_index(self):
         """Estimate current page index based on viewport"""
         center_y = self.mapToScene(self.viewport().rect().center()).y()  # pyright: ignore[reportOptionalMemberAccess]
@@ -417,7 +408,7 @@ class NotebookWidget(QGraphicsView):
         if not self.high_priority_queue and not self.low_priority_queue:
             return
 
-        for _ in range(12):
+        for _ in range(QThread.idealThreadCount()):
             # Simplified: just dispatch one task for now
             if self.high_priority_queue:
                 page_index = self.high_priority_queue.popleft()

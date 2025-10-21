@@ -21,10 +21,6 @@ def render_page_in_process(pickled_page_data: bytes) -> bytes:
 
     page = pickle.loads(pickled_page_data)
 
-    # Create a dummy PageWidget just to use its drawing logic.
-    # It will never be shown, so it doesn't need a parent.
-    # IMPORTANT: Ensure PageWidget.__init__ does not do anything that
-    # requires the main GUI thread.
     dummy_widget = PageWidget(page)
 
     pixmap = QPixmap(dummy_widget.size())

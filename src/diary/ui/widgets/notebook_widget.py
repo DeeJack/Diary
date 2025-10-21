@@ -2,6 +2,8 @@
 
 from collections import deque
 import logging
+from multiprocessing import Pool
+import pickle
 from typing import cast, override
 import sys
 
@@ -35,6 +37,7 @@ from diary.ui.widgets.save_worker import SaveWorker
 from diary.utils.backup import BackupManager
 from diary.utils.encryption import SecureBuffer
 from diary.ui.widgets.page_worker import PageLoader
+from diary.ui.widgets.page_process import render_page_in_process
 
 
 class NotebookWidget(QGraphicsView):
@@ -73,9 +76,12 @@ class NotebookWidget(QGraphicsView):
         )
         self.status_bar: QStatusBar = status_bar
         self.this_scene: QGraphicsScene = QGraphicsScene()
+        self.is_notebook_dirty: bool = False
+        self.process_pool = Pool()
 
         # Caching/lazy load
         self.thread_pool: QThreadPool = QThreadPool()
+        print(QThread.idealThreadCount())
         self.thread_pool.setMaxThreadCount(QThread.idealThreadCount())
         self.page_cache: dict[int, PageWidget] = {}  # {page_index: PageWidget}
         self.pages_to_load: set[int] = set()
@@ -186,6 +192,9 @@ class NotebookWidget(QGraphicsView):
         ] or not isinstance(event, QTabletEvent):
             return super().eventFilter(obj, event)
 
+        # Save the notebook since it likely changed
+        self.is_notebook_dirty = True
+
         # Get position in viewport
         pos: QPoint = event.position().toPoint()
         scene_pos: QPointF = self.mapToScene(pos)
@@ -278,12 +287,15 @@ class NotebookWidget(QGraphicsView):
 
     def save(self):
         """Save notebook synchronously"""
-        self.logger.debug("Saving notebook (%d pages)...", len(self.notebook.pages))
-        self.status_bar.showMessage("Saving...")
-        NotebookDAO.save(
-            self.notebook, settings.NOTEBOOK_FILE_PATH, self.key_buffer, self.salt
-        )
-        self.status_bar.showMessage("Save completed!")
+        if self.is_notebook_dirty:
+            self.logger.debug("Saving notebook (%d pages)...", len(self.notebook.pages))
+            self.status_bar.showMessage("Saving...")
+            NotebookDAO.save(
+                self.notebook, settings.NOTEBOOK_FILE_PATH, self.key_buffer, self.salt
+            )
+            self.status_bar.showMessage("Save completed!")
+        else:
+            self.logger.debug("Skipping save due to no changes")
 
         self.logger.debug("Creating backup...")
         self.status_bar.showMessage("Creating backup...")
@@ -402,28 +414,49 @@ class NotebookWidget(QGraphicsView):
 
     def _dispatch_tasks(self):
         """Starts new workers from the queues if there's capacity."""
-        while self.thread_pool.activeThreadCount() < self.thread_pool.maxThreadCount():
+        if not self.high_priority_queue and not self.low_priority_queue:
+            return
+
+        for _ in range(12):
+            # Simplified: just dispatch one task for now
             if self.high_priority_queue:
                 page_index = self.high_priority_queue.popleft()
             elif self.low_priority_queue:
                 page_index = self.low_priority_queue.popleft()
             else:
-                break  # No more tasks to dispatch
+                break
 
             if page_index not in self.loading_pages:
                 self.loading_pages.add(page_index)
+                self.logger.debug("Loading page %d on another process", page_index)
+
+                # Get the serializable data
                 page_widget = cast(PageWidget, self.page_proxies[page_index].widget())
+                page_data = page_widget.page  # This is your 'Page' object
+                pickled_page_data = pickle.dumps(page_data)
 
-                worker = PageLoader(page_index, page_widget)
-                _ = worker.signals.finished.connect(self.on_page_loaded)
-                _ = self.thread_pool.start(worker)
+                # apply_async is non-blocking. It sends the job to a worker process.
+                _ = self.process_pool.apply_async(
+                    render_page_in_process,
+                    args=(pickled_page_data,),
+                    callback=lambda result_bytes,
+                    p_index=page_index: self.on_page_loaded(p_index, result_bytes),
+                )
 
-    def on_page_loaded(self, page_index: int, pixmap: QPixmap):
+    def on_page_loaded(self, page_index: int, png_bytes: bytes):
         """Slot to receive the rendered pixmap from a worker."""
         self.logger.debug("Page %d loaded", page_index)
-        # Only update if the page is still relevant.
-        page_widget = cast(PageWidget, self.page_proxies[page_index].widget())
-        page_widget.set_backing_pixmap(pixmap)
+
         if page_index in self.loading_pages:
             self.loading_pages.remove(page_index)
-        self._dispatch_tasks()  # Dispatch another task
+
+        page_widget = cast(PageWidget, self.page_proxies[page_index].widget())
+
+        # Recreate the QPixmap from the raw PNG data
+        pixmap = QPixmap()
+        _ = pixmap.loadFromData(png_bytes)
+
+        page_widget.set_backing_pixmap(pixmap)
+
+        # Since a task finished, try to dispatch the next one from the queue
+        self._dispatch_tasks()

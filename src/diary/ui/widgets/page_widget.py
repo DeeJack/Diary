@@ -59,7 +59,6 @@ class PageWidget(QWidget):
 
         self.setFixedSize(self.page_width, self.page_height)
         self.setMinimumWidth(self.page_width)
-        self.logger.debug("Adding all page items")
 
         # Initialize adapters
         self._setup_adapters()
@@ -219,6 +218,7 @@ class PageWidget(QWidget):
         CIRCLE_RADIUS = 4  # 3 pixels circle
         for element in self.page.elements.copy():
             if element.intersects(Point(pos.x(), pos.y(), 1), CIRCLE_RADIUS):
+                print("Found element to erase", element.element_id)
                 self.page.remove_element(element)
                 self.needs_full_redraw = True
                 self.is_loaded = True

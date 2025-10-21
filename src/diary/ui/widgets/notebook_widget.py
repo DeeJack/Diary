@@ -28,6 +28,7 @@ from PyQt6.QtCore import (
     QTimer,
     Qt,
     QEvent,
+    pyqtSlot,
 )
 
 from diary.ui.widgets.page_widget import PageWidget
@@ -54,8 +55,8 @@ class NotebookWidget(QGraphicsView):
         self.min_zoom: float = 0.4
         self.max_zoom: float = 1.3
         self.notebook: Notebook = notebook or Notebook([Page(), Page()])
-        self.pages: list[PageWidget] = [
-            PageWidget(page) for page in self.notebook.pages
+        self.pages: list[PageWidget] = [  # TODO: is this used now???
+            PageWidget(page, i) for i, page in enumerate(self.notebook.pages)
         ]
         self.page_proxies: list[QGraphicsProxyWidget] = []
         self.key_buffer: SecureBuffer = key_buffer
@@ -277,7 +278,7 @@ class NotebookWidget(QGraphicsView):
         index = self.notebook.pages.index(page) + 1
         new_page = Page()
         self.notebook.pages.insert(index, new_page)
-        page_widget = PageWidget(new_page)
+        page_widget = PageWidget(new_page, index - 1)
         self.pages.insert(index, page_widget)
         proxy = self.add_page_to_scene(page_widget)
         self.page_proxies.insert(index, proxy)
@@ -341,8 +342,10 @@ class NotebookWidget(QGraphicsView):
         """Setup the layout for the pages, without loading them"""
         y_pos = 0
         for i, page_data in enumerate(self.notebook.pages):
-            page_widget = PageWidget(page_data)
+            page_widget = PageWidget(page_data, i)
             proxy_widget = self.this_scene.addWidget(page_widget)
+            # TOOD: use add scene widget method
+            _ = page_widget.needs_regeneration.connect(self.regenerate_page)
             assert proxy_widget
             proxy_widget.setPos(0, y_pos)
             self.page_proxies.append(proxy_widget)
@@ -429,7 +432,7 @@ class NotebookWidget(QGraphicsView):
                 # apply_async is non-blocking. It sends the job to a worker process.
                 _ = self.process_pool.apply_async(
                     render_page_in_process,
-                    args=(pickled_page_data,),
+                    args=(pickled_page_data, page_index),
                     callback=lambda result_bytes,
                     p_index=page_index: self.on_page_loaded(p_index, result_bytes),
                 )
@@ -450,4 +453,20 @@ class NotebookWidget(QGraphicsView):
         page_widget.set_backing_pixmap(pixmap)
 
         # Since a task finished, try to dispatch the next one from the queue
+        self._dispatch_tasks()
+
+    @pyqtSlot(int)
+    def regenerate_page(self, page_index: int):
+        """
+        Queues a high-priority job to re-render a specific page.
+        This is called when a page's content (e.g., erasing) has changed.
+        """
+        # TODO
+        # if page_index not in self.loading_pages and page_index in self.loaded_pages:
+        self.logger.debug("Queueing high-priority regeneration for page %d", page_index)
+
+        # Add to the front of the high-priority queue to ensure it runs next
+        self.high_priority_queue.appendleft(page_index)
+
+        # Kick off the dispatcher to see if a worker is free
         self._dispatch_tasks()

@@ -2,7 +2,7 @@
 
 from typing import override
 from PyQt6.QtGui import QPainter, QPen, QColor, QPainterPath
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QPointF, QRectF, Qt
 
 from diary.models.stroke import Stroke
 from diary.models.page_element import PageElement
@@ -34,7 +34,7 @@ class StrokeAdapter(ElementAdapter):
             first_point = stroke.points[0]
             width = self._calculate_width_from_pressure(first_point.pressure)
             pen = QPen(QColor(stroke.color), width)
-            # pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             painter.setPen(pen)
             painter.drawPoint(QPointF(first_point.x, first_point.y))
             return
@@ -45,7 +45,7 @@ class StrokeAdapter(ElementAdapter):
             avg_pressure = (p1.pressure + p2.pressure) / 2
             width = self._calculate_width_from_pressure(avg_pressure)
 
-            path = QPainterPath()
+            path: QPainterPath = QPainterPath()
             path.moveTo(p1.x, p1.y)
 
             if i < len(stroke.points) - 2:
@@ -57,8 +57,8 @@ class StrokeAdapter(ElementAdapter):
                 path.lineTo(p2.x, p2.y)
 
             pen = QPen(QColor(stroke.color), width)
-            # pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            # pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
             painter.setPen(pen)
             painter.drawPath(path)
 
@@ -68,3 +68,38 @@ class StrokeAdapter(ElementAdapter):
         min_width = 1.0
         max_width = self.base_thickness * 2
         return min_width + (pressure * (max_width - min_width))
+
+    @staticmethod
+    def stroke_to_bounding_rect(stroke: Stroke):
+        """
+        Calculates the smallest rectangle that encloses the entire stroke,
+        including its thickness.
+        """
+        if not stroke.points:
+            # Return an empty/invalid rectangle if there are no points
+            return QRectF()
+
+        # Initialize min/max with the coordinates of the first point
+        min_x = stroke.points[0].x
+        max_x = stroke.points[0].x
+        min_y = stroke.points[0].y
+        max_y = stroke.points[0].y
+
+        # Iterate through the rest of the points to find the extremities
+        for point in stroke.points[1:]:
+            min_x = min(min_x, point.x)
+            max_x = max(max_x, point.x)
+            min_y = min(min_y, point.y)
+            max_y = max(max_y, point.y)
+
+        # IMPORTANT: Account for the stroke's thickness.
+        # The bounding box needs to be expanded by half the thickness
+        # in every direction to contain the anti-aliased edges.
+        margin = stroke.thickness / 2.0
+
+        return QRectF(
+            min_x - margin,
+            min_y - margin,
+            (max_x - min_x) + stroke.thickness,
+            (max_y - min_y) + stroke.thickness,
+        )

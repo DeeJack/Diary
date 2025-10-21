@@ -42,8 +42,9 @@ class PageWidget(QWidget):
 
     add_below: pyqtSignal = pyqtSignal(object)
     add_below_dynamic: pyqtSignal = pyqtSignal(object)
+    needs_regeneration: pyqtSignal = pyqtSignal(int)
 
-    def __init__(self, page: Page | None):
+    def __init__(self, page: Page | None, page_index: int):
         super().__init__()
         self.page_width: int = settings.PAGE_WIDTH
         self.page_height: int = settings.PAGE_HEIGHT
@@ -56,6 +57,7 @@ class PageWidget(QWidget):
         self.backing_pixmap: QPixmap | None = None
         self.logger: logging.Logger = logging.getLogger("PageWidget")
         self.is_loaded: bool = False
+        self.page_index: int = page_index
 
         self.setFixedSize(self.page_width, self.page_height)
         self.setMinimumWidth(self.page_width)
@@ -110,7 +112,7 @@ class PageWidget(QWidget):
             return
 
         painter = QPainter(self.backing_pixmap)
-        # painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.fillRect(self.backing_pixmap.rect(), QColor(0xE0, 0xE0, 0xE0))
         self.draw_horizontal_lines(painter)
         self.draw_previous_elements(painter)
@@ -204,7 +206,7 @@ class PageWidget(QWidget):
         # Render the completed stroke to the backing pixmap
         if self.backing_pixmap:
             painter = QPainter(self.backing_pixmap)
-            # painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             self.draw_element(self.current_stroke, painter)
             _ = painter.end()
 
@@ -216,14 +218,56 @@ class PageWidget(QWidget):
 
     def erase(self, pos: QPointF):
         CIRCLE_RADIUS = 4  # 3 pixels circle
+        element_to_remove: Stroke | None = None
+
         for element in self.page.elements.copy():
-            if element.intersects(Point(pos.x(), pos.y(), 1), CIRCLE_RADIUS):
-                print("Found element to erase", element.element_id)
-                self.page.remove_element(element)
-                self.needs_full_redraw = True
-                self.is_loaded = True
-                self.update()
-                return
+            if isinstance(element, Stroke) and element.intersects(
+                Point(pos.x(), pos.y(), 0), CIRCLE_RADIUS
+            ):
+                self.logger.debug("Erasing element %s", element.element_id)
+                element_to_remove = element
+                break
+
+        if element_to_remove:
+            if self.backing_pixmap:
+                painter = QPainter(self.backing_pixmap)
+
+                # Get the bounding box of the stroke to erase
+                bounding_rect = StrokeAdapter.stroke_to_bounding_rect(element_to_remove)
+                # Add a small margin for anti-aliasing
+                bounding_rect = bounding_rect.adjusted(-5, -5, 5, 5)
+
+                # "Erase" by painting the background color over the area
+                painter.fillRect(bounding_rect, QColor(0xE0, 0xE0, 0xE0))
+
+                # OPTIONAL BUT RECOMMENDED: Redraw the page lines in this area
+                # This prevents leaving blank spots where lines should be
+                painter.setBrush(QBrush(QColor(0xDD, 0xCD, 0xC4)))
+                painter.setPen(QColor(0xDD, 0xCD, 0xC4))
+                painter.setOpacity(0.9)
+                for line_y in range(
+                    int(bounding_rect.top()),
+                    int(bounding_rect.bottom()),
+                    settings.PAGE_LINES_SPACING,
+                ):
+                    if (
+                        line_y >= settings.PAGE_LINES_SPACING
+                    ):  # Avoid drawing on top margin
+                        painter.drawLine(
+                            QPointF(bounding_rect.left(), float(line_y)),
+                            QPointF(bounding_rect.right(), float(line_y)),
+                        )
+
+                _ = painter.end()
+
+            # --- DATA & REGENERATION ---
+            self.page.remove_element(element_to_remove)
+
+            # Immediately update the screen with the "dirty" pixmap
+            self.update()
+
+            # Tell the Notebook to start a proper re-render in the background
+            self.needs_regeneration.emit(self.page_index)
 
     def handle_tablet_event(self, event: QTabletEvent, pos: QPointF):
         """Handles Pen events, forwarded by the Notebook"""

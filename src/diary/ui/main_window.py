@@ -24,7 +24,7 @@ from diary.utils.encryption import SecureBuffer, SecureEncryption
 class MainWindow(QMainWindow):
     """Main window of the application, containing all other Widgets"""
 
-    logger: logging.Logger = logging.Logger("Main Window")
+    logger: logging.Logger = logging.getLogger("Main Window")
 
     def __init__(self):
         super().__init__()

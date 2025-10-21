@@ -54,7 +54,8 @@ class PageWidget(QWidget):
         self.base_thickness: float = 3.0
         self.needs_full_redraw: bool = True
         self.backing_pixmap: QPixmap | None = None
-        self.logger: logging.Logger = logging.Logger("PageWidget")
+        self.logger: logging.Logger = logging.getLogger("PageWidget")
+        self.is_loaded: bool = False
 
         self.setFixedSize(self.page_width, self.page_height)
         self.setMinimumWidth(self.page_width)
@@ -85,7 +86,7 @@ class PageWidget(QWidget):
         title_label.setStyleSheet("color:black;")
 
         btn_below = QPushButton("Add below")
-        _ = btn_below.clicked.connect(lambda: self.add_below.emit(self))  # pyright: ignore[reportUnknownMemberType]
+        _ = btn_below.clicked.connect(lambda: self.add_below.emit(self))
 
         btn_row = QHBoxLayout()
         btn_row.addStretch()
@@ -122,15 +123,13 @@ class PageWidget(QWidget):
         """Draw the pixmap and current stroke"""
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self.ensure_backing_pixmap()
 
-        if self.needs_full_redraw:
-            self.render_backing_pixmap()
-
-        if self.backing_pixmap:
+        if self.is_loaded and self.backing_pixmap:
             painter.drawPixmap(0, 0, self.backing_pixmap)
+        else:
+            # Draw a placeholder until loaded
+            painter.fillRect(self.rect(), QColor(0xF0, 0xF0, 0xF0))
 
-        # Only draw the current stroke on top
         self.draw_current_stroke(painter)
         return super().paintEvent(a0)
 
@@ -217,11 +216,12 @@ class PageWidget(QWidget):
             self.add_below_dynamic.emit(self)
 
     def erase(self, pos: QPointF):
-        CIRCLE_RADIUS = 3  # 3 pixels circle
+        CIRCLE_RADIUS = 4  # 3 pixels circle
         for element in self.page.elements.copy():
-            if element.intersects(Point(pos.x(), pos.y(), 0), CIRCLE_RADIUS):
+            if element.intersects(Point(pos.x(), pos.y(), 1), CIRCLE_RADIUS):
                 self.page.remove_element(element)
                 self.needs_full_redraw = True
+                self.is_loaded = True
                 self.update()
                 return
 
@@ -267,3 +267,12 @@ class PageWidget(QWidget):
         min_width = 1.0
         max_width = self.base_thickness * 2
         return min_width + (pressure * (max_width - min_width))
+
+    def set_backing_pixmap(self, pixmap: QPixmap):
+        """
+        Sets the backing pixmap and triggers a reload.
+        """
+        self.backing_pixmap = pixmap
+        self.is_loaded = True
+        self.needs_full_redraw = False
+        self.update()

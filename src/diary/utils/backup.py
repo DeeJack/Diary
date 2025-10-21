@@ -18,7 +18,7 @@ class BackupManager:
         settings.DAILY_BACKUP_PATH.mkdir(parents=True, exist_ok=True)
         settings.WEEKLY_BACKUP_PATH.mkdir(parents=True, exist_ok=True)
         settings.MONTLY_BACKUP_PATH.mkdir(parents=True, exist_ok=True)
-        self.logger: logging.Logger = logging.Logger("Backup")
+        self.logger: logging.Logger = logging.getLogger("Backup")
 
     def save_backups(self):
         self.logger.debug("Saving backups")

@@ -63,7 +63,7 @@ class SecureEncryption:
 
     def __init__(self):
         """Initialize the encryption system"""
-        self.logger: logging.Logger = logging.Logger("Encryption")
+        self.logger: logging.Logger = logging.getLogger("Encryption")
 
     @staticmethod
     def derive_key(password: str, salt: bytes) -> SecureBuffer:

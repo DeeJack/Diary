@@ -55,9 +55,7 @@ class NotebookWidget(QGraphicsView):
         self.min_zoom: float = 0.4
         self.max_zoom: float = 1.3
         self.notebook: Notebook = notebook or Notebook([Page(), Page()])
-        self.pages: list[PageWidget] = [  # TODO: is this used now???
-            PageWidget(page, i) for i, page in enumerate(self.notebook.pages)
-        ]
+
         self.page_proxies: list[QGraphicsProxyWidget] = []
         self.key_buffer: SecureBuffer = key_buffer
         self.salt: bytes = salt
@@ -259,19 +257,6 @@ class NotebookWidget(QGraphicsView):
         self.logger.debug("Starting save on other thread")
         self.save_thread.start()
 
-    def add_page_to_scene(self, page_widget: PageWidget):
-        """Add a new PageWidget to the scene"""
-        self.logger.debug("Adding page to the scene")
-        proxy = self.this_scene.addWidget(page_widget)
-        assert proxy is not None
-        _ = page_widget.add_below.connect(
-            lambda _: self.add_page_below(page_widget.page)
-        )
-        _ = page_widget.add_below_dynamic.connect(
-            lambda _: self.add_page_below_dynamic(page_widget.page)
-        )
-        return proxy
-
     def add_page_below(self, page: Page) -> None:
         """Add a new page below the selected page"""
         self.logger.debug("Adding page below")
@@ -279,7 +264,6 @@ class NotebookWidget(QGraphicsView):
         new_page = Page()
         self.notebook.pages.insert(index, new_page)
         page_widget = PageWidget(new_page, index - 1)
-        self.pages.insert(index, page_widget)
         proxy = self.add_page_to_scene(page_widget)
         self.page_proxies.insert(index, proxy)
         self._reposition_all_pages()
@@ -311,7 +295,8 @@ class NotebookWidget(QGraphicsView):
         """Reposition all pages with correct spacing"""
         spacing = settings.PAGE_BETWEEN_SPACING
         y_position = 0
-        for _, (page_widget, proxy) in enumerate(zip(self.pages, self.page_proxies)):
+        for proxy in self.page_proxies:
+            page_widget = cast(PageWidget, proxy.widget())
             proxy.setPos(0, y_position)
             y_position += page_widget.height() + spacing
 
@@ -338,26 +323,37 @@ class NotebookWidget(QGraphicsView):
         if self.save_worker:
             self.save_worker.cancel()
 
+    def add_page_to_scene(self, page_widget: PageWidget):
+        """Add a new PageWidget to the scene"""
+        self.logger.debug("Adding page to the scene")
+        proxy = self.this_scene.addWidget(page_widget)
+        assert proxy is not None
+        _ = page_widget.add_below.connect(
+            lambda _: self.add_page_below(page_widget.page)
+        )
+        _ = page_widget.add_below_dynamic.connect(
+            lambda _: self.add_page_below_dynamic(page_widget.page)
+        )
+        _ = page_widget.needs_regeneration.connect(self.regenerate_page)
+        return proxy
+
     def _layout_pages(self):
         """Setup the layout for the pages, without loading them"""
         y_pos = 0
         for i, page_data in enumerate(self.notebook.pages):
             page_widget = PageWidget(page_data, i)
-            proxy_widget = self.this_scene.addWidget(page_widget)
-            # TOOD: use add scene widget method
-            _ = page_widget.needs_regeneration.connect(self.regenerate_page)
-            assert proxy_widget
+            proxy_widget = self.add_page_to_scene(page_widget)
             proxy_widget.setPos(0, y_pos)
             self.page_proxies.append(proxy_widget)
-            y_pos += page_widget.height() + settings.PAGE_BETWEEN_SPACING
             self.page_cache[i] = page_widget  # No content yet
+            y_pos += page_widget.height() + settings.PAGE_BETWEEN_SPACING
 
     def on_scroll_timer(self, _):
         """Call the timer to load the new pages, overriding the previous timer if already called"""
         try:
             self.scroll_timer.start()
         except Exception as _:
-            pass
+            pass  # Object has been destroyed
 
     def _on_scroll(self):
         """Load the new visible pages after scrolling"""
@@ -426,10 +422,10 @@ class NotebookWidget(QGraphicsView):
 
                 # Get the serializable data
                 page_widget = cast(PageWidget, self.page_proxies[page_index].widget())
-                page_data = page_widget.page  # This is your 'Page' object
+                page_data = page_widget.page
                 pickled_page_data = pickle.dumps(page_data)
 
-                # apply_async is non-blocking. It sends the job to a worker process.
+                # Send the job to the worker process
                 _ = self.process_pool.apply_async(
                     render_page_in_process,
                     args=(pickled_page_data, page_index),
@@ -461,12 +457,7 @@ class NotebookWidget(QGraphicsView):
         Queues a high-priority job to re-render a specific page.
         This is called when a page's content (e.g., erasing) has changed.
         """
-        # TODO
-        # if page_index not in self.loading_pages and page_index in self.loaded_pages:
         self.logger.debug("Queueing high-priority regeneration for page %d", page_index)
-
-        # Add to the front of the high-priority queue to ensure it runs next
         self.high_priority_queue.appendleft(page_index)
-
-        # Kick off the dispatcher to see if a worker is free
+        # Request the refresh immediately
         self._dispatch_tasks()

@@ -5,12 +5,14 @@ import secrets
 import sys
 from typing import override
 
+from PyQt6 import QtGui
 from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import (
     QInputDialog,
     QLineEdit,
     QMainWindow,
     QMessageBox,
+    QProgressBar,
     QStatusBar,
 )
 from PyQt6.QtCore import Qt

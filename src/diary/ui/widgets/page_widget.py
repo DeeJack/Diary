@@ -1,7 +1,7 @@
 """Represents a Widget for the Page inside the Notebook"""
 
 import logging
-from typing import override
+from typing import cast, override
 from datetime import datetime
 
 
@@ -19,12 +19,13 @@ from PyQt6.QtGui import (
     QColor,
     QPaintEvent,
     QBrush,
+    QPen,
     QPointingDevice,
     QTabletEvent,
     QPixmap,
     QResizeEvent,
 )
-from PyQt6.QtCore import QPointF, Qt, QRect, pyqtSignal
+from PyQt6.QtCore import QPointF, QRectF, Qt, QRect, pyqtSignal
 
 from diary.models.page import Page
 from diary.config import settings
@@ -130,6 +131,14 @@ class PageWidget(QWidget):
         else:
             # Draw a placeholder until loaded
             painter.fillRect(self.rect(), QColor(0xF0, 0xF0, 0xF0))
+
+            painter.setFont(QFont("Times New Roman", 50))
+            painter.setPen(QColor(0x80, 0x80, 0x80))  # A medium grey color
+            _ = painter.drawText(
+                self.rect(),
+                Qt.AlignmentFlag.AlignCenter,
+                "Loading...",
+            )
 
         self.draw_current_stroke(painter)
         return super().paintEvent(a0)

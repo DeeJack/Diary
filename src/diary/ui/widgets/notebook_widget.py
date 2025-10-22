@@ -325,7 +325,6 @@ class NotebookWidget(QGraphicsView):
 
     def add_page_to_scene(self, page_widget: PageWidget):
         """Add a new PageWidget to the scene"""
-        self.logger.debug("Adding page to the scene")
         proxy = self.this_scene.addWidget(page_widget)
         assert proxy is not None
         _ = page_widget.add_below.connect(

@@ -401,7 +401,7 @@ class NotebookWidget(QGraphicsView):
 
     def _get_current_page_index(self):
         """Estimate current page index based on viewport"""
-        center_y = self.mapToScene(self.viewport().rect().center()).y()  # pyright: ignore[reportOptionalMemberAccess]
+        center_y = self.mapToScene(cast(QWidget, self.viewport()).rect().center()).y()
         page_height = settings.PAGE_HEIGHT + settings.PAGE_BETWEEN_SPACING
         return max(0, int(center_y / page_height))
 
@@ -443,7 +443,7 @@ class NotebookWidget(QGraphicsView):
                 _ = self.process_pool.apply_async(
                     render_page_in_process,
                     args=(pickled_page_data, page_index),
-                    callback=lambda result_bytes,
+                    callback=lambda result_bytes,  # type: ignore
                     p_index=page_index: self.on_page_loaded(p_index, result_bytes),
                 )
 
@@ -483,7 +483,7 @@ class NotebookWidget(QGraphicsView):
             y_pos = page_index * (
                 self.page_cache[0].height() + settings.PAGE_BETWEEN_SPACING
             )
-            self.verticalScrollBar().setValue(int(y_pos))
+            cast(QScrollBar, self.verticalScrollBar()).setValue(int(y_pos))
 
     @pyqtSlot()
     def go_to_first_page(self):

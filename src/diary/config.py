@@ -4,13 +4,13 @@ Contains the configuration options for the Diary application
 
 from enum import Enum
 from pathlib import Path
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """Settings class for the Diary application"""
 
-    model_config: SettingsConfigDict = {  # pyright: ignore[reportIncompatibleVariableOverride]
+    model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
     }

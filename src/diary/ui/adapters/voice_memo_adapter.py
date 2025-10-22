@@ -97,7 +97,7 @@ class VoiceMemoAdapter(ElementAdapter):
         """Format duration in seconds to a readable string"""
         if duration < 60:
             return f"{duration:.0f}s"
-        elif duration < 3600:
+        if duration < 3600:
             minutes = int(duration // 60)
             seconds = int(duration % 60)
             return f"{minutes}:{seconds:02d}"

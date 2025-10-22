@@ -52,7 +52,7 @@ class PageWidget(QWidget):
         self.page: Page = page or Page()
         self.is_drawing: bool = False
         self.is_erasing: bool = False
-        self.base_thickness: float = 3.0
+        self.base_thickness: float = 1.0
         self.needs_full_redraw: bool = True
         self.backing_pixmap: QPixmap | None = None
         self.logger: logging.Logger = logging.getLogger("PageWidget")
@@ -123,7 +123,7 @@ class PageWidget(QWidget):
     def paintEvent(self, a0: QPaintEvent | None) -> None:
         """Draw the pixmap and current stroke"""
         painter = QtGui.QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         if self.is_loaded and self.backing_pixmap:
             painter.drawPixmap(0, 0, self.backing_pixmap)
@@ -318,7 +318,9 @@ class PageWidget(QWidget):
         # Pressure ranges from 0.0 to 1.0
         min_width = 1.0
         max_width = self.base_thickness * 2
-        return min_width + (pressure * (max_width - min_width))
+        if settings.USE_PRESSURE:
+            return min_width + (pressure * (max_width - min_width))
+        return min_width
 
     def set_backing_pixmap(self, pixmap: QPixmap):
         """

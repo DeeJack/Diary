@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     }
 
     DATA_DIR_PATH: Path = Path("data")
-    NOTEBOOK_FILE_PATH: Path = DATA_DIR_PATH / Path("test_notebook.enc")
+    NOTEBOOK_FILE_PATH: Path = DATA_DIR_PATH / Path("notebook.enc")
     BACKUP_DIR_PATH: Path = DATA_DIR_PATH / Path("backup")
     DAILY_BACKUP_PATH: Path = BACKUP_DIR_PATH / Path("daily")
     WEEKLY_BACKUP_PATH: Path = BACKUP_DIR_PATH / Path("weekly")
@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     PAGE_LINES_SPACING: int = 35
     PAGE_LINES_MARING: int = 5
     PAGE_BETWEEN_SPACING: int = 10
+    USE_PRESSURE: bool = False
 
     AUTOSAVE_NOTEBOOK_TIMEOUT: int = 120  # in seconds
 

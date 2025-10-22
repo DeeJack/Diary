@@ -4,6 +4,7 @@ from typing import override
 from PyQt6.QtGui import QPainter, QPen, QColor, QPainterPath
 from PyQt6.QtCore import QPointF, QRectF, Qt
 
+from diary.config import settings
 from diary.models.stroke import Stroke
 from diary.models.page_element import PageElement
 from diary.ui.adapters import ElementAdapter
@@ -67,7 +68,9 @@ class StrokeAdapter(ElementAdapter):
         # Pressure ranges from 0.0 to 1.0
         min_width = 1.0
         max_width = self.base_thickness * 2
-        return min_width + (pressure * (max_width - min_width))
+        if settings.USE_PRESSURE:
+            return min_width + (pressure * (max_width - min_width))
+        return min_width
 
     @staticmethod
     def stroke_to_bounding_rect(stroke: Stroke):
@@ -92,9 +95,6 @@ class StrokeAdapter(ElementAdapter):
             min_y = min(min_y, point.y)
             max_y = max(max_y, point.y)
 
-        # IMPORTANT: Account for the stroke's thickness.
-        # The bounding box needs to be expanded by half the thickness
-        # in every direction to contain the anti-aliased edges.
         margin = stroke.thickness / 2.0
 
         return QRectF(

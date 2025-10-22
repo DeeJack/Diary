@@ -52,7 +52,7 @@ class PageWidget(QWidget):
         self.page: Page = page or Page()
         self.is_drawing: bool = False
         self.is_erasing: bool = False
-        self.base_thickness: float = 1.0
+        self.base_thickness: float = 2.0
         self.needs_full_redraw: bool = True
         self.backing_pixmap: QPixmap | None = None
         self.logger: logging.Logger = logging.getLogger("PageWidget")
@@ -70,7 +70,7 @@ class PageWidget(QWidget):
     def _setup_adapters(self):
         """Setup the element adapters for rendering"""
         # Register all available adapters
-        stroke_adapter = StrokeAdapter(self.base_thickness)
+        stroke_adapter = StrokeAdapter(base_thickness=3.0)
         image_adapter = ImageAdapter()
         voice_memo_adapter = VoiceMemoAdapter()
 
@@ -103,7 +103,10 @@ class PageWidget(QWidget):
     def ensure_backing_pixmap(self):
         """Initialize or resize the backing pixmap if needed"""
         if self.backing_pixmap is None or self.backing_pixmap.size() != self.size():
-            self.backing_pixmap = QPixmap(self.size())
+            # Create pixmap with proper device pixel ratio for high-DPI displays
+            device_pixel_ratio = self.devicePixelRatio()
+            self.backing_pixmap = QPixmap(self.size() * device_pixel_ratio)
+            self.backing_pixmap.setDevicePixelRatio(device_pixel_ratio)
             self.needs_full_redraw = True
 
     def render_backing_pixmap(self):
@@ -112,7 +115,11 @@ class PageWidget(QWidget):
             return
 
         painter = QPainter(self.backing_pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        # Enable high-quality rendering hints for crisp strokes
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+
         painter.fillRect(self.backing_pixmap.rect(), QColor(0xE0, 0xE0, 0xE0))
         self.draw_horizontal_lines(painter)
         self.draw_previous_elements(painter)
@@ -123,7 +130,10 @@ class PageWidget(QWidget):
     def paintEvent(self, a0: QPaintEvent | None) -> None:
         """Draw the pixmap and current stroke"""
         painter = QtGui.QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        # Enable comprehensive rendering hints for optimal stroke quality
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
 
         if self.is_loaded and self.backing_pixmap:
             painter.drawPixmap(0, 0, self.backing_pixmap)
@@ -214,7 +224,9 @@ class PageWidget(QWidget):
         # Render the completed stroke to the backing pixmap
         if self.backing_pixmap:
             painter = QPainter(self.backing_pixmap)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            # Use same high-quality rendering hints as main painter
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
             self.draw_element(self.current_stroke, painter)
             _ = painter.end()
 
@@ -316,11 +328,11 @@ class PageWidget(QWidget):
     def calculate_width_from_pressure(self, pressure: float) -> float:
         """Calculate stroke width based on pressure"""
         # Pressure ranges from 0.0 to 1.0
-        min_width = 1.0
-        max_width = self.base_thickness * 2
+        min_width = 1.5
+        max_width = self.base_thickness * 3
         if settings.USE_PRESSURE:
             return min_width + (pressure * (max_width - min_width))
-        return min_width
+        return 2.5  # Better default thickness for crisp strokes
 
     def set_backing_pixmap(self, pixmap: QPixmap):
         """

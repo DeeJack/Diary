@@ -7,7 +7,14 @@ import pickle
 from typing import cast, override
 import sys
 
-from PyQt6.QtGui import QCloseEvent, QPixmap, QTabletEvent, QWheelEvent, QKeyEvent
+from PyQt6.QtGui import (
+    QCloseEvent,
+    QPixmap,
+    QShowEvent,
+    QTabletEvent,
+    QWheelEvent,
+    QKeyEvent,
+)
 from PyQt6.QtWidgets import (
     QApplication,
     QGestureEvent,
@@ -99,6 +106,7 @@ class NotebookWidget(QGraphicsView):
         self.scroll_timer.setSingleShot(True)
         self.scroll_timer.setInterval(150)
         _ = self.scroll_timer.timeout.connect(self._on_scroll)
+        self._initial_load_complete: bool = False
 
         self.setup_notebook_widget()
 
@@ -494,3 +502,14 @@ class NotebookWidget(QGraphicsView):
         self.current_page_changed.emit(
             self._get_current_page_index(), len(self.notebook.pages)
         )
+
+    @override
+    def showEvent(self, event: QShowEvent | None) -> None:
+        """
+        Overrides the show event to scroll to the last page on initial startup.
+        """
+        super().showEvent(event)
+
+        if not self._initial_load_complete:
+            QTimer.singleShot(0, self.go_to_last_page)
+            self._initial_load_complete = True

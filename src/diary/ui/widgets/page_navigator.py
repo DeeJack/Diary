@@ -1,3 +1,5 @@
+"""Top toolbar to go to first/last page, and show current page index"""
+
 from PyQt6.QtCore import pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import (
     QLabel,

@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     AUTOSAVE_NOTEBOOK_TIMEOUT: int = 120  # in seconds
 
     class SERIALIZATION_KEYS(Enum):
+        """Value used as the keys for the serialization"""
+
         ELEMENT_ID = "id"
         ELEMENT_TYPE = "type"
         POSITION = "pos"

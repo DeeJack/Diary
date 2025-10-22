@@ -9,6 +9,8 @@ from diary.config import settings
 
 
 class BackupManager:
+    """Handles backups for the notebook"""
+
     KEEP_MONTHS: int = 12
     KEEP_WEEKS: int = 4
     KEEP_DAYS: int = 7
@@ -21,6 +23,7 @@ class BackupManager:
         self.logger: logging.Logger = logging.getLogger("Backup")
 
     def save_backups(self):
+        """Save the backups if necessary"""
         self.logger.debug("Saving backups")
         _ = shutil.copy2(settings.NOTEBOOK_FILE_PATH, settings.CURRENT_BACKUP_PATH)
 

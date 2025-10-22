@@ -21,7 +21,7 @@ class Point:
     def to_dict(self):
         """Serialize to [x, y, pressure]"""
         return [
-            float("{:.1f}".format(self.x)),
-            float("{:.1f}".format(self.y)),
-            float("{:.1f}".format(self.pressure)),
+            float(f"{self.x:.1f}"),
+            float(f"{self.y:.1f}"),
+            float(f"{self.pressure:.1f}"),
         ]

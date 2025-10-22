@@ -108,9 +108,9 @@ class NotebookWidget(QGraphicsView):
         _ = self.scroll_timer.timeout.connect(self._on_scroll)
         self._initial_load_complete: bool = False
 
-        self.setup_notebook_widget()
+        self._setup_notebook_widget()
 
-    def setup_notebook_widget(self):
+    def _setup_notebook_widget(self):
         """Init configurations for the widget"""
         self.setScene(self.this_scene)
         # Accept events, handle dragging...
@@ -241,7 +241,7 @@ class NotebookWidget(QGraphicsView):
             sys.exit(0)
         return super().keyPressEvent(event)
 
-    def setup_save_worker(self):
+    def _setup_save_worker(self):
         """Setup the Save Worker mechanism"""
         self.save_thread = QThread()
         self.save_worker = SaveWorker(
@@ -266,18 +266,18 @@ class NotebookWidget(QGraphicsView):
         if self.is_saving:
             return
         self.is_saving = True
-        self.setup_save_worker()
+        self._setup_save_worker()
         self.logger.debug("Starting save on other thread")
         self.save_thread.start()
 
-    def add_page_below(self, page: Page) -> None:
+    def _add_page_below(self, page: Page) -> None:
         """Add a new page below the selected page"""
         self.logger.debug("Adding page below")
         index = self.notebook.pages.index(page) + 1
         new_page = Page()
         self.notebook.pages.insert(index, new_page)
         page_widget = PageWidget(new_page, index - 1)
-        proxy = self.add_page_to_scene(page_widget)
+        proxy = self._add_page_to_scene(page_widget)
         self.page_proxies.insert(index, proxy)
         self._reposition_all_pages()
         self.update()
@@ -299,10 +299,10 @@ class NotebookWidget(QGraphicsView):
         self.backup_manager.save_backups()
         self.status_bar.showMessage("Backup completed!")
 
-    def add_page_below_dynamic(self, page: Page) -> None:
+    def _add_page_below_dynamic(self, page: Page) -> None:
         """Add a page below if this is the last page"""
         if self.notebook.pages[-1] == page:
-            self.add_page_below(page)
+            self._add_page_below(page)
 
     def _reposition_all_pages(self) -> None:
         """Reposition all pages with correct spacing"""
@@ -336,15 +336,15 @@ class NotebookWidget(QGraphicsView):
         if self.save_worker:
             self.save_worker.cancel()
 
-    def add_page_to_scene(self, page_widget: PageWidget):
+    def _add_page_to_scene(self, page_widget: PageWidget):
         """Add a new PageWidget to the scene"""
         proxy = self.this_scene.addWidget(page_widget)
         assert proxy is not None
         _ = page_widget.add_below.connect(
-            lambda _: self.add_page_below(page_widget.page)
+            lambda _: self._add_page_below(page_widget.page)
         )
         _ = page_widget.add_below_dynamic.connect(
-            lambda _: self.add_page_below_dynamic(page_widget.page)
+            lambda _: self._add_page_below_dynamic(page_widget.page)
         )
         _ = page_widget.needs_regeneration.connect(self.regenerate_page)
         return proxy
@@ -355,7 +355,7 @@ class NotebookWidget(QGraphicsView):
         self.current_page_changed.emit(0, len(self.notebook.pages))
         for i, page_data in enumerate(self.notebook.pages):
             page_widget = PageWidget(page_data, i)
-            proxy_widget = self.add_page_to_scene(page_widget)
+            proxy_widget = self._add_page_to_scene(page_widget)
             proxy_widget.setPos(0, y_pos)
             self.page_proxies.append(proxy_widget)
             self.page_cache[i] = page_widget  # No content yet

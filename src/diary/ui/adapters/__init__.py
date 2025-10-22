@@ -11,12 +11,10 @@ class ElementAdapter(ABC):
     @abstractmethod
     def render(self, element: PageElement, painter: QPainter) -> None:
         """Render the given element using the provided QPainter"""
-        pass
 
     @abstractmethod
     def can_handle(self, element: PageElement) -> bool:
         """Check if this adapter can handle the given element type"""
-        pass
 
 
 class AdapterRegistry:

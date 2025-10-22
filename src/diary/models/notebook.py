@@ -24,6 +24,7 @@ class Notebook:
         return f"Notebook(Page={self.pages}; Metatada={self.metadata})"
 
     def to_dict(self):
+        """Returns the object as a dict[str, dict]"""
         return {
             settings.SERIALIZATION_KEYS.PAGES.value: [
                 page.to_dict() for page in self.pages
@@ -33,6 +34,7 @@ class Notebook:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]):
+        """Builds the object from a dictionary"""
         return cls(
             [
                 Page.from_dict(page)

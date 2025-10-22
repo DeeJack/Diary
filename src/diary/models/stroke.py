@@ -45,9 +45,7 @@ class Stroke(PageElement):
                 p.to_dict() for p in self.points
             ],
             settings.SERIALIZATION_KEYS.COLOR.value: self.color,
-            settings.SERIALIZATION_KEYS.THICKNESS.value: float(
-                "{:.1f}".format(self.thickness)
-            ),
+            settings.SERIALIZATION_KEYS.THICKNESS.value: float(f"{self.thickness:.1f}"),
             settings.SERIALIZATION_KEYS.TOOL.value: self.tool,
         }
 
@@ -60,7 +58,7 @@ class Stroke(PageElement):
             data[settings.SERIALIZATION_KEYS.POINTS.value], list
         ):
             for point_data in data[settings.SERIALIZATION_KEYS.POINTS.value]:
-                if isinstance(point_data, tuple) or isinstance(point_data, list):
+                if isinstance(point_data, (tuple, list)):
                     point = Point(
                         x=float(point_data[0]),
                         y=float(point_data[1]),

@@ -170,7 +170,7 @@ class PageWidget(QWidget):
         """Draw an element using the appropriate adapter"""
         if not adapter_registry.render_element(element, painter):
             self.logger.warning(
-                f"No adapter found for element type: {element.element_type}"
+                "No adapter found for element type: %s", element.element_type
             )
 
     def draw_current_stroke(self, painter: QPainter):
@@ -237,6 +237,7 @@ class PageWidget(QWidget):
             self.add_below_dynamic.emit(self)
 
     def erase(self, pos: QPointF):
+        """Erase strokes intersecting with the given position"""
         CIRCLE_RADIUS = 4  # 3 pixels circle
         element_to_remove: Stroke | None = None
 

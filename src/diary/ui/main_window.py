@@ -116,6 +116,7 @@ class MainWindow(QMainWindow):
 
     @override
     def closeEvent(self, a0: QCloseEvent | None):
+        """On app close event"""
         self.logger.debug("Close app event!")
         if a0 and hasattr(self, "notebook") and self.notebook:
             self.notebook.save()

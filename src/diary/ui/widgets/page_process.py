@@ -1,3 +1,5 @@
+"""Render a page in another process"""
+
 import logging
 import pickle
 from PyQt6.QtGui import QPixmap, QPainter, QColor

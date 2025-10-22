@@ -1,3 +1,5 @@
+"""Configuration for the logging module for the application"""
+
 import datetime
 import logging
 from typing import override
@@ -7,6 +9,7 @@ from diary.config import settings
 
 
 def configure_logging():
+    """Configure console and file handlers for the logging library"""
     now: str = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M")
     FILE_NAME = settings.LOGGING_DIR_PATH / f"{now}.log"
 
@@ -33,6 +36,8 @@ def configure_logging():
 
 
 class CustomFormatter(logging.Formatter):
+    """Custom colored formatter for the console"""
+
     grey: str = "\x1b[38;20m"
     yellow: str = "\x1b[33;20m"
     red: str = "\x1b[31;20m"
@@ -40,7 +45,7 @@ class CustomFormatter(logging.Formatter):
     reset: str = "\x1b[0m"
     custom_format: str = "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s"
 
-    FORMATS = {
+    FORMATS: dict[int, str] = {
         logging.DEBUG: grey + custom_format + reset,
         logging.INFO: grey + custom_format + reset,
         logging.WARNING: yellow + custom_format + reset,
@@ -49,7 +54,7 @@ class CustomFormatter(logging.Formatter):
     }
 
     @override
-    def format(self, record):
+    def format(self, record: logging.LogRecord):
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)

@@ -59,6 +59,7 @@ class Page:
         return self.page_id == other.page_id
 
     def to_dict(self) -> dict[str, Any]:
+        """Transforms the object to dict"""
         return {
             settings.SERIALIZATION_KEYS.ELEMENTS.value: [
                 element.to_dict() for element in self.elements
@@ -70,6 +71,7 @@ class Page:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]):
+        """Builds the object from dict"""
         elements: list[PageElement] = []
 
         for element in data[settings.SERIALIZATION_KEYS.ELEMENTS.value]:

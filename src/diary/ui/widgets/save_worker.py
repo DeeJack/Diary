@@ -1,8 +1,10 @@
+"""Save the notebook on another thread"""
+
 import logging
-from PyQt6.QtCore import pyqtSignal, QObject
 from pathlib import Path
 
 from PyQt6.QtWidgets import QStatusBar
+from PyQt6.QtCore import pyqtSignal, QObject
 
 from diary.models import Notebook, NotebookDAO
 from diary.utils.backup import BackupManager

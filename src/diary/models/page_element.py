@@ -16,18 +16,15 @@ class PageElement(ABC):
     @abstractmethod
     def intersects(self, pos: Point, radius: float) -> bool:
         """Check if this element intersects with a circle at the given position and radius"""
-        pass
 
     @abstractmethod
     def to_dict(self) -> dict[str, Any]:
         """Serialize this element to a dictionary for JSON storage"""
-        pass
 
     @classmethod
     @abstractmethod
     def from_dict(cls, data: dict[str, Any]) -> "PageElement":
         """Deserialize this element from a dictionary loaded from JSON"""
-        pass
 
     @override
     def __eq__(self, other: object, /) -> bool:

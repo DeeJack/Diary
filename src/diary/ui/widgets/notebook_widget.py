@@ -28,6 +28,7 @@ from PyQt6.QtCore import (
     QTimer,
     Qt,
     QEvent,
+    pyqtSignal,
     pyqtSlot,
 )
 
@@ -42,6 +43,10 @@ from diary.ui.widgets.page_process import render_page_in_process
 
 class NotebookWidget(QGraphicsView):
     """The widget for the Notebook containing the PageWidgets"""
+
+    current_page_changed: pyqtSignal = pyqtSignal(
+        int, int
+    )  # current_page_index, total_pages
 
     def __init__(
         self,
@@ -339,6 +344,7 @@ class NotebookWidget(QGraphicsView):
     def _layout_pages(self):
         """Setup the layout for the pages, without loading them"""
         y_pos = 0
+        self.current_page_changed.emit(0, len(self.notebook.pages))
         for i, page_data in enumerate(self.notebook.pages):
             page_widget = PageWidget(page_data, i)
             proxy_widget = self.add_page_to_scene(page_widget)
@@ -383,6 +389,7 @@ class NotebookWidget(QGraphicsView):
                     self.low_priority_queue.append(i)
 
         self._dispatch_tasks()
+        self.current_page_changed.emit(current_page_index, len(self.notebook.pages))
 
     def _get_current_page_index(self):
         """Estimate current page index based on viewport"""
@@ -460,3 +467,30 @@ class NotebookWidget(QGraphicsView):
         self.high_priority_queue.appendleft(page_index)
         # Request the refresh immediately
         self._dispatch_tasks()
+
+    def scroll_to_page(self, page_index: int):
+        """Scrolls to the selected page."""
+        if 0 <= page_index < len(self.page_proxies):
+            # Calculate the Y position of the target page
+            y_pos = page_index * (
+                self.page_cache[0].height() + settings.PAGE_BETWEEN_SPACING
+            )
+            self.verticalScrollBar().setValue(int(y_pos))
+
+    @pyqtSlot()
+    def go_to_first_page(self):
+        """PyQtSlot to scroll to the first page"""
+        self.scroll_to_page(0)
+
+    @pyqtSlot()
+    def go_to_last_page(self):
+        """PyQtSlot to scroll to the last page"""
+        total_pages = len(self.page_proxies)
+        if total_pages > 0:
+            self.scroll_to_page(total_pages - 1)
+
+    def update_navbar(self):
+        """Updates the indexes for the Page Navigator"""
+        self.current_page_changed.emit(
+            self._get_current_page_index(), len(self.notebook.pages)
+        )

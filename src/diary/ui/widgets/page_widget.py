@@ -1,7 +1,7 @@
 """Represents a Widget for the Page inside the Notebook"""
 
 import logging
-from typing import cast, override
+from typing import override
 from datetime import datetime
 
 
@@ -19,13 +19,12 @@ from PyQt6.QtGui import (
     QColor,
     QPaintEvent,
     QBrush,
-    QPen,
     QPointingDevice,
     QTabletEvent,
     QPixmap,
     QResizeEvent,
 )
-from PyQt6.QtCore import QPointF, QRectF, Qt, QRect, pyqtSignal
+from PyQt6.QtCore import QPointF, Qt, QRect, pyqtSignal
 
 from diary.models.page import Page
 from diary.config import settings

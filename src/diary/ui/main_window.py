@@ -5,21 +5,22 @@ import secrets
 import sys
 from typing import override
 
-from PyQt6 import QtGui
 from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import (
     QInputDialog,
     QLineEdit,
     QMainWindow,
     QMessageBox,
-    QProgressBar,
     QStatusBar,
+    QVBoxLayout,
+    QWidget,
 )
 from PyQt6.QtCore import Qt
 
 from diary.models import NotebookDAO
 from diary.ui.widgets.notebook_widget import NotebookWidget
 from diary.config import settings
+from diary.ui.widgets.page_navigator import PageNavigatorToolbar
 from diary.utils.encryption import SecureBuffer, SecureEncryption
 
 
@@ -33,7 +34,6 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Diary Application")
         self.setGeometry(100, 100, 800, 600)
         self.setStyleSheet("background-color: #2C2C2C;")
-
         self.show()
 
         self.logger.debug("Opening input dialog")
@@ -43,6 +43,9 @@ class MainWindow(QMainWindow):
             "Enter your encryption password:",
             QLineEdit.EchoMode.Password,
         )
+
+        self.this_layout: QVBoxLayout
+        self.toolbar: PageNavigatorToolbar
 
         self.logger.debug("Input dialog result: %s", ok)
 
@@ -86,13 +89,30 @@ class MainWindow(QMainWindow):
 
     def open_notebook(self, key_buffer: SecureBuffer, salt: bytes):
         """Opens the Notebook with the given password"""
+        main_widget = QWidget()
+        self.this_layout = QVBoxLayout(main_widget)
+        self.this_layout.setContentsMargins(0, 0, 0, 0)
+        self.this_layout.setSpacing(0)
+        self.toolbar = PageNavigatorToolbar()
+
         old_notebook = NotebookDAO.load(settings.NOTEBOOK_FILE_PATH, key_buffer)
         self.logger.debug("Loaded notebook, creating and opening NotebookWidget")
         self.notebook: NotebookWidget = NotebookWidget(  # pyright: ignore[reportUninitializedInstanceVariable]
             key_buffer, salt, self.statusBar() or QStatusBar(), old_notebook
         )
         self.notebook.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setCentralWidget(self.notebook)
+
+        self.connect_signals()
+        self.notebook.update_navbar()
+        self.this_layout.addWidget(self.toolbar)
+        self.this_layout.addWidget(self.notebook)
+        self.setCentralWidget(main_widget)
+
+    def connect_signals(self):
+        """Connects the Page Navigator signals"""
+        _ = self.notebook.current_page_changed.connect(self.toolbar.update_page_display)
+        _ = self.toolbar.go_to_first_requested.connect(self.notebook.go_to_first_page)
+        _ = self.toolbar.go_to_last_requested.connect(self.notebook.go_to_last_page)
 
     @override
     def closeEvent(self, a0: QCloseEvent | None):

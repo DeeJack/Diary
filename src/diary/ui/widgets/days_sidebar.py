@@ -36,6 +36,13 @@ class DaysSidebar(QDockWidget):
             item.setData(Qt.ItemDataRole.UserRole, i)
             self.entry_list.addItem(item)
 
+    def create_toggle_action(self):
+        """Create action to open/close the sidebar"""
+        sidebar_action = self.toggleViewAction()
+        sidebar_action.setText("Toggle Entry List")
+        sidebar_action.setShortcut("Ctrl+E")
+        return sidebar_action
+
     @pyqtSlot(QListWidgetItem)
     def on_entry_selected(self, item):
         """When an entry has been selected, scroll to that page"""

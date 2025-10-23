@@ -111,6 +111,9 @@ class MainWindow(QMainWindow):
         self.sidebar = DaysSidebar(self, self.notebook)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar)
 
+        view_menu = self.menuBar().addMenu("&")
+        view_menu.addAction(self.sidebar.create_toggle_action())
+
         self.connect_signals()
         self.notebook.update_navbar()
         self.this_layout.addWidget(self.toolbar)

@@ -22,6 +22,7 @@ from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.notebook_widget import NotebookWidget
 from diary.config import settings
 from diary.ui.widgets.page_navigator import PageNavigatorToolbar
+from diary.ui.widgets.tool_selector import Tool
 from diary.utils.encryption import SecureBuffer, SecureEncryption
 
 
@@ -119,8 +120,18 @@ class MainWindow(QMainWindow):
         _ = self.toolbar.go_to_first_requested.connect(self.notebook.go_to_first_page)
         _ = self.toolbar.go_to_last_requested.connect(self.notebook.go_to_last_page)
 
-        _ = self.bottom_toolbar.pen_clicked.connect(self.notebook.select_pen)
-        _ = self.bottom_toolbar.eraser_clicked.connect(self.notebook.select_eraser)
+        _ = self.bottom_toolbar.pen_clicked.connect(
+            lambda: self.notebook.select_tool(Tool.PEN)
+        )
+        _ = self.bottom_toolbar.eraser_clicked.connect(
+            lambda: self.notebook.select_tool(Tool.ERASER)
+        )
+        _ = self.bottom_toolbar.thickness_changed.connect(
+            lambda t: self.notebook.change_thickness(t)
+        )
+        _ = self.bottom_toolbar.color_changed.connect(
+            lambda c: self.notebook.change_color(c)
+        )
 
     @override
     def closeEvent(self, a0: QCloseEvent | None):

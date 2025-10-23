@@ -56,7 +56,7 @@ class StrokeAdapter(ElementAdapter):
     def _render_single_point(self, stroke: Stroke, painter: QPainter) -> None:
         """Render a single point as a dot"""
         first_point = stroke.points[0]
-        width = self._calculate_width_from_pressure(first_point.pressure)
+        width = first_point.pressure
 
         pen = self._create_optimized_pen(stroke.color, width)
         painter.setPen(pen)
@@ -83,8 +83,7 @@ class StrokeAdapter(ElementAdapter):
         points = stroke.points
 
         # Calculate average pressure for uniform width
-        avg_pressure = sum(p.pressure for p in points) / len(points)
-        width = self._calculate_width_from_pressure(avg_pressure)
+        width = sum(p.pressure for p in points) / len(points)
 
         # Create optimized pen
         pen = self._create_optimized_pen(stroke.color, width)
@@ -113,8 +112,7 @@ class StrokeAdapter(ElementAdapter):
             p2 = points[i + 1]
 
             # Calculate width for this segment
-            avg_pressure = (p1.pressure + p2.pressure) / 2
-            width = self._calculate_width_from_pressure(avg_pressure)
+            width = (p1.pressure + p2.pressure) / 2
 
             # Create path for this segment
             segment_path = QPainterPath()
@@ -191,16 +189,6 @@ class StrokeAdapter(ElementAdapter):
         # Consider pressure varying if there's more than 20% difference
         return (max_pressure - min_pressure) > 0.2
 
-    def _calculate_width_from_pressure(self, pressure: float) -> float:
-        """Calculate stroke width based on pressure"""
-        # Pressure ranges from 0.0 to 1.0
-        min_width = 1.0
-        max_width = self.base_thickness * 2
-        if settings.USE_PRESSURE:
-            return min_width + (pressure * (max_width - min_width))
-        return self.base_thickness
-
-    @staticmethod
     def stroke_to_bounding_rect(stroke: Stroke):
         """
         Calculates the smallest rectangle that encloses the entire stroke,

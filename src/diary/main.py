@@ -18,11 +18,11 @@ if __name__ == "__main__":
 
     # Enable high-DPI display support for crisp rendering
     QApplication.setHighDpiScaleFactorRoundingPolicy(
-        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+        Qt.HighDpiScaleFactorRoundingPolicy.Round
     )
 
     app = QApplication([])
 
     main_window = MainWindow()
-    main_window.show()
+    main_window.showMaximized()
     sys.exit(app.exec())

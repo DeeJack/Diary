@@ -9,6 +9,7 @@ import sys
 
 from PyQt6.QtGui import (
     QCloseEvent,
+    QColor,
     QPixmap,
     QShowEvent,
     QTabletEvent,
@@ -43,6 +44,7 @@ from diary.ui.widgets.page_widget import PageWidget
 from diary.models import Notebook, NotebookDAO, Page
 from diary.config import settings
 from diary.ui.widgets.save_worker import SaveWorker
+from diary.ui.widgets.tool_selector import Tool
 from diary.utils.backup import BackupManager
 from diary.utils.encryption import SecureBuffer
 from diary.ui.widgets.page_process import render_page_in_process
@@ -88,6 +90,9 @@ class NotebookWidget(QGraphicsView):
         self.this_scene: QGraphicsScene = QGraphicsScene()
         self.is_notebook_dirty: bool = False
         self.process_pool = Pool()
+        self.current_tool: Tool = Tool.PEN
+        self.current_color: QColor = QColor("black")
+        self.current_thickness: QColor = settings.PREFERRED_THICKNESS
 
         # Caching/lazy load
         self.thread_pool: QThreadPool = QThreadPool()
@@ -226,7 +231,13 @@ class NotebookWidget(QGraphicsView):
                 # Map scene coordinates to page coordinates
                 local_pos: QPointF = item.mapFromScene(scene_pos)
                 # Forward event
-                page_widget.handle_tablet_event(event, local_pos)
+                page_widget.handle_tablet_event(
+                    event,
+                    local_pos,
+                    self.current_tool,
+                    self.current_thickness,
+                    self.current_color,
+                )
                 return True  # Event handled
         return super().eventFilter(obj, event)
 
@@ -513,3 +524,16 @@ class NotebookWidget(QGraphicsView):
         if not self._initial_load_complete:
             QTimer.singleShot(0, self.go_to_last_page)
             self._initial_load_complete = True
+
+    def select_tool(self, new_tool: Tool):
+        self.current_tool = new_tool
+        self.logger.debug("Setting new tool: %s", self.current_tool.value)
+
+    def change_color(self, new_color: QColor):
+        self.current_color = new_color
+        self.logger.debug("Setting new color: %s", self.current_color)
+
+    def change_thickness(self, new_thickness: float):
+        self.current_thickness = new_thickness
+        settings.PREFERRED_THICKNESS = new_thickness
+        self.logger.debug("Setting new thickness: %s", self.current_thickness)

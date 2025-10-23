@@ -35,6 +35,7 @@ from diary.ui.adapters import adapter_registry
 from diary.ui.adapters.stroke_adapter import StrokeAdapter
 from diary.ui.adapters.image_adapter import ImageAdapter
 from diary.ui.adapters.voice_memo_adapter import VoiceMemoAdapter
+from diary.ui.widgets.tool_selector import Tool
 
 
 class PageWidget(QWidget):
@@ -183,25 +184,25 @@ class PageWidget(QWidget):
         for element in self.page.elements:
             self.draw_element(element, painter)
 
-    def continue_drawing(self, event: QTabletEvent, pos: QPointF):
+    def continue_drawing(self, event: QTabletEvent, pos: QPointF, current_width: float):
         """Continues current stroke"""
         if self.current_stroke is None:
             self.current_stroke = Stroke()
-        pressure = event.pressure()
-        self.current_stroke.points.append(Point(pos.x(), pos.y(), pressure))
+        width = self.calculate_width_from_pressure(event.pressure(), current_width)
+        self.current_stroke.points.append(Point(pos.x(), pos.y(), width))
 
         if len(self.current_stroke.points) >= 2:
             last_point = self.current_stroke.points[-2]
             current_point = self.current_stroke.points[-1]
-            self.update_stroke_area(last_point, current_point)
+            self.update_stroke_area(last_point, current_point, current_width)
         else:
             self.update()
 
-    def update_stroke_area(self, p1: Point, p2: Point):
+    def update_stroke_area(self, p1: Point, p2: Point, current_width: float):
         """Update only the rectangular area containing the new stroke segment"""
         # Calculate the bounding rectangle for this stroke segment
         avg_pressure = (p1.pressure + p2.pressure) / 2
-        width = self.calculate_width_from_pressure(avg_pressure)
+        width = self.calculate_width_from_pressure(avg_pressure, current_width)
         margin = max(10, int(width) + 5)  # Add some margin for antialiasing
 
         min_x = min(p1.x, p2.x) - margin
@@ -290,19 +291,29 @@ class PageWidget(QWidget):
             # Tell the Notebook to start a proper re-render in the background
             self.needs_regeneration.emit(self.page_index)
 
-    def handle_tablet_event(self, event: QTabletEvent, pos: QPointF):
+    def handle_tablet_event(
+        self,
+        event: QTabletEvent,
+        pos: QPointF,
+        tool: Tool,
+        current_width: float,
+        color: QColor,
+    ):
         """Handles Pen events, forwarded by the Notebook"""
-        if event.pointerType() == QPointingDevice.PointerType.Pen:
+        if event.pointerType() == QPointingDevice.PointerType.Pen and tool == Tool.PEN:
             if event.type() == QTabletEvent.Type.TabletPress:
                 self.is_drawing = True
-                self.current_stroke = Stroke()
+                self.current_stroke = Stroke(color=color)
             elif event.type() == QTabletEvent.Type.TabletMove:
                 if self.is_drawing:
-                    self.continue_drawing(event, pos)
+                    self.continue_drawing(event, pos, current_width)
             elif event.type() == QTabletEvent.Type.TabletRelease:
                 if self.is_drawing:
                     self.stop_drawing(pos)
-        elif event.pointerType() == QPointingDevice.PointerType.Eraser:
+        elif (
+            event.pointerType() == QPointingDevice.PointerType.Eraser
+            or tool == Tool.ERASER
+        ):
             if event.type() == QTabletEvent.Type.TabletPress:
                 self.is_erasing = True
             elif event.type() == QTabletEvent.Type.TabletMove:
@@ -326,14 +337,16 @@ class PageWidget(QWidget):
         self.needs_full_redraw = True
         self.update()
 
-    def calculate_width_from_pressure(self, pressure: float) -> float:
+    def calculate_width_from_pressure(
+        self, pressure: float, current_width: float
+    ) -> float:
         """Calculate stroke width based on pressure"""
         # Pressure ranges from 0.0 to 1.0
         min_width = 1.5
-        max_width = self.base_thickness * 3
+        max_width = current_width * 3
         if settings.USE_PRESSURE:
             return min_width + (pressure * (max_width - min_width))
-        return 2.5  # Better default thickness for crisp strokes
+        return current_width  # Better default thickness for crisp strokes
 
     def set_backing_pixmap(self, pixmap: QPixmap):
         """

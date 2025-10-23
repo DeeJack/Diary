@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from diary.models import NotebookDAO
+from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.notebook_widget import NotebookWidget
 from diary.config import settings
 from diary.ui.widgets.page_navigator import PageNavigatorToolbar
@@ -34,7 +35,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Diary Application")
         self.setGeometry(100, 100, 800, 600)
         self.setStyleSheet("background-color: #2C2C2C;")
-        self.show()
+        self.showMaximized()
 
         self.logger.debug("Opening input dialog")
         password, ok = QInputDialog.getText(
@@ -46,6 +47,7 @@ class MainWindow(QMainWindow):
 
         self.this_layout: QVBoxLayout
         self.toolbar: PageNavigatorToolbar
+        self.bottom_toolbar: BottomToolbar
 
         self.logger.debug("Input dialog result: %s", ok)
 
@@ -78,6 +80,7 @@ class MainWindow(QMainWindow):
                 status_bar = self.statusBar()
                 if status_bar:
                     status_bar.showMessage("Password accepted. Key derived.", 5000)
+                    status_bar.hide()
                 self.open_notebook(key_buffer, salt)
             except ValueError as e:
                 _ = QMessageBox.critical(self, "Error", str(e))
@@ -94,6 +97,7 @@ class MainWindow(QMainWindow):
         self.this_layout.setContentsMargins(0, 0, 0, 0)
         self.this_layout.setSpacing(0)
         self.toolbar = PageNavigatorToolbar()
+        self.bottom_toolbar = BottomToolbar()
 
         old_notebook = NotebookDAO.load(settings.NOTEBOOK_FILE_PATH, key_buffer)
         self.logger.debug("Loaded notebook, creating and opening NotebookWidget")
@@ -106,6 +110,7 @@ class MainWindow(QMainWindow):
         self.notebook.update_navbar()
         self.this_layout.addWidget(self.toolbar)
         self.this_layout.addWidget(self.notebook)
+        self.this_layout.addWidget(self.bottom_toolbar)
         self.setCentralWidget(main_widget)
 
     def connect_signals(self):
@@ -113,6 +118,9 @@ class MainWindow(QMainWindow):
         _ = self.notebook.current_page_changed.connect(self.toolbar.update_page_display)
         _ = self.toolbar.go_to_first_requested.connect(self.notebook.go_to_first_page)
         _ = self.toolbar.go_to_last_requested.connect(self.notebook.go_to_last_page)
+
+        _ = self.bottom_toolbar.pen_clicked.connect(self.notebook.select_pen)
+        _ = self.bottom_toolbar.eraser_clicked.connect(self.notebook.select_eraser)
 
     @override
     def closeEvent(self, a0: QCloseEvent | None):

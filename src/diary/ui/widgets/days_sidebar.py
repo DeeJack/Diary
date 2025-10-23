@@ -12,7 +12,7 @@ class DaysSidebar(QDockWidget):
     """QDockWidget as sidebar for navigation between Diary entries"""
 
     def __init__(self, parent: QWidget | None, notebook_widget: NotebookWidget):
-        super().__init__("Entries", parent)
+        super().__init__("", parent)
         self.notebook_widget: NotebookWidget = notebook_widget
 
         self.setAllowedAreas(
@@ -20,6 +20,7 @@ class DaysSidebar(QDockWidget):
         )
         self.entry_list = QListWidget()
         self.populate_entry_list()
+        self._style_entry_list()
         self.setWidget(self.entry_list)
         self.entry_list.itemClicked.connect(self.on_entry_selected)
 
@@ -42,3 +43,30 @@ class DaysSidebar(QDockWidget):
         page_index = item.data(Qt.ItemDataRole.UserRole)
         if page_index is not None:
             self.notebook_widget.scroll_to_page(page_index)
+
+    def _style_entry_list(self):
+        """Applies QSS for a modern look to the entry list."""
+        style_sheet = """
+            QListWidget {
+                background-color: #2B2B2B;
+                border: none;
+                color: #FFFFFF;
+                font-size: 14px;
+            }
+
+            QListWidget::item {
+                padding: 12px 8px;
+                border-bottom: 1px solid #3c3c3c;
+            }
+
+            QListWidget::item:hover {
+                background-color: #3c3f41;
+            }
+
+            QListWidget::item:selected {
+                background-color: #0078D7;
+                color: #FFFFFF;
+                border-left: 3px solid #33A1FF;
+            }
+        """
+        self.entry_list.setStyleSheet(style_sheet)

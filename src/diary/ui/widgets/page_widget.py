@@ -26,11 +26,8 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtCore import QPointF, Qt, QRect, pyqtSignal
 
-from diary.models.page import Page
+from diary.models import Page, Point, Stroke, PageElement
 from diary.config import settings
-from diary.models.point import Point
-from diary.models.stroke import Stroke
-from diary.models.page_element import PageElement
 from diary.ui.adapters import adapter_registry
 from diary.ui.adapters.stroke_adapter import StrokeAdapter
 from diary.ui.adapters.image_adapter import ImageAdapter
@@ -303,7 +300,7 @@ class PageWidget(QWidget):
         if event.pointerType() == QPointingDevice.PointerType.Pen and tool == Tool.PEN:
             if event.type() == QTabletEvent.Type.TabletPress:
                 self.is_drawing = True
-                self.current_stroke = Stroke(color=color)
+                self.current_stroke = Stroke(color=color.name())
             elif event.type() == QTabletEvent.Type.TabletMove:
                 if self.is_drawing:
                     self.continue_drawing(event, pos, current_width)

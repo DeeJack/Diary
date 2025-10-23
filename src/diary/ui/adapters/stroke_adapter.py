@@ -5,9 +5,7 @@ from PyQt6.QtGui import QPainter, QPen, QColor, QPainterPath
 from PyQt6.QtCore import QPointF, QRectF, Qt
 
 from diary.config import settings
-from diary.models.stroke import Stroke
-from diary.models.point import Point
-from diary.models.page_element import PageElement
+from diary.models import Stroke, Point, PageElement
 from diary.ui.adapters import ElementAdapter
 
 

@@ -4,8 +4,7 @@ from typing import override
 from PyQt6.QtGui import QPainter, QBrush, QColor, QPen, QFont
 from PyQt6.QtCore import QRectF, Qt, QPointF
 
-from diary.models.voice_memo import VoiceMemo
-from diary.models.page_element import PageElement
+from diary.models import VoiceMemo, PageElement
 from diary.ui.adapters import ElementAdapter
 
 

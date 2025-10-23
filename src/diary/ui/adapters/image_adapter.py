@@ -4,8 +4,7 @@ from typing import override
 from PyQt6.QtGui import QPainter, QPixmap, QBrush, QColor, QPen
 from PyQt6.QtCore import QRectF, Qt
 
-from diary.models.image import Image
-from diary.models.page_element import PageElement
+from diary.models import Image, PageElement
 from diary.ui.adapters import ElementAdapter
 
 

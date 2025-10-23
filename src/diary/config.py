@@ -59,6 +59,8 @@ class Settings(BaseSettings):
         ROTATION = "rotation"
         TRANSCRIPT = "transcript"
         DURATION = "duration"
+        TEXT = "text"
+        SIZE_PX = "size_px"
 
 
 settings = Settings()

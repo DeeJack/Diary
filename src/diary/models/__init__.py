@@ -9,11 +9,13 @@ __all__ = [
     "PageElement",
     "Image",
     "VoiceMemo",
+    "Text",
 ]
 
 from .elements import Image
 from .elements import VoiceMemo
 from .elements import Stroke
+from .elements import Text
 
 from .point import Point
 from .notebook import Notebook

@@ -165,7 +165,10 @@ class NotebookWidget(QGraphicsView):
                     self.min_zoom * 1.15, min(scale_factor, self.max_zoom * 1.15)
                 )
                 scale_factor = new_zoom / self.current_zoom
-                self.scale(scale_factor, scale_factor)
+                self.scale(
+                    scale_factor,
+                    scale_factor,
+                )
                 self.current_zoom = new_zoom
                 return True
         return super().viewportEvent(event)
@@ -187,7 +190,7 @@ class NotebookWidget(QGraphicsView):
             zoom_factor = new_zoom / self.current_zoom
 
             # Zoom around mouse cursor position
-            self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+            # self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
             self.scale(zoom_factor, zoom_factor)
             self.current_zoom = new_zoom
             # Prevent event from scrolling

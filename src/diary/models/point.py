@@ -7,7 +7,7 @@ from dataclasses import dataclass
 class Point:
     """Represents a Point for ink in the page"""
 
-    def __init__(self, x: float, y: float, pressure: float):
+    def __init__(self, x: float, y: float, pressure: float = 1.0):
         self.x: float = x
         self.y: float = y
         self.pressure: float = pressure

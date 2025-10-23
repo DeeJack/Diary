@@ -31,6 +31,7 @@ from diary.config import settings
 from diary.ui.adapters import adapter_registry
 from diary.ui.adapters.stroke_adapter import StrokeAdapter
 from diary.ui.adapters.image_adapter import ImageAdapter
+from diary.ui.adapters.text_adapter import TextAdapter
 from diary.ui.adapters.voice_memo_adapter import VoiceMemoAdapter
 from diary.ui.widgets.tool_selector import Tool
 
@@ -71,10 +72,12 @@ class PageWidget(QWidget):
         stroke_adapter = StrokeAdapter(base_thickness=3.0)
         image_adapter = ImageAdapter()
         voice_memo_adapter = VoiceMemoAdapter()
+        text_adapter = TextAdapter()
 
         adapter_registry.register(stroke_adapter)
         adapter_registry.register(image_adapter)
         adapter_registry.register(voice_memo_adapter)
+        adapter_registry.register(text_adapter)
 
     def add_page_items(self):
         """Adds the labels and buttons to the Page"""

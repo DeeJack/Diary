@@ -8,6 +8,8 @@ from typing import Any, override
 import uuid
 
 from diary.config import settings
+from diary.models.elements.text import Text
+from diary.models.point import Point
 from .elements import Image, Stroke, VoiceMemo
 from .page_element import PageElement
 

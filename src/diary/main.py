@@ -4,6 +4,7 @@ The main file that starts the Diary PyQt6 application
 
 import sys
 import logging
+import ctypes
 
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
@@ -18,8 +19,9 @@ if __name__ == "__main__":
 
     # Enable high-DPI display support for crisp rendering
     QApplication.setHighDpiScaleFactorRoundingPolicy(
-        Qt.HighDpiScaleFactorRoundingPolicy.Round
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
+    ctypes.windll.shcore.SetProcessDpiAwareness(True)
 
     app = QApplication([])
 

@@ -19,6 +19,7 @@ from PyQt6.QtCore import Qt
 
 from diary.models import NotebookDAO
 from diary.ui.widgets.bottom_toolbar import BottomToolbar
+from diary.ui.widgets.days_sidebar import DaysSidebar
 from diary.ui.widgets.notebook_widget import NotebookWidget
 from diary.config import settings
 from diary.ui.widgets.page_navigator import PageNavigatorToolbar
@@ -106,6 +107,9 @@ class MainWindow(QMainWindow):
             key_buffer, salt, self.statusBar() or QStatusBar(), old_notebook
         )
         self.notebook.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.sidebar = DaysSidebar(self, self.notebook)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar)
 
         self.connect_signals()
         self.notebook.update_navbar()

@@ -1,6 +1,7 @@
 """Top toolbar to go to first/last page, and show current page index"""
 
 from PyQt6.QtCore import pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QLabel,
     QPushButton,
@@ -25,13 +26,15 @@ class PageNavigatorToolbar(QToolBar):
 
         # Go to first
         self.first_btn: QPushButton = QPushButton()
-        self.first_btn.setText("<<")
+        self.first_btn.setText("⏮️")
+        self.first_btn.setFont(QFont("Times New Roman", 12))
         self.first_btn.setFixedWidth(30)
         _ = self.first_btn.clicked.connect(self.go_to_first_requested.emit)
 
         # Go to Last
         self.last_btn: QPushButton = QPushButton()
-        self.last_btn.setText(">>")
+        self.last_btn.setText("⏭️")
+        self.last_btn.setFont(QFont("Times New Roman", 12))
         self.last_btn.setFixedWidth(30)
         _ = self.last_btn.clicked.connect(self.go_to_last_requested.emit)
 

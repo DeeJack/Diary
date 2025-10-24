@@ -5,13 +5,13 @@ Represents a Page inside a Notebook
 import time
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, override
 
 from diary.config import settings
 
-from .elements import Image, Stroke, Text, VoiceMemo
+from .elements import Image, Stroke, VoiceMemo
 from .page_element import PageElement
-from .point import Point
 
 
 @dataclass
@@ -24,13 +24,17 @@ class Page:
         created_at: float | None = None,
         page_id: str | None = None,
         metadata: dict[str, object] | None = None,
+        streak_lvl: int = 0,
     ):
         self.elements: list[PageElement] = elements if elements is not None else []
         self.created_at: float = created_at or time.time()
         self.page_id: str = page_id or uuid.uuid4().hex
         self.metadata: dict[str, object] = metadata if metadata is not None else {}
+        self.streak_lvl: int = streak_lvl
 
-        self.elements.append(Text("asd", Point(150, 150, 1.0), size_px=100))
+    def get_creation_date(self) -> datetime:
+        """Returns the creation date as datetime.datetime"""
+        return datetime.fromtimestamp(self.created_at)
 
     @property
     def strokes(self) -> list[Stroke]:

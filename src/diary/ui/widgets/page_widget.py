@@ -1,10 +1,22 @@
 """Represents a Widget for the Page inside the Notebook"""
 
 import logging
-from typing import override
 from datetime import datetime
+from typing import override
 
-
+from PyQt6 import QtGui
+from PyQt6.QtCore import QPointF, QRect, Qt, pyqtSignal
+from PyQt6.QtGui import (
+    QBrush,
+    QColor,
+    QFont,
+    QPainter,
+    QPaintEvent,
+    QPixmap,
+    QPointingDevice,
+    QResizeEvent,
+    QTabletEvent,
+)
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -12,25 +24,12 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from PyQt6 import QtGui
-from PyQt6.QtGui import (
-    QFont,
-    QPainter,
-    QColor,
-    QPaintEvent,
-    QBrush,
-    QPointingDevice,
-    QTabletEvent,
-    QPixmap,
-    QResizeEvent,
-)
-from PyQt6.QtCore import QPointF, Qt, QRect, pyqtSignal
 
-from diary.models import Page, Point, Stroke, PageElement
 from diary.config import settings
+from diary.models import Page, PageElement, Point, Stroke
 from diary.ui.adapters import adapter_registry
-from diary.ui.adapters.stroke_adapter import StrokeAdapter
 from diary.ui.adapters.image_adapter import ImageAdapter
+from diary.ui.adapters.stroke_adapter import StrokeAdapter
 from diary.ui.adapters.text_adapter import TextAdapter
 from diary.ui.adapters.voice_memo_adapter import VoiceMemoAdapter
 from diary.ui.widgets.tool_selector import Tool
@@ -82,7 +81,12 @@ class PageWidget(QWidget):
     def add_page_items(self):
         """Adds the labels and buttons to the Page"""
         date: str = datetime.fromtimestamp(self.page.created_at).strftime("%Y-%m-%d")
-        title_label = QLabel(date)
+        title = (
+            date
+            if self.page.streak_lvl == 0
+            else f"{date} (Streak: {self.page.streak_lvl})"
+        )
+        title_label = QLabel(title)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setFont(QFont("Times New Roman", 16))
         title_label.setStyleSheet("color:black;")

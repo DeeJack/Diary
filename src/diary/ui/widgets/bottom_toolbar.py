@@ -12,12 +12,13 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
 )
 
+from diary.ui.widgets.tool_selector import Tool
+
 
 class BottomToolbar(QToolBar):
     """The toolbar at the bottom of the page"""
 
-    pen_clicked: pyqtSignal = pyqtSignal()
-    eraser_clicked: pyqtSignal = pyqtSignal()
+    tool_changed: pyqtSignal = pyqtSignal(Tool)
     thickness_changed: pyqtSignal = pyqtSignal(float)
     color_changed: pyqtSignal = pyqtSignal(QColor)
 
@@ -32,13 +33,19 @@ class BottomToolbar(QToolBar):
         self.pen_btn.setText("🖊️")
         self.pen_btn.setFont(QFont("Times New Roman", 14))
         self.pen_btn.setFixedWidth(40)
-        _ = self.pen_btn.clicked.connect(self.pen_clicked.emit)
+        _ = self.pen_btn.clicked.connect(lambda: self.tool_changed.emit(Tool.PEN))
 
         self.eraser_btn: QPushButton = QPushButton()
         self.eraser_btn.setText("⌫")
         self.eraser_btn.setFont(QFont("Times New Roman", 14))
         self.eraser_btn.setFixedWidth(40)
-        _ = self.eraser_btn.clicked.connect(self.eraser_clicked.emit)
+        _ = self.eraser_btn.clicked.connect(lambda: self.tool_changed.emit(Tool.ERASER))
+
+        self.text_btn: QPushButton = QPushButton()
+        self.text_btn.setText("💬")
+        self.text_btn.setFont(QFont("Times New Roman", 14))
+        self.text_btn.setFixedWidth(40)
+        _ = self.text_btn.clicked.connect(lambda: self.tool_changed.emit(Tool.TEXT))
 
         thickness_lbl = QLabel()
         thickness_lbl.setFont(QFont("Times New Roman", 12))
@@ -66,6 +73,8 @@ class BottomToolbar(QToolBar):
         _ = self.addWidget(self.pen_btn)
         self._add_spacer(10)
         _ = self.addWidget(self.eraser_btn)
+        self._add_spacer(10)
+        _ = self.addWidget(self.text_btn)
         self._add_spacer(30)
         _ = self.addWidget(thickness_lbl)
         self._add_spacer(10)

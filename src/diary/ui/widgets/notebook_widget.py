@@ -13,6 +13,7 @@ from PyQt6.QtGui import (
     QPixmap,
     QShowEvent,
     QTabletEvent,
+    QTouchEvent,
     QWheelEvent,
     QKeyEvent,
 )
@@ -203,6 +204,9 @@ class NotebookWidget(QGraphicsView):
         """Intercepts events to forward TabletEvents to the PageWidget"""
         if obj != self.viewport() or event is None or obj is None:
             return super().eventFilter(obj, event)
+
+        if event.type() in [QEvent.Type.MouseButtonDblClick]:
+            print("CLICKED!")
 
         if event.type() not in [
             QEvent.Type.TabletPress,

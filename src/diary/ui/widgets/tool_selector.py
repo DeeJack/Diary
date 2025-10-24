@@ -2,5 +2,6 @@ from enum import Enum
 
 
 class Tool(Enum):
-    PEN = ("PEN",)
+    PEN = "PEN"
     ERASER = "ERASER"
+    TEXT = "TEXT"

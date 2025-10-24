@@ -23,6 +23,6 @@ class TextAdapter(ElementAdapter):
             return
 
         painter.save()
-        painter.setFont(QFont(family="Times New Roman", pointSize=int(element.size_px)))
+        painter.setFont(QFont("Times New Roman", pointSize=int(element.size_px)))
         painter.drawText(QPointF(element.position.x, element.position.y), element.text)
         painter.restore()

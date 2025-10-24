@@ -50,6 +50,7 @@ class MainWindow(QMainWindow):
         self.this_layout: QVBoxLayout
         self.toolbar: PageNavigatorToolbar
         self.bottom_toolbar: BottomToolbar
+        self.sidebar: DaysSidebar
 
         self.logger.debug("Input dialog result: %s", ok)
 
@@ -128,11 +129,8 @@ class MainWindow(QMainWindow):
         _ = self.toolbar.go_to_first_requested.connect(self.notebook.go_to_first_page)
         _ = self.toolbar.go_to_last_requested.connect(self.notebook.go_to_last_page)
 
-        _ = self.bottom_toolbar.pen_clicked.connect(
-            lambda: self.notebook.select_tool(Tool.PEN)
-        )
-        _ = self.bottom_toolbar.eraser_clicked.connect(
-            lambda: self.notebook.select_tool(Tool.ERASER)
+        _ = self.bottom_toolbar.tool_changed.connect(  # pyright: ignore[reportUnknownVariableType]
+            lambda tool: self.notebook.select_tool(tool)
         )
         _ = self.bottom_toolbar.thickness_changed.connect(
             lambda t: self.notebook.change_thickness(t)

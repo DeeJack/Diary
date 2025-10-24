@@ -241,6 +241,9 @@ class PageWidget(QWidget):
         self.is_drawing = False
         if self.current_stroke is None:
             return
+        self.current_stroke.points = smooth_stroke_moving_average(
+            self.current_stroke.points, 8
+        )
         self.page.add_element(self.current_stroke)
 
         # Render the completed stroke to the backing pixmap
@@ -382,3 +385,31 @@ class PageWidget(QWidget):
         self.is_loaded = True
         self.needs_full_redraw = False
         self.update()
+
+
+def smooth_stroke_moving_average(
+    stroke_points: list[Point], window_size: int = 4
+) -> list[Point]:
+    """
+    Smooths a stroke using a simple moving average filter.
+    """
+    if len(stroke_points) < window_size:
+        return stroke_points  # Not enough points to smooth, return as is
+
+    smoothed_points = []
+    # Start with the first few points to avoid a harsh jump
+    for i in range(window_size):
+        smoothed_points.append(stroke_points[i])
+
+    for i in range(window_size, len(stroke_points)):
+        # Get the slice of points for the moving average window
+        window = stroke_points[i - window_size : i]
+
+        # Calculate the average x, y, and pressure
+        avg_x = sum(p.x for p in window) / window_size
+        avg_y = sum(p.y for p in window) / window_size
+        avg_pressure = sum(p.pressure for p in window) / window_size
+
+        smoothed_points.append(Point(avg_x, avg_y, avg_pressure))
+
+    return smoothed_points

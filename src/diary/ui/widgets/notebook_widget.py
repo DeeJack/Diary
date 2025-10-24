@@ -126,7 +126,7 @@ class NotebookWidget(QGraphicsView):
             Qt.GestureType.PinchGesture, Qt.GestureFlag.ReceivePartialGestures
         )
         current_viewport.installEventFilter(self)
-        self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+
         self.setRenderHints(self.renderHints())
         self.select_tool(Tool.PEN)
 
@@ -538,10 +538,16 @@ class NotebookWidget(QGraphicsView):
         match new_tool:
             case Tool.TEXT:
                 QApplication.setOverrideCursor(Qt.CursorShape.IBeamCursor)
+                self.setDragMode(QGraphicsView.DragMode.NoDrag)
             case Tool.PEN:
                 QApplication.setOverrideCursor(Qt.CursorShape.CrossCursor)
+                self.setDragMode(QGraphicsView.DragMode.NoDrag)
             case Tool.ERASER:
                 QApplication.setOverrideCursor(Qt.CursorShape.ForbiddenCursor)
+                self.setDragMode(QGraphicsView.DragMode.NoDrag)
+            case Tool.DRAG:
+                QApplication.setOverrideCursor(Qt.CursorShape.OpenHandCursor)
+                self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
 
     def change_color(self, new_color: QColor):
         self.current_color = new_color

@@ -6,10 +6,10 @@ from PyQt6.QtWidgets import (
     QColorDialog,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QSlider,
     QToolBar,
     QWidget,
-    QSizePolicy,
 )
 
 from diary.ui.widgets.tool_selector import Tool
@@ -47,6 +47,12 @@ class BottomToolbar(QToolBar):
         self.text_btn.setFixedWidth(40)
         _ = self.text_btn.clicked.connect(lambda: self.tool_changed.emit(Tool.TEXT))
 
+        self.drag_btn: QPushButton = QPushButton()
+        self.drag_btn.setText("🤚")
+        self.drag_btn.setFont(QFont("Times New Roman", 14))
+        self.drag_btn.setFixedWidth(40)
+        _ = self.drag_btn.clicked.connect(lambda: self.tool_changed.emit(Tool.DRAG))
+
         thickness_lbl = QLabel()
         thickness_lbl.setFont(QFont("Times New Roman", 12))
         thickness_lbl.setText("Thickness:")
@@ -75,6 +81,8 @@ class BottomToolbar(QToolBar):
         _ = self.addWidget(self.eraser_btn)
         self._add_spacer(10)
         _ = self.addWidget(self.text_btn)
+        self._add_spacer(10)
+        _ = self.addWidget(self.drag_btn)
         self._add_spacer(30)
         _ = self.addWidget(thickness_lbl)
         self._add_spacer(10)

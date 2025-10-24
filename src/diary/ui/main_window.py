@@ -110,6 +110,7 @@ class MainWindow(QMainWindow):
 
         self.sidebar = DaysSidebar(self, self.notebook)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar)
+        self.sidebar.hide()
 
         view_menu = self.menuBar().addMenu("&")
         view_menu.addAction(self.sidebar.create_toggle_action())

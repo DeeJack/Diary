@@ -103,11 +103,21 @@ class PageWidget(QWidget):
 
     def ensure_backing_pixmap(self):
         """Initialize or resize the backing pixmap if needed"""
-        if self.backing_pixmap is None or self.backing_pixmap.size() != self.size():
-            # Create pixmap with proper device pixel ratio for high-DPI displays
-            device_pixel_ratio = self.devicePixelRatio()
-            self.backing_pixmap = QPixmap(self.size() * device_pixel_ratio)
-            self.backing_pixmap.setDevicePixelRatio(device_pixel_ratio)
+        rendering_scale = settings.RENDERING_SCALE
+        expected_size = self.size() * rendering_scale
+
+        if (
+            self.backing_pixmap is None
+            or self.backing_pixmap.size() != expected_size
+            or abs(self.backing_pixmap.devicePixelRatio() - rendering_scale) > 0.01
+        ):
+            # Create high-resolution pixmap for crisp scaling
+            high_res_width = int(self.size().width() * rendering_scale)
+            high_res_height = int(self.size().height() * rendering_scale)
+
+            self.backing_pixmap = QPixmap(high_res_width, high_res_height)
+            # Set device pixel ratio to match our rendering scale
+            self.backing_pixmap.setDevicePixelRatio(rendering_scale)
             self.needs_full_redraw = True
 
     def render_backing_pixmap(self):
@@ -121,7 +131,13 @@ class PageWidget(QWidget):
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
 
-        painter.fillRect(self.backing_pixmap.rect(), QColor(0xE0, 0xE0, 0xE0))
+        # Scale the painter to render at high resolution
+        rendering_scale = settings.RENDERING_SCALE
+        painter.scale(rendering_scale, rendering_scale)
+
+        painter.fillRect(
+            QRect(0, 0, self.page_width, self.page_height), QColor(0xE0, 0xE0, 0xE0)
+        )
         self.draw_horizontal_lines(painter)
         self.draw_previous_elements(painter)
         _ = painter.end()
@@ -130,8 +146,9 @@ class PageWidget(QWidget):
     @override
     def paintEvent(self, a0: QPaintEvent | None) -> None:
         """Draw the pixmap and current stroke"""
+        self.ensure_backing_pixmap()
+
         painter = QtGui.QPainter(self)
-        # Enable comprehensive rendering hints for optimal stroke quality
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
@@ -141,6 +158,10 @@ class PageWidget(QWidget):
         else:
             # Draw a placeholder until loaded
             painter.fillRect(self.rect(), QColor(0xF0, 0xF0, 0xF0))
+
+            # If we have a backing pixmap but content hasn't loaded yet, render it
+            if self.backing_pixmap and self.needs_full_redraw:
+                self.render_backing_pixmap()
 
             painter.setFont(QFont("Times New Roman", 50))
             painter.setPen(QColor(0x80, 0x80, 0x80))  # A medium grey color
@@ -223,11 +244,12 @@ class PageWidget(QWidget):
         self.page.add_element(self.current_stroke)
 
         # Render the completed stroke to the backing pixmap
+        self.ensure_backing_pixmap()
         if self.backing_pixmap:
             painter = QPainter(self.backing_pixmap)
-            # Use same high-quality rendering hints as main painter
             painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
             painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
             self.draw_element(self.current_stroke, painter)
             _ = painter.end()
 
@@ -251,8 +273,12 @@ class PageWidget(QWidget):
                 break
 
         if element_to_remove:
+            self.ensure_backing_pixmap()
             if self.backing_pixmap:
                 painter = QPainter(self.backing_pixmap)
+                # Scale the painter to match high-resolution rendering
+                rendering_scale = settings.RENDERING_SCALE
+                painter.scale(rendering_scale, rendering_scale)
 
                 # Get the bounding box of the stroke to erase
                 bounding_rect = StrokeAdapter.stroke_to_bounding_rect(element_to_remove)
@@ -262,8 +288,6 @@ class PageWidget(QWidget):
                 # "Erase" by painting the background color over the area
                 painter.fillRect(bounding_rect, QColor(0xE0, 0xE0, 0xE0))
 
-                # OPTIONAL BUT RECOMMENDED: Redraw the page lines in this area
-                # This prevents leaving blank spots where lines should be
                 painter.setBrush(QBrush(QColor(0xDD, 0xCD, 0xC4)))
                 painter.setPen(QColor(0xDD, 0xCD, 0xC4))
                 painter.setOpacity(0.9)
@@ -353,6 +377,8 @@ class PageWidget(QWidget):
         Sets the backing pixmap and triggers a reload.
         """
         self.backing_pixmap = pixmap
+        if self.backing_pixmap:
+            self.backing_pixmap.setDevicePixelRatio(settings.RENDERING_SCALE)
         self.is_loaded = True
         self.needs_full_redraw = False
         self.update()

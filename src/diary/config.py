@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     PAGE_BETWEEN_SPACING: int = 10
     USE_PRESSURE: bool = False
     PREFERRED_THICKNESS: float = 1.0
+    RENDERING_SCALE: float = 4.0
 
     AUTOSAVE_NOTEBOOK_TIMEOUT: int = 120  # in seconds
 

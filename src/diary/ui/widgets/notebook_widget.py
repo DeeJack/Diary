@@ -67,7 +67,7 @@ class NotebookWidget(QGraphicsView):
         super().__init__()
         self.current_zoom: float = 0.9
         self.min_zoom: float = 0.6
-        self.max_zoom: float = 1.0
+        self.max_zoom: float = 4.0  # Allow zooming up to original rendering resolution
         self.notebook: Notebook = notebook or Notebook([Page(), Page()])
 
         self.page_proxies: list[QGraphicsProxyWidget] = []

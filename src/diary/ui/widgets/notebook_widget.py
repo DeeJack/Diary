@@ -533,6 +533,7 @@ class NotebookWidget(QGraphicsView):
 
     def select_tool(self, new_tool: Tool):
         self.current_tool = new_tool
+        settings.CURRENT_TOOL = new_tool
         self.logger.debug("Setting new tool: %s", self.current_tool.value)
 
         match new_tool:

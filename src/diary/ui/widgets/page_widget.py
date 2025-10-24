@@ -10,6 +10,7 @@ from PyQt6.QtGui import (
     QBrush,
     QColor,
     QFont,
+    QMouseEvent,
     QPainter,
     QPaintEvent,
     QPixmap,
@@ -19,6 +20,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QPushButton,
     QVBoxLayout,
@@ -26,7 +28,7 @@ from PyQt6.QtWidgets import (
 )
 
 from diary.config import settings
-from diary.models import Page, PageElement, Point, Stroke
+from diary.models import Page, PageElement, Point, Stroke, Text
 from diary.ui.adapters import adapter_registry
 from diary.ui.adapters.image_adapter import ImageAdapter
 from diary.ui.adapters.stroke_adapter import StrokeAdapter
@@ -389,6 +391,28 @@ class PageWidget(QWidget):
         self.is_loaded = True
         self.needs_full_redraw = False
         self.update()
+
+    @override
+    def mousePressEvent(self, a0: QMouseEvent | None) -> None:
+        """On clicking a mouse button"""
+        if not a0 or settings.CURRENT_TOOL != Tool.TEXT:
+            return
+        point = Point(a0.position().x(), a0.position().y())
+        self._add_text_element(point)
+        return super().mousePressEvent(a0)
+
+    def _add_text_element(self, pos: Point):
+        """Ask for the text to insert, and add a text element to the cursor's position"""
+        text, ok = QInputDialog.getText(
+            self.parentWidget(),
+            "Insert text",
+            "Text to add",
+        )
+        if not ok:
+            return
+        self.page.elements.append(Text(text, pos))
+        self.needs_full_redraw = True
+        self.needs_regeneration.emit(self.page_index)
 
 
 def smooth_stroke_moving_average(

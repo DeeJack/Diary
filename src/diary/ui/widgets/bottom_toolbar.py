@@ -56,16 +56,16 @@ class BottomToolbar(QToolBar):
         self.thickness_slider.setTickInterval(1)
         self.thickness_slider.setFixedWidth(80)
         self.thickness_slider.setFixedHeight(30)
-        self.thickness_slider.valueChanged.connect(
+        _ = self.thickness_slider.valueChanged.connect(
             lambda: self.thickness_changed.emit(self.thickness_slider.value())
         )
 
-        self.color_dialog = QColorDialog()
+        self.color_dialog: QColorDialog = QColorDialog()
 
         color_btn = QPushButton()
         color_btn.setText("Color")
-        color_btn.clicked.connect(lambda: self.color_dialog.show())
-        self.color_dialog.colorSelected.connect(
+        _ = color_btn.clicked.connect(lambda: self.color_dialog.show())
+        _ = self.color_dialog.colorSelected.connect(
             lambda: self.color_changed.emit(self.color_dialog.currentColor())
         )
 
@@ -90,5 +90,5 @@ class BottomToolbar(QToolBar):
 
     def _add_spacer(self, width: float):
         spacer = QWidget()
-        spacer.setFixedWidth(width)
+        spacer.setFixedWidth(int(width))
         _ = self.addWidget(spacer)

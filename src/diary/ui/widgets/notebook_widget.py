@@ -1,54 +1,53 @@
 """The widget for the Notebook containing the PageWidgets"""
 
-from collections import deque
 import logging
-from multiprocessing import Pool
 import pickle
-from typing import cast, override
 import sys
+from collections import deque
+from multiprocessing import Pool
+from typing import cast, override
 
+from PyQt6.QtCore import (
+    QEvent,
+    QObject,
+    QPoint,
+    QPointF,
+    Qt,
+    QThread,
+    QThreadPool,
+    QTimer,
+    pyqtSignal,
+    pyqtSlot,  # pyright: ignore[reportUnknownVariableType]
+)
 from PyQt6.QtGui import (
     QCloseEvent,
     QColor,
+    QKeyEvent,
     QPixmap,
     QShowEvent,
     QTabletEvent,
-    QTouchEvent,
     QWheelEvent,
-    QKeyEvent,
 )
 from PyQt6.QtWidgets import (
     QApplication,
     QGestureEvent,
+    QGraphicsProxyWidget,
     QGraphicsScene,
     QGraphicsView,
-    QGraphicsProxyWidget,
+    QPinchGesture,
     QScrollBar,
     QStatusBar,
     QWidget,
-    QPinchGesture,
-)
-from PyQt6.QtCore import (
-    QObject,
-    QPoint,
-    QPointF,
-    QThread,
-    QThreadPool,
-    QTimer,
-    Qt,
-    QEvent,
-    pyqtSignal,
-    pyqtSlot,
 )
 
-from diary.ui.widgets.page_widget import PageWidget
-from diary.models import Notebook, NotebookDAO, Page
 from diary.config import settings
+from diary.models import Notebook, NotebookDAO, Page
+from diary.ui.widgets.page_process import render_page_in_process
+from diary.ui.widgets.page_widget import PageWidget
 from diary.ui.widgets.save_worker import SaveWorker
 from diary.ui.widgets.tool_selector import Tool
 from diary.utils.backup import BackupManager
 from diary.utils.encryption import SecureBuffer
-from diary.ui.widgets.page_process import render_page_in_process
 
 
 class NotebookWidget(QGraphicsView):
@@ -90,10 +89,10 @@ class NotebookWidget(QGraphicsView):
         self.status_bar: QStatusBar = status_bar
         self.this_scene: QGraphicsScene = QGraphicsScene()
         self.is_notebook_dirty: bool = False
-        self.process_pool = Pool()
+        self.process_pool = Pool()  # pyright: ignore[reportUnannotatedClassAttribute]
         self.current_tool: Tool = Tool.PEN
         self.current_color: QColor = QColor("black")
-        self.current_thickness: QColor = settings.PREFERRED_THICKNESS
+        self.current_thickness: float = settings.PREFERRED_THICKNESS
 
         # Caching/lazy load
         self.thread_pool: QThreadPool = QThreadPool()
@@ -483,7 +482,7 @@ class NotebookWidget(QGraphicsView):
         # Since a task finished, try to dispatch the next one from the queue
         self._dispatch_tasks()
 
-    @pyqtSlot(int)
+    @pyqtSlot(int)  # pyright: ignore[reportUntypedFunctionDecorator]
     def regenerate_page(self, page_index: int):
         """
         Queues a high-priority job to re-render a specific page.
@@ -503,12 +502,12 @@ class NotebookWidget(QGraphicsView):
             )
             cast(QScrollBar, self.verticalScrollBar()).setValue(int(y_pos))
 
-    @pyqtSlot()
+    @pyqtSlot()  # pyright: ignore[reportUntypedFunctionDecorator]
     def go_to_first_page(self):
         """PyQtSlot to scroll to the first page"""
         self.scroll_to_page(0)
 
-    @pyqtSlot()
+    @pyqtSlot()  # pyright: ignore[reportUntypedFunctionDecorator]
     def go_to_last_page(self):
         """PyQtSlot to scroll to the last page"""
         total_pages = len(self.page_proxies)

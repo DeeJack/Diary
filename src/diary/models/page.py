@@ -2,16 +2,16 @@
 Represents a Page inside a Notebook
 """
 
-from dataclasses import dataclass
 import time
-from typing import Any, override
 import uuid
+from dataclasses import dataclass
+from typing import Any, override
 
 from diary.config import settings
-from diary.models.elements.text import Text
-from diary.models.point import Point
-from .elements import Image, Stroke, VoiceMemo
+
+from .elements import Image, Stroke, Text, VoiceMemo
 from .page_element import PageElement
+from .point import Point
 
 
 @dataclass
@@ -29,6 +29,8 @@ class Page:
         self.created_at: float = created_at or time.time()
         self.page_id: str = page_id or uuid.uuid4().hex
         self.metadata: dict[str, object] = metadata if metadata is not None else {}
+
+        self.elements.append(Text("asd", Point(150, 150, 1.0), size_px=100))
 
     @property
     def strokes(self) -> list[Stroke]:

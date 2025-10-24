@@ -3,25 +3,27 @@
 import logging
 import secrets
 import sys
-from typing import override
+from typing import cast, override
 
-from PyQt6.QtGui import QCloseEvent
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QCloseEvent, QColor
 from PyQt6.QtWidgets import (
     QInputDialog,
     QLineEdit,
     QMainWindow,
+    QMenu,
+    QMenuBar,
     QMessageBox,
     QStatusBar,
     QVBoxLayout,
     QWidget,
 )
-from PyQt6.QtCore import Qt
 
+from diary.config import settings
 from diary.models import NotebookDAO
 from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.days_sidebar import DaysSidebar
 from diary.ui.widgets.notebook_widget import NotebookWidget
-from diary.config import settings
 from diary.ui.widgets.page_navigator import PageNavigatorToolbar
 from diary.ui.widgets.tool_selector import Tool
 from diary.utils.encryption import SecureBuffer, SecureEncryption
@@ -51,6 +53,7 @@ class MainWindow(QMainWindow):
         self.toolbar: PageNavigatorToolbar
         self.bottom_toolbar: BottomToolbar
         self.sidebar: DaysSidebar
+        self.notebook: NotebookWidget
 
         self.logger.debug("Input dialog result: %s", ok)
 
@@ -104,7 +107,7 @@ class MainWindow(QMainWindow):
 
         old_notebook = NotebookDAO.load(settings.NOTEBOOK_FILE_PATH, key_buffer)
         self.logger.debug("Loaded notebook, creating and opening NotebookWidget")
-        self.notebook: NotebookWidget = NotebookWidget(  # pyright: ignore[reportUninitializedInstanceVariable]
+        self.notebook = NotebookWidget(
             key_buffer, salt, self.statusBar() or QStatusBar(), old_notebook
         )
         self.notebook.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -113,7 +116,8 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar)
         self.sidebar.hide()
 
-        view_menu = self.menuBar().addMenu("&")
+        menu_bar = cast(QMenuBar, self.menuBar())
+        view_menu = cast(QMenu, menu_bar.addMenu("&"))
         view_menu.addAction(self.sidebar.create_toggle_action())
 
         self.connect_signals()
@@ -129,14 +133,14 @@ class MainWindow(QMainWindow):
         _ = self.toolbar.go_to_first_requested.connect(self.notebook.go_to_first_page)
         _ = self.toolbar.go_to_last_requested.connect(self.notebook.go_to_last_page)
 
-        _ = self.bottom_toolbar.tool_changed.connect(  # pyright: ignore[reportUnknownVariableType]
-            lambda tool: self.notebook.select_tool(tool)
+        _ = self.bottom_toolbar.tool_changed.connect(
+            lambda tool: self.notebook.select_tool(cast(Tool, tool))
         )
         _ = self.bottom_toolbar.thickness_changed.connect(
-            lambda t: self.notebook.change_thickness(t)
+            lambda t: self.notebook.change_thickness(cast(float, t))
         )
         _ = self.bottom_toolbar.color_changed.connect(
-            lambda c: self.notebook.change_color(c)
+            lambda c: self.notebook.change_color(cast(QColor, c))
         )
 
     @override

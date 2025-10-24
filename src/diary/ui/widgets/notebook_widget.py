@@ -128,7 +128,7 @@ class NotebookWidget(QGraphicsView):
         current_viewport.installEventFilter(self)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setRenderHints(self.renderHints())
-        QApplication.setOverrideCursor(Qt.CursorShape.BitmapCursor)
+        self.select_tool(Tool.PEN)
 
         # Setup save timer
         timer = QTimer(self)
@@ -534,6 +534,14 @@ class NotebookWidget(QGraphicsView):
     def select_tool(self, new_tool: Tool):
         self.current_tool = new_tool
         self.logger.debug("Setting new tool: %s", self.current_tool.value)
+
+        match new_tool:
+            case Tool.TEXT:
+                QApplication.setOverrideCursor(Qt.CursorShape.IBeamCursor)
+            case Tool.PEN:
+                QApplication.setOverrideCursor(Qt.CursorShape.CrossCursor)
+            case Tool.ERASER:
+                QApplication.setOverrideCursor(Qt.CursorShape.ForbiddenCursor)
 
     def change_color(self, new_color: QColor):
         self.current_color = new_color

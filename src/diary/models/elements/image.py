@@ -1,11 +1,13 @@
 """Represents an Image element that can be placed on a page"""
 
+from base64 import b64encode
 from dataclasses import dataclass
-from typing import cast, override, Any
+from pathlib import Path
+from typing import Any, cast, override
 
 from diary.config import settings
-from diary.models.point import Point
 from diary.models.page_element import PageElement
+from diary.models.point import Point
 
 
 @dataclass
@@ -119,3 +121,11 @@ class Image(PageElement):
             and self.image_data == other.image_data
             and self.rotation == other.rotation
         )
+
+    @classmethod
+    def read_bytes_from_file(cls, image_file: Path):
+        if not image_file.exists():
+            raise FileNotFoundError(f"File {image_file} doesn't exists")
+        with open(image_file, "rb") as f:
+            image_bytes = b64encode(f.read())
+            return image_bytes

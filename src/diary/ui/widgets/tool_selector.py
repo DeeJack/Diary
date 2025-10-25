@@ -6,3 +6,5 @@ class Tool(Enum):
     ERASER = "ERASER"
     TEXT = "TEXT"
     DRAG = "DRAG"
+    IMAGE = "IMAGE"
+    AUDIO = "AUDIO"

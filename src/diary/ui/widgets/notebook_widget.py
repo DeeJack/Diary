@@ -23,9 +23,11 @@ from PyQt6.QtGui import (
     QCloseEvent,
     QColor,
     QKeyEvent,
+    QMouseEvent,
     QPixmap,
     QShowEvent,
     QTabletEvent,
+    QTouchEvent,
     QWheelEvent,
 )
 from PyQt6.QtWidgets import (
@@ -96,7 +98,6 @@ class NotebookWidget(QGraphicsView):
 
         # Caching/lazy load
         self.thread_pool: QThreadPool = QThreadPool()
-        print(QThread.idealThreadCount())
         self.thread_pool.setMaxThreadCount(QThread.idealThreadCount())
         self.page_cache: dict[int, PageWidget] = {}  # {page_index: PageWidget}
         self.pages_to_load: set[int] = set()
@@ -189,8 +190,6 @@ class NotebookWidget(QGraphicsView):
             new_zoom = max(self.min_zoom, min(self.max_zoom, new_zoom))
             zoom_factor = new_zoom / self.current_zoom
 
-            # Zoom around mouse cursor position
-            # self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
             self.scale(zoom_factor, zoom_factor)
             self.current_zoom = new_zoom
             # Prevent event from scrolling
@@ -200,19 +199,26 @@ class NotebookWidget(QGraphicsView):
 
     @override
     def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
-        """Intercepts events to forward TabletEvents to the PageWidget"""
+        """Intercepts events to forward Tablet and Mouse Events to the PageWidget"""
         if obj != self.viewport() or event is None or obj is None:
             return super().eventFilter(obj, event)
 
-        if event.type() in [QEvent.Type.MouseButtonDblClick]:
-            print("CLICKED!")
+        # Handle tablet events
+        if isinstance(event, QTabletEvent):
+            return self._handle_tablet_event(event)
 
-        if event.type() not in [
-            QEvent.Type.TabletPress,
-            QEvent.Type.TabletMove,
-            QEvent.Type.TabletRelease,
-        ] or not isinstance(event, QTabletEvent):
-            return super().eventFilter(obj, event)
+        # Handle mouse events for drawing
+        if isinstance(event, QMouseEvent):
+            return self._handle_mouse_event(event)
+
+        # Handle touch events for drawing
+        if isinstance(event, QTouchEvent):
+            return self._handle_touch_event(event)
+
+        return super().eventFilter(obj, event)
+
+    def _handle_tablet_event(self, event: QTabletEvent) -> bool:
+        """Handle tablet events and forward to appropriate page widget"""
 
         # Save the notebook since it likely changed
         self.is_notebook_dirty = True
@@ -224,13 +230,13 @@ class NotebookWidget(QGraphicsView):
         # Find page at position
         scene = self.scene()
         if scene is None:
-            return super().eventFilter(obj, event)
+            return False
         item = scene.itemAt(scene_pos, self.transform())
 
         if item and isinstance(item, QGraphicsProxyWidget):
             widget: QWidget | None = item.widget()
             if widget is None:
-                return super().eventFilter(obj, event)
+                return False
 
             if isinstance(widget, PageWidget):
                 page_widget: PageWidget = widget
@@ -245,7 +251,50 @@ class NotebookWidget(QGraphicsView):
                     self.current_color,
                 )
                 return True  # Event handled
-        return super().eventFilter(obj, event)
+
+        event.ignore()
+        return False
+
+    def _handle_mouse_event(self, event: QMouseEvent) -> bool:
+        """Handle mouse events and forward to appropriate page widget"""
+        # Only handle left mouse button for drawing
+        if (
+            event.button() != Qt.MouseButton.LeftButton
+            and event.type() != QMouseEvent.Type.MouseMove
+        ):
+            return False
+
+        # Save the notebook since it likely changed
+        self.is_notebook_dirty = True
+
+        # Get position in viewport
+        pos: QPoint = event.position().toPoint()
+        scene_pos: QPointF = self.mapToScene(pos)
+
+        # Find page at position
+        scene = self.scene()
+        if scene is None:
+            return False
+        item = scene.itemAt(scene_pos, self.transform())
+
+        if item and isinstance(item, QGraphicsProxyWidget):
+            widget: QWidget | None = item.widget()
+            if widget is None:
+                return False
+
+            if isinstance(widget, PageWidget):
+                page_widget: PageWidget = widget
+                # Map scene coordinates to page coordinates
+                local_pos: QPointF = item.mapFromScene(scene_pos)
+                page_widget.handle_mouse_event(event, local_pos)
+                return True
+        event.ignore()
+        return False
+
+    def _handle_touch_event(self, event: object) -> bool:
+        """Handle touch events and forward to appropriate page widget (future implementation)"""
+        _ = event
+        return False
 
     @override
     def keyPressEvent(self, event: QKeyEvent | None) -> None:
@@ -536,16 +585,14 @@ class NotebookWidget(QGraphicsView):
         settings.CURRENT_TOOL = new_tool
         self.logger.debug("Setting new tool: %s", self.current_tool.value)
 
+        self.setDragMode(QGraphicsView.DragMode.NoDrag)
         match new_tool:
             case Tool.TEXT:
                 QApplication.setOverrideCursor(Qt.CursorShape.IBeamCursor)
-                self.setDragMode(QGraphicsView.DragMode.NoDrag)
             case Tool.PEN:
                 QApplication.setOverrideCursor(Qt.CursorShape.CrossCursor)
-                self.setDragMode(QGraphicsView.DragMode.NoDrag)
             case Tool.ERASER:
                 QApplication.setOverrideCursor(Qt.CursorShape.ForbiddenCursor)
-                self.setDragMode(QGraphicsView.DragMode.NoDrag)
             case Tool.DRAG:
                 QApplication.setOverrideCursor(Qt.CursorShape.OpenHandCursor)
                 self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)

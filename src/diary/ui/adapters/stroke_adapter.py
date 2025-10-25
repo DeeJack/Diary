@@ -1,11 +1,12 @@
 """Adapter for rendering Stroke elements with QPainter"""
 
 from typing import override
-from PyQt6.QtGui import QPainter, QPen, QColor, QPainterPath
+
 from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen
 
 from diary.config import settings
-from diary.models import Stroke, Point, PageElement
+from diary.models import PageElement, Point, Stroke
 from diary.ui.adapters import ElementAdapter
 
 
@@ -187,6 +188,7 @@ class StrokeAdapter(ElementAdapter):
         # Consider pressure varying if there's more than 20% difference
         return (max_pressure - min_pressure) > 0.2
 
+    @staticmethod
     def stroke_to_bounding_rect(stroke: Stroke):
         """
         Calculates the smallest rectangle that encloses the entire stroke,

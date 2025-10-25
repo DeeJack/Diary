@@ -1,11 +1,13 @@
 """Represents a Widget for the Page inside the Notebook"""
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from typing import override
 
 from PyQt6 import QtGui
-from PyQt6.QtCore import QPointF, QRect, Qt, pyqtSignal
+from PyQt6.QtCore import QPointF, QRect, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import (
     QBrush,
     QColor,
@@ -14,9 +16,9 @@ from PyQt6.QtGui import (
     QPainter,
     QPaintEvent,
     QPixmap,
-    QPointingDevice,
     QResizeEvent,
     QTabletEvent,
+    QTouchEvent,
 )
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -35,6 +37,35 @@ from diary.ui.adapters.stroke_adapter import StrokeAdapter
 from diary.ui.adapters.text_adapter import TextAdapter
 from diary.ui.adapters.voice_memo_adapter import VoiceMemoAdapter
 from diary.ui.widgets.tool_selector import Tool
+
+
+class InputType(Enum):
+    """Type of input device"""
+
+    TABLET = "tablet"
+    MOUSE = "mouse"
+    TOUCH = "touch"
+
+
+class InputAction(Enum):
+    """Type of input action"""
+
+    PRESS = "press"
+    MOVE = "move"
+    RELEASE = "release"
+
+
+@dataclass
+class DrawingInput:
+    """Generic input event for drawing operations"""
+
+    position: QPointF
+    action: InputAction
+    input_type: InputType
+    pressure: float = 1.0  # 0.0 to 1.0, default 1.0 for mouse/touch
+    tilt_x: float = 0.0  # -1.0 to 1.0, tablet only
+    tilt_y: float = 0.0  # -1.0 to 1.0, tablet only
+    rotation: float = 0.0  # 0.0 to 360.0, tablet only
 
 
 class PageWidget(QWidget):
@@ -211,8 +242,80 @@ class PageWidget(QWidget):
         for element in self.page.elements:
             self.draw_element(element, painter)
 
-    def continue_drawing(self, event: QTabletEvent, pos: QPointF, current_width: float):
+    def _start_drawing(self, _: DrawingInput, color: QColor):
+        """Starts a new drawing stroke"""
+        self.is_drawing = True
+        self.current_stroke = Stroke(color=color.name())
+
+    def _continue_drawing(self, drawing_input: DrawingInput, current_width: float):
         """Continues current stroke"""
+        self.logger.debug("Drawing %s", drawing_input)
+        if self.current_stroke is None:
+            self.current_stroke = Stroke()
+        width = self.calculate_width_from_pressure(
+            drawing_input.pressure, current_width, drawing_input.input_type
+        )
+        self.current_stroke.points.append(
+            Point(drawing_input.position.x(), drawing_input.position.y(), width)
+        )
+
+        if len(self.current_stroke.points) >= 2:
+            last_point = self.current_stroke.points[-2]
+            current_point = self.current_stroke.points[-1]
+            self.update_stroke_area(last_point, current_point, current_width)
+        else:
+            self.update()
+
+    def _stop_drawing(self, drawing_input: DrawingInput):
+        """Stops current stroke and adds it to backing pixmap"""
+        self.is_drawing = False
+        if self.current_stroke is None:
+            return
+        # drawing_input.position could be used for final stroke point
+        self.current_stroke.points = smooth_stroke_moving_average(
+            self.current_stroke.points, 8
+        )
+        self.page.add_element(self.current_stroke)
+
+        # Render the completed stroke to the backing pixmap
+        self.ensure_backing_pixmap()
+        if self.backing_pixmap:
+            painter = QPainter(self.backing_pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+            self.draw_element(self.current_stroke, painter)
+            _ = painter.end()
+
+        self.current_stroke = None
+        self.update()
+
+    def _handle_drawing_input(
+        self,
+        drawing_input: DrawingInput,
+    ):
+        """Generic drawing input handler that works with any input type"""
+        self.logger.info("Drawing input: %s", drawing_input)
+        if settings.CURRENT_TOOL == Tool.ERASER:
+            if drawing_input.action == InputAction.PRESS:
+                self.is_erasing = True
+            elif drawing_input.action == InputAction.MOVE:
+                if self.is_erasing:
+                    self.erase(drawing_input.position)
+            elif drawing_input.action == InputAction.RELEASE:
+                self.is_erasing = False
+        elif settings.CURRENT_TOOL == Tool.PEN:
+            if drawing_input.action == InputAction.PRESS:
+                self._start_drawing(drawing_input, settings.CURRENT_COLOR)
+            elif drawing_input.action == InputAction.MOVE:
+                if self.is_drawing:
+                    self._continue_drawing(drawing_input, settings.CURRENT_WIDTH)
+            elif drawing_input.action == InputAction.RELEASE:
+                if self.is_drawing:
+                    self._stop_drawing(drawing_input)
+
+    def continue_drawing(self, event: QTabletEvent, pos: QPointF, current_width: float):
+        """Legacy method - continues current stroke (deprecated, use _continue_drawing)"""
         if self.current_stroke is None:
             self.current_stroke = Stroke()
         width = self.calculate_width_from_pressure(event.pressure(), current_width)
@@ -243,7 +346,7 @@ class PageWidget(QWidget):
         self.update(update_rect)
 
     def stop_drawing(self, position: QPointF):
-        """Stops current stroke and adds it to backing pixmap"""
+        """Legacy method - stops current stroke (deprecated, use _stop_drawing)"""
         self.is_drawing = False
         if self.current_stroke is None:
             return
@@ -290,7 +393,9 @@ class PageWidget(QWidget):
                 painter.scale(rendering_scale, rendering_scale)
 
                 # Get the bounding box of the stroke to erase
-                bounding_rect = StrokeAdapter.stroke_to_bounding_rect(element_to_remove)
+                bounding_rect: QRectF = StrokeAdapter.stroke_to_bounding_rect(
+                    element_to_remove
+                )
                 # Add a small margin for anti-aliasing
                 bounding_rect = bounding_rect.adjusted(-5, -5, 5, 5)
 
@@ -312,49 +417,52 @@ class PageWidget(QWidget):
                             QPointF(bounding_rect.left(), float(line_y)),
                             QPointF(bounding_rect.right(), float(line_y)),
                         )
-
                 _ = painter.end()
 
-            # --- DATA & REGENERATION ---
             self.page.remove_element(element_to_remove)
-
-            # Immediately update the screen with the "dirty" pixmap
             self.update()
-
-            # Tell the Notebook to start a proper re-render in the background
             self.needs_regeneration.emit(self.page_index)
 
     def handle_tablet_event(
         self,
         event: QTabletEvent,
         pos: QPointF,
-        tool: Tool,
-        current_width: float,
-        color: QColor,
     ):
-        """Handles Pen events, forwarded by the Notebook"""
-        if event.pointerType() == QPointingDevice.PointerType.Pen and tool == Tool.PEN:
-            if event.type() == QTabletEvent.Type.TabletPress:
-                self.is_drawing = True
-                self.current_stroke = Stroke(color=color.name())
-            elif event.type() == QTabletEvent.Type.TabletMove:
-                if self.is_drawing:
-                    self.continue_drawing(event, pos, current_width)
-            elif event.type() == QTabletEvent.Type.TabletRelease:
-                if self.is_drawing:
-                    self.stop_drawing(pos)
-        elif (
-            event.pointerType() == QPointingDevice.PointerType.Eraser
-            or tool == Tool.ERASER
-        ):
-            if event.type() == QTabletEvent.Type.TabletPress:
-                self.is_erasing = True
-            elif event.type() == QTabletEvent.Type.TabletMove:
-                if self.is_erasing:
-                    self.erase(pos)
-            elif event.type() == QTabletEvent.Type.TabletRelease:
-                self.is_erasing = False
+        """Handles tablet pen events, forwarded by the Notebook"""
+        # Convert tablet event to generic drawing input
+        action = InputAction.PRESS
+        if event.type() == QTabletEvent.Type.TabletMove:
+            action = InputAction.MOVE
+        elif event.type() == QTabletEvent.Type.TabletRelease:
+            action = InputAction.RELEASE
+
+        drawing_input = DrawingInput(
+            position=pos,
+            action=action,
+            input_type=InputType.TABLET,
+            pressure=event.pressure(),
+            tilt_x=event.xTilt(),
+            tilt_y=event.yTilt(),
+            rotation=event.rotation(),
+        )
+
+        self._handle_drawing_input(drawing_input)
         event.accept()
+
+    def handle_touch_event(
+        self,
+        _: QTouchEvent,
+        pos: QPointF,
+        touch_action: InputAction,
+    ):
+        """Handles touch events for drawing"""
+        drawing_input = DrawingInput(
+            position=pos,
+            action=touch_action,
+            input_type=InputType.TOUCH,
+            pressure=1.0,
+        )
+        self._handle_drawing_input(drawing_input)
 
     @override
     def resizeEvent(self, a0: QResizeEvent | None):
@@ -362,24 +470,21 @@ class PageWidget(QWidget):
         super().resizeEvent(a0)
         self.needs_full_redraw = True
 
-    def clear_page(self):
-        """Clear all elements and force a full redraw"""
-        self.logger.debug("Clearing page")
-        self.page.clear_elements()
-        self.current_stroke = None
-        self.needs_full_redraw = True
-        self.update()
-
     def calculate_width_from_pressure(
-        self, pressure: float, current_width: float
+        self,
+        pressure: float,
+        current_width: float,
+        input_type: InputType = InputType.TABLET,
     ) -> float:
-        """Calculate stroke width based on pressure"""
+        """Calculate stroke width based on pressure and input type"""
         # Pressure ranges from 0.0 to 1.0
         min_width = 1.5
         max_width = current_width * 3
-        if settings.USE_PRESSURE:
+
+        if settings.USE_PRESSURE and input_type == InputType.TABLET:
             return min_width + (pressure * (max_width - min_width))
-        return current_width  # Better default thickness for crisp strokes
+
+        return current_width
 
     def set_backing_pixmap(self, pixmap: QPixmap):
         """
@@ -392,14 +497,26 @@ class PageWidget(QWidget):
         self.needs_full_redraw = False
         self.update()
 
-    @override
-    def mousePressEvent(self, a0: QMouseEvent | None) -> None:
-        """On clicking a mouse button"""
-        if not a0 or settings.CURRENT_TOOL != Tool.TEXT:
+    def handle_mouse_event(self, event: QMouseEvent, position: QPointF):
+        """Handle a mouse event inside the page"""
+        if not event or not settings.MOUSE_ENABLED:
             return
-        point = Point(a0.position().x(), a0.position().y())
-        self._add_text_element(point)
-        return super().mousePressEvent(a0)
+        action = InputAction.PRESS
+        if event.type() == QMouseEvent.Type.MouseButtonRelease:
+            action = InputAction.RELEASE
+        elif event.type() == QMouseEvent.Type.MouseMove:
+            action = InputAction.MOVE
+        drawing_input = DrawingInput(
+            position=position,
+            action=action,
+            input_type=InputType.MOUSE,
+            pressure=1.0,
+        )
+        if settings.CURRENT_TOOL in [Tool.PEN, Tool.ERASER]:
+            self._handle_drawing_input(drawing_input)
+            event.accept()
+        elif settings.CURRENT_TOOL == Tool.TEXT and action == InputAction.PRESS:
+            self._add_text_element(Point(position.x(), position.y()))
 
     def _add_text_element(self, pos: Point):
         """Ask for the text to insert, and add a text element to the cursor's position"""

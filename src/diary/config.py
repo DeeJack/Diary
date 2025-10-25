@@ -6,6 +6,7 @@ from enum import Enum
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
+from PyQt6.QtGui import QColor
 
 from diary.ui.widgets.tool_selector import Tool
 
@@ -39,6 +40,10 @@ class Settings(BaseSettings):
 
     AUTOSAVE_NOTEBOOK_TIMEOUT: int = 120  # in seconds
     CURRENT_TOOL: Tool = Tool.PEN
+    CURRENT_WIDTH: float = 2.0
+    CURRENT_COLOR: QColor = QColor("black")
+    TOUCH_ENABLED: bool = False
+    MOUSE_ENABLED: bool = True
 
     class SERIALIZATION_KEYS(Enum):
         """Value used as the keys for the serialization"""

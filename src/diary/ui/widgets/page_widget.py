@@ -337,6 +337,12 @@ class PageWidget(QWidget):
         elements_to_remove: list[PageElement] = []
 
         for element in self.page.elements.copy():
+            if isinstance(element, Text):
+                bounding_rect = adapter_registry.get_adapter(element).rect(element)
+                if bounding_rect.intersects(
+                    QRectF(pos.x(), pos.y(), CIRCLE_RADIUS, CIRCLE_RADIUS)
+                ):
+                    elements_to_remove.append(element)
             if element.intersects(Point(pos.x(), pos.y(), 0), CIRCLE_RADIUS):
                 self.logger.debug("Erasing element %s", element.element_id)
                 elements_to_remove.append(element)
@@ -350,7 +356,7 @@ class PageWidget(QWidget):
 
                 # Get the bounding box of the stroke to erase
                 if not isinstance(element_to_remove, Stroke):
-                    bounding_rect: QRectF = adapter_registry.get_adapter(
+                    bounding_rect = adapter_registry.get_adapter(
                         element_to_remove
                     ).rect(element_to_remove)
                     # "Erase" by painting the background color over the area
@@ -457,19 +463,25 @@ class PageWidget(QWidget):
             action = InputAction.RELEASE
         elif event.type() == QMouseEvent.Type.MouseMove:
             action = InputAction.MOVE
-        drawing_input = DrawingInput(
-            position=position,
-            action=action,
-            input_type=InputType.MOUSE,
-            pressure=1.0,
-        )
+
         if settings.CURRENT_TOOL in [Tool.PEN, Tool.ERASER]:
+            drawing_input = DrawingInput(
+                position=position,
+                action=action,
+                input_type=InputType.MOUSE,
+                pressure=1.0,
+            )
             self._handle_drawing_input(drawing_input)
             event.accept()
         elif settings.CURRENT_TOOL == Tool.TEXT and action == InputAction.PRESS:
             self._add_text_element(Point(position.x(), position.y()))
         elif settings.CURRENT_TOOL == Tool.IMAGE and action == InputAction.PRESS:
             self._add_image_element(Point(position.x(), position.y()))
+        elif settings.CURRENT_TOOL == Tool.SELECTION:
+            # self.selection_manager.handle_input(
+            #     Point(position.x(), position.y()), action
+            # )
+            pass
 
     def _add_text_element(self, pos: Point):
         """Ask for the text to insert, and add a text element to the cursor's position"""

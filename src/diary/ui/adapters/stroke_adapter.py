@@ -188,12 +188,15 @@ class StrokeAdapter(ElementAdapter):
         # Consider pressure varying if there's more than 20% difference
         return (max_pressure - min_pressure) > 0.2
 
-    @staticmethod
-    def stroke_to_bounding_rect(stroke: Stroke):
+    @override
+    def rect(self, element: PageElement):
         """
         Calculates the smallest rectangle that encloses the entire stroke,
         including its thickness.
         """
+        if not isinstance(element, Stroke):
+            return QRectF()
+        stroke = element
         if not stroke.points:
             # Return an empty/invalid rectangle if there are no points
             return QRectF()

@@ -70,3 +70,14 @@ class ImageAdapter(ElementAdapter):
 
         # Restore the painter state
         painter.restore()
+
+    @override
+    def rect(self, element: PageElement) -> QRectF:
+        if not isinstance(element, Image):
+            return QRectF()
+        return QRectF(
+            element.position.x,
+            element.position.y,
+            element.position.x + element.width,
+            element.position.y + element.height,
+        )

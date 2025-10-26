@@ -374,13 +374,11 @@ class PageWidget(QWidget):
 
     def erase(self, pos: QPointF):
         """Erase strokes intersecting with the given position"""
-        CIRCLE_RADIUS = 4  # 3 pixels circle
-        element_to_remove: Stroke | None = None
+        CIRCLE_RADIUS = 4  # pixels
+        element_to_remove: PageElement | None = None
 
         for element in self.page.elements.copy():
-            if isinstance(element, Stroke) and element.intersects(
-                Point(pos.x(), pos.y(), 0), CIRCLE_RADIUS
-            ):
+            if element.intersects(Point(pos.x(), pos.y(), 0), CIRCLE_RADIUS):
                 self.logger.debug("Erasing element %s", element.element_id)
                 element_to_remove = element
                 break
@@ -394,9 +392,9 @@ class PageWidget(QWidget):
                 painter.scale(rendering_scale, rendering_scale)
 
                 # Get the bounding box of the stroke to erase
-                bounding_rect: QRectF = StrokeAdapter.stroke_to_bounding_rect(
+                bounding_rect: QRectF = adapter_registry.get_adapter(
                     element_to_remove
-                )
+                ).rect(element_to_remove)
                 # Add a small margin for anti-aliasing
                 bounding_rect = bounding_rect.adjusted(-5, -5, 5, 5)
 

@@ -123,7 +123,7 @@ class MainWindow(QMainWindow):
         self.connect_signals()
         self.notebook_widget.update_navbar()
         self.this_layout.addWidget(self.toolbar)
-        self.this_layout.addWidget(self.notebook)
+        self.this_layout.addWidget(self.notebook_widget)
         self.this_layout.addWidget(self.bottom_toolbar)
         self.setCentralWidget(main_widget)
 

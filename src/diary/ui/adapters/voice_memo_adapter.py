@@ -1,10 +1,11 @@
 """Adapter for rendering VoiceMemo elements with QPainter"""
 
 from typing import override
-from PyQt6.QtGui import QPainter, QBrush, QColor, QPen, QFont
-from PyQt6.QtCore import QRectF, Qt, QPointF
 
-from diary.models import VoiceMemo, PageElement
+from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen
+
+from diary.models import PageElement, VoiceMemo
 from diary.ui.adapters import ElementAdapter
 
 
@@ -104,3 +105,7 @@ class VoiceMemoAdapter(ElementAdapter):
         minutes = int((duration % 3600) // 60)
         seconds = int(duration % 60)
         return f"{hours}:{minutes:02d}:{seconds:02d}"
+
+    @override
+    def rect(self, element: PageElement) -> QRectF:
+        raise NotImplementedError()

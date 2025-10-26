@@ -53,7 +53,7 @@ class MainWindow(QMainWindow):
         self.toolbar: PageNavigatorToolbar
         self.bottom_toolbar: BottomToolbar
         self.sidebar: DaysSidebar
-        self.notebook: NotebookWidget
+        self.notebook_widget: NotebookWidget
 
         self.logger.debug("Input dialog result: %s", ok)
 
@@ -107,12 +107,12 @@ class MainWindow(QMainWindow):
 
         old_notebook = NotebookDAO.load(settings.NOTEBOOK_FILE_PATH, key_buffer)
         self.logger.debug("Loaded notebook, creating and opening NotebookWidget")
-        self.notebook = NotebookWidget(
+        self.notebook_widget = NotebookWidget(
             key_buffer, salt, self.statusBar() or QStatusBar(), old_notebook
         )
-        self.notebook.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.notebook_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.sidebar = DaysSidebar(self, self.notebook)
+        self.sidebar = DaysSidebar(self, self.notebook_widget)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar)
         self.sidebar.hide()
 
@@ -121,7 +121,7 @@ class MainWindow(QMainWindow):
         view_menu.addAction(self.sidebar.create_toggle_action())
 
         self.connect_signals()
-        self.notebook.update_navbar()
+        self.notebook_widget.update_navbar()
         self.this_layout.addWidget(self.toolbar)
         self.this_layout.addWidget(self.notebook)
         self.this_layout.addWidget(self.bottom_toolbar)
@@ -129,24 +129,30 @@ class MainWindow(QMainWindow):
 
     def connect_signals(self):
         """Connects the Page Navigator signals"""
-        _ = self.notebook.current_page_changed.connect(self.toolbar.update_page_display)
-        _ = self.toolbar.go_to_first_requested.connect(self.notebook.go_to_first_page)
-        _ = self.toolbar.go_to_last_requested.connect(self.notebook.go_to_last_page)
+        _ = self.notebook_widget.current_page_changed.connect(
+            self.toolbar.update_page_display
+        )
+        _ = self.toolbar.go_to_first_requested.connect(
+            self.notebook_widget.go_to_first_page
+        )
+        _ = self.toolbar.go_to_last_requested.connect(
+            self.notebook_widget.go_to_last_page
+        )
 
         _ = self.bottom_toolbar.tool_changed.connect(
-            lambda tool: self.notebook.select_tool(cast(Tool, tool))
+            lambda tool: self.notebook_widget.select_tool(cast(Tool, tool))
         )
         _ = self.bottom_toolbar.thickness_changed.connect(
-            lambda t: self.notebook.change_thickness(cast(float, t))
+            lambda t: self.notebook_widget.change_thickness(cast(float, t))
         )
         _ = self.bottom_toolbar.color_changed.connect(
-            lambda c: self.notebook.change_color(cast(QColor, c))
+            lambda c: self.notebook_widget.change_color(cast(QColor, c))
         )
 
     @override
     def closeEvent(self, a0: QCloseEvent | None):
         """On app close event"""
         self.logger.debug("Close app event!")
-        if a0 and hasattr(self, "notebook") and self.notebook:
-            self.notebook.save()
+        if a0 and hasattr(self, "notebook") and self.notebook_widget:
+            self.notebook_widget.save()
             a0.accept()

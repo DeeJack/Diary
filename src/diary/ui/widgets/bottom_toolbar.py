@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from diary.config import settings
 from diary.ui.widgets.tool_selector import Tool
 
 
@@ -26,23 +27,32 @@ class BottomToolbar(QToolBar):
         super().__init__("BottomToolbar", parent)
         self.setMovable(False)
         self.setAutoFillBackground(False)
-        self.setStyleSheet("background-color: #4b4d51; margin-bottom: 25px")
         self.setStyleSheet("color: white")
 
         self.pen_btn: QPushButton = create_button("🖊️")
-        _ = self.pen_btn.clicked.connect(lambda: self.tool_changed.emit(Tool.PEN))
+        _ = self.pen_btn.clicked.connect(
+            lambda: self._button_clicked(self.pen_btn, Tool.PEN)
+        )
 
         self.eraser_btn: QPushButton = create_button("⌫")
-        _ = self.eraser_btn.clicked.connect(lambda: self.tool_changed.emit(Tool.ERASER))
+        _ = self.eraser_btn.clicked.connect(
+            lambda: self._button_clicked(self.eraser_btn, Tool.ERASER)
+        )
 
         self.text_btn: QPushButton = create_button("💬")
-        _ = self.text_btn.clicked.connect(lambda: self.tool_changed.emit(Tool.TEXT))
+        _ = self.text_btn.clicked.connect(
+            lambda: self._button_clicked(self.text_btn, Tool.TEXT)
+        )
 
         self.drag_btn: QPushButton = create_button("🤚")
-        _ = self.drag_btn.clicked.connect(lambda: self.tool_changed.emit(Tool.DRAG))
+        _ = self.drag_btn.clicked.connect(
+            lambda: self._button_clicked(self.drag_btn, Tool.DRAG)
+        )
 
         self.image_btn: QPushButton = create_button("🖼️")
-        _ = self.image_btn.clicked.connect(lambda: self.tool_changed.emit(Tool.IMAGE))
+        _ = self.image_btn.clicked.connect(
+            lambda: self._button_clicked(self.image_btn, Tool.IMAGE)
+        )
 
         thickness_lbl = QLabel()
         thickness_lbl.setFont(QFont("Times New Roman", 12))
@@ -61,7 +71,7 @@ class BottomToolbar(QToolBar):
             lambda: self.color_changed.emit(self.color_dialog.currentColor())
         )
 
-        buttons = [
+        self.buttons: list[QPushButton] = [
             self.pen_btn,
             self.eraser_btn,
             self.text_btn,
@@ -70,7 +80,7 @@ class BottomToolbar(QToolBar):
         ]
 
         self._add_filling_spacer()
-        for button in buttons:
+        for button in self.buttons:
             _ = self.addWidget(button)
             self._add_spacer(10)
         self._add_spacer(30)
@@ -80,6 +90,23 @@ class BottomToolbar(QToolBar):
         self._add_spacer(30)
         _ = self.addWidget(color_btn)
         self._add_filling_spacer()
+
+        self._button_clicked(self.pen_btn, Tool.PEN)
+
+    def _button_clicked(self, button: QPushButton, tool: Tool):
+        for other in self.buttons:
+            other.setDisabled(False)
+            other.setStyleSheet("")  # Reset to default style
+        button.setDisabled(True)
+        button.setStyleSheet("""
+            QPushButton:disabled {
+                background-color: #007acc;
+                color: white;
+                border: 2px solid #005a9e;
+                font-weight: bold;
+            }
+        """)
+        self.tool_changed.emit(tool)
 
     def _add_filling_spacer(self):
         spacer = QWidget()
@@ -97,6 +124,17 @@ def create_button(text: str) -> QPushButton:
     new_button.setText(text)
     new_button.setFont(QFont("Times New Roman", 14))
     new_button.setFixedWidth(40)
+    new_button.setStyleSheet("""
+        QPushButton {
+            color: white;
+        }
+        QPushButton:hover {
+            background-color: #777;
+        }
+        QPushButton:pressed {
+            background-color: #555;
+        }
+    """)
     return new_button
 
 
@@ -107,4 +145,5 @@ def create_thickness_slider() -> QSlider:
     thickness_slider.setTickInterval(1)
     thickness_slider.setFixedWidth(80)
     thickness_slider.setFixedHeight(30)
+    thickness_slider.setValue(int(settings.CURRENT_WIDTH))
     return thickness_slider

@@ -1,6 +1,7 @@
 """Represents an Image element that can be placed on a page"""
 
-from base64 import b64encode
+import logging
+from base64 import b64decode, b64encode
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast, override
@@ -61,7 +62,7 @@ class Image(PageElement):
             settings.SERIALIZATION_KEYS.WIDTH.value: self.width,
             settings.SERIALIZATION_KEYS.HEIGHT.value: self.height,
             settings.SERIALIZATION_KEYS.PATH.value: self.image_path,
-            settings.SERIALIZATION_KEYS.DATA.value: self.image_data.hex()
+            settings.SERIALIZATION_KEYS.DATA.value: b64encode(self.image_data)
             if self.image_data
             else None,
             settings.SERIALIZATION_KEYS.ROTATION.value: self.rotation,
@@ -83,8 +84,9 @@ class Image(PageElement):
         image_data = None
         if data.get(settings.SERIALIZATION_KEYS.DATA.value):
             try:
-                image_data = bytes.fromhex(data[settings.SERIALIZATION_KEYS.DATA.value])
-            except ValueError:
+                image_data = b64decode(data[settings.SERIALIZATION_KEYS.DATA.value])
+            except (ValueError, TypeError) as e:
+                logging.getLogger("Image").error(e)
                 image_data = None
 
         return cls(
@@ -127,5 +129,5 @@ class Image(PageElement):
         if not image_file.exists():
             raise FileNotFoundError(f"File {image_file} doesn't exists")
         with open(image_file, "rb") as f:
-            image_bytes = b64encode(f.read())
+            image_bytes = f.read()
             return image_bytes

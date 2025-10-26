@@ -596,6 +596,10 @@ class NotebookWidget(QGraphicsView):
             case Tool.DRAG:
                 QApplication.setOverrideCursor(Qt.CursorShape.OpenHandCursor)
                 self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+            case Tool.IMAGE:
+                QApplication.setOverrideCursor(Qt.CursorShape.CrossCursor)
+            case Tool.AUDIO:
+                QApplication.setOverrideCursor(Qt.CursorShape.CrossCursor)
 
     def change_color(self, new_color: QColor):
         self.current_color = new_color

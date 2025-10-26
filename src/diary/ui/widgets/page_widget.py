@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import override
 
 from PyQt6 import QtGui
@@ -21,6 +22,7 @@ from PyQt6.QtGui import (
     QTouchEvent,
 )
 from PyQt6.QtWidgets import (
+    QFileDialog,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -30,7 +32,7 @@ from PyQt6.QtWidgets import (
 )
 
 from diary.config import settings
-from diary.models import Page, PageElement, Point, Stroke, Text
+from diary.models import Image, Page, PageElement, Point, Stroke, Text
 from diary.ui.adapters import adapter_registry
 from diary.ui.adapters.image_adapter import ImageAdapter
 from diary.ui.adapters.stroke_adapter import StrokeAdapter
@@ -295,7 +297,6 @@ class PageWidget(QWidget):
         drawing_input: DrawingInput,
     ):
         """Generic drawing input handler that works with any input type"""
-        self.logger.info("Drawing input: %s", drawing_input)
         if settings.CURRENT_TOOL == Tool.ERASER:
             if drawing_input.action == InputAction.PRESS:
                 self.is_erasing = True
@@ -517,6 +518,8 @@ class PageWidget(QWidget):
             event.accept()
         elif settings.CURRENT_TOOL == Tool.TEXT and action == InputAction.PRESS:
             self._add_text_element(Point(position.x(), position.y()))
+        elif settings.CURRENT_TOOL == Tool.IMAGE and action == InputAction.PRESS:
+            self._add_image_element(Point(position.x(), position.y()))
 
     def _add_text_element(self, pos: Point):
         """Ask for the text to insert, and add a text element to the cursor's position"""
@@ -528,6 +531,22 @@ class PageWidget(QWidget):
         if not ok:
             return
         self.page.elements.append(Text(text, pos))
+        self.needs_full_redraw = True
+        self.needs_regeneration.emit(self.page_index)
+
+    def _add_image_element(self, pos: Point):
+        image_file, _ = QFileDialog.getOpenFileName(
+            self.parentWidget(),
+            "Select image",
+            filter=("Images (*.png *.xpm *.jpg *.jpeg *.webp)"),
+        )
+        self.logger.debug("Selected image: %s", image_file)
+        if not image_file:
+            return
+        image_bytes = Image.read_bytes_from_file(Path(image_file))
+        image = Image(pos, width=100, height=100, image_data=image_bytes)
+        self.logger.debug("Saving image with data: %s", image_bytes)
+        self.page.elements.append(image)
         self.needs_full_redraw = True
         self.needs_regeneration.emit(self.page_index)
 

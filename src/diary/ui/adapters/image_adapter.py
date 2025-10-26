@@ -1,8 +1,10 @@
 """Adapter for rendering Image elements with QPainter"""
 
+import logging
 from typing import override
-from PyQt6.QtGui import QPainter, QPixmap, QBrush, QColor, QPen
+
 from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPen, QPixmap
 
 from diary.models import Image, PageElement
 from diary.ui.adapters import ElementAdapter
@@ -23,6 +25,13 @@ class ImageAdapter(ElementAdapter):
             return
 
         image = element
+        logging.getLogger("ImageAdapter").debug(
+            "Rendering image: %s, with path: %s and data: %s...%s",
+            image,
+            image.image_path,
+            image.image_data[:10] if image.image_data else None,
+            image.image_data[-10:] if image.image_data else None,
+        )
         # Create the rectangle where the image will be drawn
         rect = QRectF(image.position.x, image.position.y, image.width, image.height)
         # Save the current painter state

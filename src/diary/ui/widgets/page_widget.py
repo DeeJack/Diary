@@ -252,7 +252,6 @@ class PageWidget(QWidget):
 
     def _continue_drawing(self, drawing_input: DrawingInput, current_width: float):
         """Continues current stroke"""
-        self.logger.debug("Drawing %s", drawing_input)
         if self.current_stroke is None:
             self.current_stroke = Stroke()
         width = self.calculate_width_from_pressure(
@@ -274,10 +273,10 @@ class PageWidget(QWidget):
         self.is_drawing = False
         if self.current_stroke is None:
             return
-        # drawing_input.position could be used for final stroke point
-        self.current_stroke.points = smooth_stroke_moving_average(
-            self.current_stroke.points, 8
-        )
+        if drawing_input.input_type == InputType.TABLET:
+            self.current_stroke.points = smooth_stroke_moving_average(
+                self.current_stroke.points, 8
+            )
         self.page.add_element(self.current_stroke)
 
         # Render the completed stroke to the backing pixmap
@@ -316,20 +315,6 @@ class PageWidget(QWidget):
                 if self.is_drawing:
                     self._stop_drawing(drawing_input)
 
-    def continue_drawing(self, event: QTabletEvent, pos: QPointF, current_width: float):
-        """Legacy method - continues current stroke (deprecated, use _continue_drawing)"""
-        if self.current_stroke is None:
-            self.current_stroke = Stroke()
-        width = self.calculate_width_from_pressure(event.pressure(), current_width)
-        self.current_stroke.points.append(Point(pos.x(), pos.y(), width))
-
-        if len(self.current_stroke.points) >= 2:
-            last_point = self.current_stroke.points[-2]
-            current_point = self.current_stroke.points[-1]
-            self.update_stroke_area(last_point, current_point, current_width)
-        else:
-            self.update()
-
     def update_stroke_area(self, p1: Point, p2: Point, current_width: float):
         """Update only the rectangular area containing the new stroke segment"""
         # Calculate the bounding rectangle for this stroke segment
@@ -346,32 +331,6 @@ class PageWidget(QWidget):
             int(min_x), int(min_y), int(max_x - min_x), int(max_y - min_y)
         )
         self.update(update_rect)
-
-    def stop_drawing(self, position: QPointF):
-        """Legacy method - stops current stroke (deprecated, use _stop_drawing)"""
-        self.is_drawing = False
-        if self.current_stroke is None:
-            return
-        self.current_stroke.points = smooth_stroke_moving_average(
-            self.current_stroke.points, 8
-        )
-        self.page.add_element(self.current_stroke)
-
-        # Render the completed stroke to the backing pixmap
-        self.ensure_backing_pixmap()
-        if self.backing_pixmap:
-            painter = QPainter(self.backing_pixmap)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-            painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
-            self.draw_element(self.current_stroke, painter)
-            _ = painter.end()
-
-        self.current_stroke = None
-        self.update()
-
-        if position.y() > (float(self.height()) / 10 * 8):
-            self.add_below_dynamic.emit(self)
 
     def erase(self, pos: QPointF):
         """Erase strokes intersecting with the given position"""
@@ -552,7 +511,7 @@ def smooth_stroke_moving_average(
     if len(stroke_points) < window_size:
         return stroke_points  # Not enough points to smooth, return as is
 
-    smoothed_points = []
+    smoothed_points: list[Point] = []
     # Start with the first few points to avoid a harsh jump
     for i in range(window_size):
         smoothed_points.append(stroke_points[i])

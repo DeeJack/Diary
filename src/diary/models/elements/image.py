@@ -3,7 +3,6 @@
 import logging
 from base64 import b64decode, b64encode
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, cast, override
 
 from diary.config import settings
@@ -123,11 +122,3 @@ class Image(PageElement):
             and self.image_data == other.image_data
             and self.rotation == other.rotation
         )
-
-    @classmethod
-    def read_bytes_from_file(cls, image_file: Path):
-        if not image_file.exists():
-            raise FileNotFoundError(f"File {image_file} doesn't exists")
-        with open(image_file, "rb") as f:
-            image_bytes = f.read()
-            return image_bytes

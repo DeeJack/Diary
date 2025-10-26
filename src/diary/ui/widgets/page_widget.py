@@ -4,7 +4,6 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
 from typing import cast, override
 
 from PyQt6 import QtGui
@@ -494,9 +493,21 @@ class PageWidget(QWidget):
         self.logger.debug("Selected image: %s", image_file)
         if not image_file:
             return
-        image_bytes = Image.read_bytes_from_file(Path(image_file))
-        image = Image(pos, width=100, height=100, image_data=image_bytes)
-        self.logger.debug("Saving image with data: %s", image_bytes)
+        (image_bytes, height, width) = ImageAdapter.read_image(image_file)
+        logging.getLogger("ImageAdapter").debug(
+            "Saving image with path: %s and data: %s...%s, height: %s, width: %s",
+            image_file,
+            image_bytes[:10],
+            image_bytes[-10:],
+            height,
+            width,
+        )
+        image = Image(
+            pos,
+            width=width / settings.RENDERING_SCALE,
+            height=height / settings.RENDERING_SCALE,
+            image_data=image_bytes,
+        )
         self.page.elements.append(image)
         self.needs_full_redraw = True
         self.needs_regeneration.emit(self.page_index)

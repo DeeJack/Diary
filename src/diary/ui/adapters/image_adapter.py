@@ -3,7 +3,7 @@
 import logging
 from typing import override
 
-from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen, QPixmap
 
 from diary.models import Image, PageElement
@@ -81,3 +81,33 @@ class ImageAdapter(ElementAdapter):
             element.position.x + element.width,
             element.position.y + element.height,
         )
+
+    @staticmethod
+    def read_image(file_path: str) -> tuple[bytes, int, int]:
+        """Reads the image from a path, and returns bytes, height, width"""
+        pixmap = QPixmap(file_path)
+        if pixmap.isNull():
+            raise ValueError("Couldn't load image")
+
+        MAX_DIMENSION = 1024.0
+        if pixmap.width() > MAX_DIMENSION or pixmap.height() > MAX_DIMENSION:
+            logging.getLogger("ImageAdapter").debug(
+                "Scaled: %s %s", pixmap.width(), pixmap.height()
+            )
+            # Scale the pixmap down, keeping aspect ratio
+            pixmap = pixmap.scaled(
+                int(MAX_DIMENSION),
+                int(MAX_DIMENSION),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+
+        # Compress to JPG, quality 80
+        byte_array = QByteArray()
+        buffer = QBuffer(byte_array)
+        _ = buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+        # Save the pixmap to the buffer in JPEG format, quality 80
+        _ = pixmap.save(buffer, "JPG", 80)
+
+        image_bytes = byte_array.data()
+        return (image_bytes, pixmap.height(), pixmap.width())

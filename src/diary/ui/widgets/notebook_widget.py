@@ -246,9 +246,6 @@ class NotebookWidget(QGraphicsView):
                 page_widget.handle_tablet_event(
                     event,
                     local_pos,
-                    self.current_tool,
-                    self.current_thickness,
-                    self.current_color,
                 )
                 return True  # Event handled
 

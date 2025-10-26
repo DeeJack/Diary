@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import override
+from typing import cast, override
 
 from PyQt6 import QtGui
 from PyQt6.QtCore import QPointF, QRect, QRectF, Qt, pyqtSignal
@@ -15,6 +15,7 @@ from PyQt6.QtGui import (
     QFont,
     QMouseEvent,
     QPainter,
+    QPainterPath,
     QPaintEvent,
     QPixmap,
     QResizeEvent,
@@ -390,12 +391,25 @@ class PageWidget(QWidget):
                 self.page.remove_element(element_to_remove)
 
                 # Get the bounding box of the stroke to erase
-                bounding_rect: QRectF = adapter_registry.get_adapter(
-                    element_to_remove
-                ).rect(element_to_remove)
+                if not isinstance(element_to_remove, Stroke):
+                    bounding_rect: QRectF = adapter_registry.get_adapter(
+                        element_to_remove
+                    ).rect(element_to_remove)
+                    # "Erase" by painting the background color over the area
+                    painter.fillRect(bounding_rect, QColor(0xE0, 0xE0, 0xE0))
+                else:
+                    adapter = cast(
+                        StrokeAdapter, adapter_registry.get_adapter(element_to_remove)
+                    )
+                    path = QPainterPath()
+                    element_to_remove.color = "#E0E0E0"
+                    adapter._render_uniform_width_stroke(  # pyright: ignore[reportPrivateUsage]
+                        element_to_remove, painter, path
+                    )
 
-                # "Erase" by painting the background color over the area
-                painter.fillRect(bounding_rect, QColor(0xE0, 0xE0, 0xE0))
+            # redraw horizontal line in case they intersected with deleted elements
+            self.draw_horizontal_lines(painter)
+
             _ = painter.end()
 
         if len(elements_to_remove) > 0:

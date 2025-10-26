@@ -375,50 +375,30 @@ class PageWidget(QWidget):
     def erase(self, pos: QPointF):
         """Erase strokes intersecting with the given position"""
         CIRCLE_RADIUS = 4  # pixels
-        element_to_remove: PageElement | None = None
+        elements_to_remove: list[PageElement] = []
 
         for element in self.page.elements.copy():
             if element.intersects(Point(pos.x(), pos.y(), 0), CIRCLE_RADIUS):
                 self.logger.debug("Erasing element %s", element.element_id)
-                element_to_remove = element
-                break
+                elements_to_remove.append(element)
 
-        if element_to_remove:
-            self.ensure_backing_pixmap()
-            if self.backing_pixmap:
-                painter = QPainter(self.backing_pixmap)
-                # Scale the painter to match high-resolution rendering
-                rendering_scale = settings.RENDERING_SCALE
-                painter.scale(rendering_scale, rendering_scale)
+        self.ensure_backing_pixmap()
+        if self.backing_pixmap:
+            painter = QPainter(self.backing_pixmap)
+
+            for element_to_remove in elements_to_remove:
+                self.page.remove_element(element_to_remove)
 
                 # Get the bounding box of the stroke to erase
                 bounding_rect: QRectF = adapter_registry.get_adapter(
                     element_to_remove
                 ).rect(element_to_remove)
-                # Add a small margin for anti-aliasing
-                bounding_rect = bounding_rect.adjusted(-5, -5, 5, 5)
 
                 # "Erase" by painting the background color over the area
                 painter.fillRect(bounding_rect, QColor(0xE0, 0xE0, 0xE0))
+            _ = painter.end()
 
-                painter.setBrush(QBrush(QColor(0xDD, 0xCD, 0xC4)))
-                painter.setPen(QColor(0xDD, 0xCD, 0xC4))
-                painter.setOpacity(0.9)
-                for line_y in range(
-                    int(bounding_rect.top()),
-                    int(bounding_rect.bottom()),
-                    settings.PAGE_LINES_SPACING,
-                ):
-                    if (
-                        line_y >= settings.PAGE_LINES_SPACING
-                    ):  # Avoid drawing on top margin
-                        painter.drawLine(
-                            QPointF(bounding_rect.left(), float(line_y)),
-                            QPointF(bounding_rect.right(), float(line_y)),
-                        )
-                _ = painter.end()
-
-            self.page.remove_element(element_to_remove)
+        if len(elements_to_remove) > 0:
             self.update()
             self.needs_regeneration.emit(self.page_index)
 

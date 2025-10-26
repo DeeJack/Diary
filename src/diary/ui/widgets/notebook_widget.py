@@ -597,6 +597,8 @@ class NotebookWidget(QGraphicsView):
                 QApplication.setOverrideCursor(Qt.CursorShape.CrossCursor)
             case Tool.AUDIO:
                 QApplication.setOverrideCursor(Qt.CursorShape.CrossCursor)
+            case Tool.SELECTION:
+                QApplication.setOverrideCursor(Qt.CursorShape.ArrowCursor)
 
     def change_color(self, new_color: QColor):
         self.current_color = new_color

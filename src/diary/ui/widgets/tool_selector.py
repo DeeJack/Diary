@@ -8,3 +8,4 @@ class Tool(Enum):
     DRAG = "DRAG"
     IMAGE = "IMAGE"
     AUDIO = "AUDIO"
+    SELECTION = "SELECTION"

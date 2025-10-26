@@ -2,12 +2,13 @@
 
 import logging
 import pickle
-from PyQt6.QtGui import QPixmap, QPainter, QColor
-from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import QBuffer, QIODevice, Qt
 
-from diary.ui.widgets.page_widget import PageWidget
+from PyQt6.QtCore import QBuffer, QIODevice, Qt
+from PyQt6.QtGui import QColor, QPainter, QPixmap
+from PyQt6.QtWidgets import QApplication
+
 from diary.config import settings
+from diary.ui.widgets.page_widget import PageWidget
 
 
 def render_page_in_process(pickled_page_data: bytes, page_index: int) -> bytes:

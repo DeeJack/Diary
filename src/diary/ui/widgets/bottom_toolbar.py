@@ -54,6 +54,11 @@ class BottomToolbar(QToolBar):
             lambda: self._button_clicked(self.image_btn, Tool.IMAGE)
         )
 
+        self.selection_btn: QPushButton = create_button("🎯")
+        _ = self.selection_btn.clicked.connect(
+            lambda: self._button_clicked(self.selection_btn, Tool.SELECTION)
+        )
+
         thickness_lbl = QLabel()
         thickness_lbl.setFont(QFont("Times New Roman", 12))
         thickness_lbl.setText("Thickness:")
@@ -77,6 +82,7 @@ class BottomToolbar(QToolBar):
             self.text_btn,
             self.drag_btn,
             self.image_btn,
+            self.selection_btn,
         ]
 
         self._add_filling_spacer()

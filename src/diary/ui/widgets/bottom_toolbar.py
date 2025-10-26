@@ -70,8 +70,6 @@ class BottomToolbar(QToolBar):
         ]
 
         self._add_filling_spacer()
-        _ = self.addWidget(self.pen_btn)
-        self._add_spacer(10)
         for button in buttons:
             _ = self.addWidget(button)
             self._add_spacer(10)

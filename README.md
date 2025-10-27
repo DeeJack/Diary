@@ -23,5 +23,7 @@ It is still very much in active development. I'm rewriting the rendering part, b
 ## TODO
 
 [ ] Generate executable
+
 [ ] Rewrite rendering process
+
 [ ] Allow selection/move/resizing

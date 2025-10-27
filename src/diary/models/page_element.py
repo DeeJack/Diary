@@ -1,8 +1,9 @@
 """Abstract base class for all page elements"""
 
+import uuid
 from abc import ABC, abstractmethod
 from typing import Any, override
-import uuid
+
 from diary.models.point import Point
 
 
@@ -11,7 +12,7 @@ class PageElement(ABC):
 
     def __init__(self, element_type: str, element_id: str | None = None):
         self.element_type: str = element_type
-        self.element_id: str | None = element_id or uuid.uuid4().hex
+        self.element_id: str = element_id or uuid.uuid4().hex
 
     @abstractmethod
     def intersects(self, pos: Point, radius: float) -> bool:

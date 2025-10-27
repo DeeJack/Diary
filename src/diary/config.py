@@ -29,14 +29,14 @@ class Settings(BaseSettings):
     LOGGING_DIR_PATH: Path = DATA_DIR_PATH / "logging"
 
     # Page
+    RENDERING_SCALE: float = 4
     PAGE_WIDTH: int = 800
     PAGE_HEIGHT: int = 1100
     PAGE_LINES_SPACING: int = 35
-    PAGE_LINES_MARING: int = 5
+    PAGE_LINES_MARGIN: int = 5
     PAGE_BETWEEN_SPACING: int = 10
     USE_PRESSURE: bool = False
     PREFERRED_THICKNESS: float = 1.0
-    RENDERING_SCALE: float = 4.0
 
     AUTOSAVE_NOTEBOOK_TIMEOUT: int = 120  # in seconds
     CURRENT_TOOL: Tool = Tool.PEN

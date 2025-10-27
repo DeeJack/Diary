@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pylint (>=4.0.0,<5.0.0)", "mypy (>=1.18.2,<2.0.0)"]
+dev = ["pylint (>=4.0.0,<5.0.0)", "mypy (>=1.18.2,<2.0.0)", "basedpyright (<3.12)"]
 
 
 [build-system]
@@ -30,7 +30,7 @@ reportUnknownLambdaType=false
 reportUnusedFunction=true
 venvPath=".venv"
 ignore=["**/.venv"]
-exclude=["**/AppData/*"]
+exclude=["**/AppData/*", "**/.venv/*"]
 
 [[tool.mypy.overrides]]
 module = ["msgpack.*"]

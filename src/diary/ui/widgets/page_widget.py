@@ -70,7 +70,7 @@ class DrawingInput:
     rotation: float = 0.0  # 0.0 to 360.0, tablet only
 
 
-class PageWidget(QWidget):
+class PageWidgetOld(QWidget):
     """Represents the UI of a Page in the Notebook"""
 
     add_below: pyqtSignal = pyqtSignal(object)
@@ -221,9 +221,9 @@ class PageWidget(QWidget):
             painter.setOpacity(0.9)
 
             painter.drawLine(
-                settings.PAGE_LINES_MARING,
+                settings.PAGE_LINES_MARGIN,
                 line,
-                self.page_width - settings.PAGE_LINES_MARING,
+                self.page_width - settings.PAGE_LINES_MARGIN,
                 line,
             )
 
@@ -523,31 +523,3 @@ class PageWidget(QWidget):
         self.page.elements.append(image)
         self.needs_full_redraw = True
         self.needs_regeneration.emit(self.page_index)
-
-
-def smooth_stroke_moving_average(
-    stroke_points: list[Point], window_size: int = 4
-) -> list[Point]:
-    """
-    Smooths a stroke using a simple moving average filter.
-    """
-    if len(stroke_points) < window_size:
-        return stroke_points  # Not enough points to smooth, return as is
-
-    smoothed_points: list[Point] = []
-    # Start with the first few points to avoid a harsh jump
-    for i in range(window_size):
-        smoothed_points.append(stroke_points[i])
-
-    for i in range(window_size, len(stroke_points)):
-        # Get the slice of points for the moving average window
-        window = stroke_points[i - window_size : i]
-
-        # Calculate the average x, y, and pressure
-        avg_x = sum(p.x for p in window) / window_size
-        avg_y = sum(p.y for p in window) / window_size
-        avg_pressure = sum(p.pressure for p in window) / window_size
-
-        smoothed_points.append(Point(avg_x, avg_y, avg_pressure))
-
-    return smoothed_points

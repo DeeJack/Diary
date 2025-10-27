@@ -1,10 +1,7 @@
 """The widget for the Notebook containing the PageWidgets"""
 
 import logging
-import pickle
 import sys
-from collections import deque
-from multiprocessing import Pool
 from typing import cast, override
 
 from PyQt6.QtCore import (
@@ -14,7 +11,6 @@ from PyQt6.QtCore import (
     QPointF,
     Qt,
     QThread,
-    QThreadPool,
     QTimer,
     pyqtSignal,
     pyqtSlot,  # pyright: ignore[reportUnknownVariableType]
@@ -24,7 +20,6 @@ from PyQt6.QtGui import (
     QColor,
     QKeyEvent,
     QMouseEvent,
-    QPixmap,
     QShowEvent,
     QTabletEvent,
     QTouchEvent,
@@ -44,8 +39,7 @@ from PyQt6.QtWidgets import (
 
 from diary.config import settings
 from diary.models import Notebook, NotebookDAO, Page
-from diary.ui.widgets.page_process import render_page_in_process
-from diary.ui.widgets.page_widget import PageWidget
+from diary.ui.graphics_items.page_graphics_widget import PageGraphicsWidget
 from diary.ui.widgets.save_worker import SaveWorker
 from diary.ui.widgets.tool_selector import Tool
 from diary.utils.backup import BackupManager
@@ -69,7 +63,7 @@ class NotebookWidget(QGraphicsView):
         super().__init__()
         self.current_zoom: float = 0.9
         self.min_zoom: float = 0.6
-        self.max_zoom: float = 4.0  # Allow zooming up to original rendering resolution
+        self.max_zoom: float = 1.4
         self.notebook: Notebook = notebook or Notebook([Page(), Page()])
 
         self.page_proxies: list[QGraphicsProxyWidget] = []
@@ -77,8 +71,6 @@ class NotebookWidget(QGraphicsView):
         self.salt: bytes = salt
         self.backup_manager: BackupManager = BackupManager()
         self.logger: logging.Logger = logging.getLogger("NotebookWidget")
-        self.loaded_pages: dict[int, QGraphicsProxyWidget] = {}
-        self.load_distance: int = 2
         self.is_saving: bool = False
         self.save_thread: QThread = QThread()
         self.save_worker: SaveWorker = SaveWorker(
@@ -91,30 +83,10 @@ class NotebookWidget(QGraphicsView):
         self.status_bar: QStatusBar = status_bar
         self.this_scene: QGraphicsScene = QGraphicsScene()
         self.is_notebook_dirty: bool = False
-        self.process_pool = Pool()  # pyright: ignore[reportUnannotatedClassAttribute]
-        self.current_tool: Tool = Tool.PEN
-        self.current_color: QColor = QColor("black")
-        self.current_thickness: float = settings.PREFERRED_THICKNESS
-
-        # Caching/lazy load
-        self.thread_pool: QThreadPool = QThreadPool()
-        self.thread_pool.setMaxThreadCount(QThread.idealThreadCount())
-        self.page_cache: dict[int, PageWidget] = {}  # {page_index: PageWidget}
-        self.pages_to_load: set[int] = set()
-        self.CACHE_SIZE: int = 3
-        self.LOAD_THRESHOLD: int = 3
-
-        self.high_priority_queue: deque[int] = deque()
-        self.low_priority_queue: deque[int] = deque()
-        self.loading_pages: set[int] = set()
-
-        self.scroll_timer: QTimer = QTimer()
-        self.scroll_timer.setSingleShot(True)
-        self.scroll_timer.setInterval(150)
-        _ = self.scroll_timer.timeout.connect(self._on_scroll)
-        self._initial_load_complete: bool = False
+        self._initial_load_complete: bool = True
 
         self._setup_notebook_widget()
+        self._layout_pages()
 
     def _setup_notebook_widget(self):
         """Init configurations for the widget"""
@@ -136,12 +108,6 @@ class NotebookWidget(QGraphicsView):
         timer.setInterval(1000 * settings.AUTOSAVE_NOTEBOOK_TIMEOUT)
         _ = timer.timeout.connect(self.save_async)
         timer.start()
-
-        # --- Initial Setup ---
-        self._layout_pages()
-        scrollbar = cast(QScrollBar, self.verticalScrollBar())
-        _ = scrollbar.valueChanged.connect(self.on_scroll_timer)
-        self._on_scroll()  # Initial load
 
     @override
     def viewportEvent(self, event: QEvent | None):
@@ -238,8 +204,8 @@ class NotebookWidget(QGraphicsView):
             if widget is None:
                 return False
 
-            if isinstance(widget, PageWidget):
-                page_widget: PageWidget = widget
+            if isinstance(widget, PageGraphicsWidget):
+                page_widget: PageGraphicsWidget = widget
                 # Map scene coordinates to page coordinates
                 local_pos: QPointF = item.mapFromScene(scene_pos)
                 # Forward event
@@ -279,8 +245,8 @@ class NotebookWidget(QGraphicsView):
             if widget is None:
                 return False
 
-            if isinstance(widget, PageWidget):
-                page_widget: PageWidget = widget
+            if isinstance(widget, PageGraphicsWidget):
+                page_widget: PageGraphicsWidget = widget
                 # Map scene coordinates to page coordinates
                 local_pos: QPointF = item.mapFromScene(scene_pos)
                 page_widget.handle_mouse_event(event, local_pos)
@@ -339,7 +305,7 @@ class NotebookWidget(QGraphicsView):
         index = self.notebook.pages.index(page) + 1
         new_page = Page()
         self.notebook.pages.insert(index, new_page)
-        page_widget = PageWidget(new_page, index - 1)
+        page_widget = PageGraphicsWidget(new_page, index - 1)
         proxy = self._add_page_to_scene(page_widget)
         self.page_proxies.insert(index, proxy)
         self._reposition_all_pages()
@@ -372,7 +338,7 @@ class NotebookWidget(QGraphicsView):
         spacing = settings.PAGE_BETWEEN_SPACING
         y_position = 0
         for proxy in self.page_proxies:
-            page_widget = cast(PageWidget, proxy.widget())
+            page_widget = cast(PageGraphicsWidget, proxy.widget())
             proxy.setPos(0, y_position)
             y_position += page_widget.height() + spacing
 
@@ -399,7 +365,7 @@ class NotebookWidget(QGraphicsView):
         if self.save_worker:
             self.save_worker.cancel()
 
-    def _add_page_to_scene(self, page_widget: PageWidget):
+    def _add_page_to_scene(self, page_widget: PageGraphicsWidget):
         """Add a new PageWidget to the scene"""
         proxy = self.this_scene.addWidget(page_widget)
         assert proxy is not None
@@ -409,58 +375,18 @@ class NotebookWidget(QGraphicsView):
         _ = page_widget.add_below_dynamic.connect(
             lambda _: self._add_page_below_dynamic(page_widget.page)
         )
-        _ = page_widget.needs_regeneration.connect(self.regenerate_page)
         return proxy
 
     def _layout_pages(self):
         """Setup the layout for the pages, without loading them"""
         y_pos = 0
-        self.current_page_changed.emit(0, len(self.notebook.pages))
         for i, page_data in enumerate(self.notebook.pages):
-            page_widget = PageWidget(page_data, i)
+            page_widget = PageGraphicsWidget(page_data, i)
             proxy_widget = self._add_page_to_scene(page_widget)
             proxy_widget.setPos(0, y_pos)
             self.page_proxies.append(proxy_widget)
-            self.page_cache[i] = page_widget  # No content yet
+            # self.page_cache[i] = page_widget  # No content yet
             y_pos += page_widget.height() + settings.PAGE_BETWEEN_SPACING
-
-    def on_scroll_timer(self, _):
-        """Call the timer to load the new pages, overriding the previous timer if already called"""
-        try:
-            self.scroll_timer.start()
-        except Exception as _:
-            pass  # Object has been destroyed
-
-    def _on_scroll(self):
-        """Load the new visible pages after scrolling"""
-        visible_indices = self._get_visible_page_indices()
-        current_page_index = self._get_current_page_index()
-
-        start_page = max(0, current_page_index - (self.CACHE_SIZE // 2))
-        end_page = min(len(self.page_proxies), start_page + self.CACHE_SIZE)
-
-        # Unload pages outside the cached window
-        for index, proxy in enumerate(self.page_proxies):
-            page_widget: PageWidget = cast(PageWidget, proxy.widget())
-            if not (start_page <= index < end_page) and page_widget.is_loaded:
-                page_widget.backing_pixmap = None
-                page_widget.is_loaded = False
-                page_widget.update()  # Redraw as a placeholder
-
-        # Queue pages for loading
-        self.high_priority_queue.clear()
-        self.low_priority_queue.clear()
-
-        for i in range(start_page, end_page):
-            page_widget = cast(PageWidget, self.page_proxies[i].widget())
-            if not page_widget.is_loaded and i not in self.loading_pages:
-                if i in visible_indices:
-                    self.high_priority_queue.append(i)
-                else:
-                    self.low_priority_queue.append(i)
-
-        self._dispatch_tasks()
-        self.current_page_changed.emit(current_page_index, len(self.notebook.pages))
 
     def _get_current_page_index(self):
         """Estimate current page index based on viewport"""
@@ -468,84 +394,11 @@ class NotebookWidget(QGraphicsView):
         page_height = settings.PAGE_HEIGHT + settings.PAGE_BETWEEN_SPACING
         return max(0, int(center_y / page_height))
 
-    def _get_visible_page_indices(self) -> set[int]:
-        """Determines which pages are currently visible in the viewport."""
-        visible_rect = self.mapToScene(
-            cast(QWidget, self.viewport()).rect()
-        ).boundingRect()
-        visible_indices: set[int] = set()
-        for index, proxy in enumerate(self.page_proxies):
-            if proxy.sceneBoundingRect().intersects(visible_rect):
-                visible_indices.add(index)
-        return visible_indices
-
-    def _dispatch_tasks(self):
-        """Starts new workers from the queues if there's capacity."""
-        if not self.high_priority_queue and not self.low_priority_queue:
-            return
-
-        for _ in range(QThread.idealThreadCount()):
-            # Simplified: just dispatch one task for now
-            if self.high_priority_queue:
-                page_index = self.high_priority_queue.popleft()
-            elif self.low_priority_queue:
-                page_index = self.low_priority_queue.popleft()
-            else:
-                break
-
-            if page_index not in self.loading_pages:
-                self.loading_pages.add(page_index)
-                self.logger.debug("Loading page %d on another process", page_index)
-
-                # Get the serializable data
-                page_widget = cast(PageWidget, self.page_proxies[page_index].widget())
-                page_data = page_widget.page
-                pickled_page_data = pickle.dumps(page_data)
-
-                # Send the job to the worker process
-                _ = self.process_pool.apply_async(
-                    render_page_in_process,
-                    args=(pickled_page_data, page_index),
-                    callback=lambda result_bytes,  # type: ignore
-                    p_index=page_index: self.on_page_loaded(p_index, result_bytes),
-                )
-
-    def on_page_loaded(self, page_index: int, png_bytes: bytes):
-        """Slot to receive the rendered pixmap from a worker."""
-        self.logger.debug("Page %d loaded", page_index)
-
-        if page_index in self.loading_pages:
-            self.loading_pages.remove(page_index)
-
-        page_widget = cast(PageWidget, self.page_proxies[page_index].widget())
-
-        # Recreate the QPixmap from the raw PNG data
-        pixmap = QPixmap()
-        _ = pixmap.loadFromData(png_bytes)
-
-        page_widget.set_backing_pixmap(pixmap)
-
-        # Since a task finished, try to dispatch the next one from the queue
-        self._dispatch_tasks()
-
-    @pyqtSlot(int)  # pyright: ignore[reportUntypedFunctionDecorator]
-    def regenerate_page(self, page_index: int):
-        """
-        Queues a high-priority job to re-render a specific page.
-        This is called when a page's content (e.g., erasing) has changed.
-        """
-        self.logger.debug("Queueing high-priority regeneration for page %d", page_index)
-        self.high_priority_queue.appendleft(page_index)
-        # Request the refresh immediately
-        self._dispatch_tasks()
-
     def scroll_to_page(self, page_index: int):
         """Scrolls to the selected page."""
         if 0 <= page_index < len(self.page_proxies):
             # Calculate the Y position of the target page
-            y_pos = page_index * (
-                self.page_cache[0].height() + settings.PAGE_BETWEEN_SPACING
-            )
+            y_pos = page_index * (settings.PAGE_HEIGHT + settings.PAGE_BETWEEN_SPACING)
             cast(QScrollBar, self.verticalScrollBar()).setValue(int(y_pos))
 
     @pyqtSlot()  # pyright: ignore[reportUntypedFunctionDecorator]
@@ -578,9 +431,8 @@ class NotebookWidget(QGraphicsView):
             self._initial_load_complete = True
 
     def select_tool(self, new_tool: Tool):
-        self.current_tool = new_tool
         settings.CURRENT_TOOL = new_tool
-        self.logger.debug("Setting new tool: %s", self.current_tool.value)
+        self.logger.debug("Setting new tool: %s", new_tool)
 
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
         match new_tool:
@@ -601,10 +453,9 @@ class NotebookWidget(QGraphicsView):
                 QApplication.setOverrideCursor(Qt.CursorShape.ArrowCursor)
 
     def change_color(self, new_color: QColor):
-        self.current_color = new_color
-        self.logger.debug("Setting new color: %s", self.current_color)
+        settings.CURRENT_COLOR = new_color
+        self.logger.debug("Setting new color: %s", new_color)
 
     def change_thickness(self, new_thickness: float):
-        self.current_thickness = new_thickness
         settings.PREFERRED_THICKNESS = new_thickness
-        self.logger.debug("Setting new thickness: %s", self.current_thickness)
+        self.logger.debug("Setting new thickness: %s", new_thickness)

@@ -7,6 +7,7 @@ from typing import override
 from PyQt6.QtCore import QPointF, Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QMouseEvent, QPainter, QPointingDevice, QTabletEvent
 from PyQt6.QtWidgets import (
+    QFileDialog,
     QGraphicsView,
     QGridLayout,
     QHBoxLayout,
@@ -23,6 +24,7 @@ from diary.models.elements.stroke import Stroke
 from diary.models.elements.text import Text
 from diary.models.page import Page
 from diary.models.point import Point
+from diary.ui.adapters.image_adapter import ImageAdapter
 from diary.ui.input import InputAction, InputType
 from diary.ui.widgets.tool_selector import Tool
 
@@ -172,6 +174,8 @@ class PageGraphicsWidget(QWidget):
             self._handle_text_input(position, action)
         elif current_tool == Tool.ERASER or is_eraser:
             self._handle_eraser_input(position, action)
+        elif current_tool == Tool.IMAGE:
+            self._handle_image_input(position, action)
 
     def _handle_pen_input(
         self, position: QPointF, pressure: float, action: InputAction, device: InputType
@@ -304,6 +308,33 @@ class PageGraphicsWidget(QWidget):
             device=InputType.TABLET,
             is_eraser=event.pointerType() == QPointingDevice.PointerType.Eraser,
         )
+
+    def _handle_image_input(self, position: QPointF, action: InputAction):
+        """Handle input with Image tool"""
+        if action == InputAction.PRESS:
+            scene_pos = self._graphics_view.mapToScene(position.toPoint())
+            point = Point(scene_pos.x(), scene_pos.y(), 1.0)
+
+            image_file, _ = QFileDialog.getOpenFileName(
+                self.parentWidget(),
+                "Select image",
+                filter=("Images (*.png *.xpm *.jpg *.jpeg *.webp)"),
+            )
+            self._logger.debug("Selected image: %s", image_file)
+            if not image_file:
+                return
+            (image_bytes, height, width) = ImageAdapter.read_image(image_file)
+            self._logger.debug(
+                "Saving image with path: %s and data: %s...%s, height: %s, width: %s",
+                image_file,
+                image_bytes[:10],
+                image_bytes[-10:],
+                height,
+                width,
+            )
+            _ = self._scene.create_image(
+                point, width / 4, height / 4, image_data=image_bytes
+            )
 
     def get_selected_elements(self) -> list[PageElement]:
         """Get currently selected elements"""

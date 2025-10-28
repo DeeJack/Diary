@@ -84,7 +84,7 @@ class NotebookWidget(QGraphicsView):
         self.status_bar: QStatusBar = status_bar
         self.this_scene: QGraphicsScene = QGraphicsScene()
         self.is_notebook_dirty: bool = False
-        self._initial_load_complete: bool = True
+        self._initial_load_complete: bool = False
 
         self._setup_notebook_widget()
         self._layout_pages()
@@ -408,7 +408,8 @@ class NotebookWidget(QGraphicsView):
 
     def scroll_to_page(self, page_index: int):
         """Scrolls to the selected page."""
-        if 0 <= page_index < len(self.page_proxies):
+        self.logger.debug("Scrolling to %s", page_index)
+        if 0 <= page_index < len(self.notebook.pages):
             # Calculate the Y position of the target page
             y_pos = page_index * (settings.PAGE_HEIGHT + settings.PAGE_BETWEEN_SPACING)
             cast(QScrollBar, self.verticalScrollBar()).setValue(int(y_pos))
@@ -421,7 +422,7 @@ class NotebookWidget(QGraphicsView):
     @pyqtSlot()  # pyright: ignore[reportUntypedFunctionDecorator]
     def go_to_last_page(self):
         """PyQtSlot to scroll to the last page"""
-        total_pages = len(self.page_proxies)
+        total_pages = len(self.notebook.pages)
         if total_pages > 0:
             self.scroll_to_page(total_pages - 1)
 
@@ -439,7 +440,7 @@ class NotebookWidget(QGraphicsView):
         super().showEvent(event)
 
         if not self._initial_load_complete:
-            QTimer.singleShot(0, self.go_to_last_page)
+            QTimer.singleShot(5, self.go_to_last_page)
             self._initial_load_complete = True
 
     def select_tool(self, new_tool: Tool):

@@ -22,7 +22,7 @@ from diary.models.elements.stroke import Stroke
 from diary.models.elements.text import Text
 from diary.models.page import Page
 from diary.models.point import Point
-from diary.ui.widgets.page_widget import InputAction
+from diary.ui.widgets.page_widget import InputAction, InputType
 from diary.ui.widgets.tool_selector import Tool
 
 from .page_graphics_scene import PageGraphicsScene
@@ -162,19 +162,20 @@ class PageGraphicsWidget(QWidget):
         position: QPointF,
         pressure: float = 1.0,
         action: InputAction = InputAction.PRESS,
+        device: InputType = InputType.MOUSE,
     ) -> None:
         """Handle drawing input from mouse, tablet, or touch"""
         current_tool = settings.CURRENT_TOOL
 
         if current_tool == Tool.PEN:
-            self._handle_pen_input(position, pressure, action)
+            self._handle_pen_input(position, pressure, action, device)
         elif current_tool == Tool.TEXT:
             self._handle_text_input(position, action)
         elif current_tool == Tool.ERASER:
             self._handle_eraser_input(position, action)
 
     def _handle_pen_input(
-        self, position: QPointF, pressure: float, action: InputAction
+        self, position: QPointF, pressure: float, action: InputAction, device: InputType
     ) -> None:
         """Handle pen/drawing input"""
         match action:
@@ -183,7 +184,7 @@ class PageGraphicsWidget(QWidget):
             case InputAction.MOVE:
                 self._add_stroke_point(position, pressure)
             case InputAction.RELEASE:
-                self._finish_current_stroke()
+                self._finish_current_stroke(device)
 
     def _handle_text_input(self, position: QPointF, action: InputAction) -> None:
         """Handle text input"""
@@ -236,22 +237,30 @@ class PageGraphicsWidget(QWidget):
 
     def _add_stroke_point(self, position: QPointF, pressure: float) -> None:
         """Add a point to the current stroke"""
-        if not self._current_stroke or not self._current_stroke_item:
+        if (
+            not self._current_stroke
+            or not self._current_stroke_item
+            or not self._is_drawing
+        ):
             return
 
         scene_pos = self._graphics_view.mapToScene(position.toPoint())
         point = Point(scene_pos.x(), scene_pos.y(), pressure)
-        self._logger.debug("Scene pos %s, point %s", scene_pos, point)
 
         # Add point to graphics item (which updates the stroke)
         self._current_stroke_item.add_point(point)
 
-    def _finish_current_stroke(self) -> None:
+    def _finish_current_stroke(self, device: InputType) -> None:
         """Finish the current stroke"""
         if self._current_stroke:
             self._logger.debug(
                 f"Finished stroke with {len(self._current_stroke.points)} points"
             )
+
+            if device == InputType.TABLET:
+                self._current_stroke.points = smooth_stroke_moving_average(
+                    self._current_stroke.points, 8
+                )
 
         self._current_stroke = None
         self._current_stroke_item = None
@@ -273,13 +282,18 @@ class PageGraphicsWidget(QWidget):
         self._logger.debug("Tablet! %s", event)
         pressure = event.pressure() if event.pressure() > 0 else 1.0
 
-        action = InputAction.PRESS
+        if event.type() == QTabletEvent.Type.TabletPress:
+            action = InputAction.PRESS
         if event.type() == QTabletEvent.Type.TabletMove:
             action = InputAction.MOVE
         elif event.type() == QTabletEvent.Type.TabletRelease:
             action = InputAction.RELEASE
+        else:
+            return
 
-        self.handle_drawing_input(pos, pressure=pressure, action=action)
+        self.handle_drawing_input(
+            pos, pressure=pressure, action=action, device=InputType.TABLET
+        )
 
     def get_selected_elements(self) -> list[PageElement]:
         """Get currently selected elements"""
@@ -334,3 +348,31 @@ class PageGraphicsWidget(QWidget):
             f"texts={stats['texts']}, "
             f"images={stats['images']})"
         )
+
+
+def smooth_stroke_moving_average(
+    stroke_points: list[Point], window_size: int = 4
+) -> list[Point]:
+    """
+    Smooths a stroke using a simple moving average filter.
+    """
+    if len(stroke_points) < window_size:
+        return stroke_points  # Not enough points to smooth, return as is
+
+    smoothed_points: list[Point] = []
+    # Start with the first few points to avoid a harsh jump
+    for i in range(window_size):
+        smoothed_points.append(stroke_points[i])
+
+    for i in range(window_size, len(stroke_points)):
+        # Get the slice of points for the moving average window
+        window = stroke_points[i - window_size : i]
+
+        # Calculate the average x, y, and pressure
+        avg_x = sum(p.x for p in window) / window_size
+        avg_y = sum(p.y for p in window) / window_size
+        avg_pressure = sum(p.pressure for p in window) / window_size
+
+        smoothed_points.append(Point(avg_x, avg_y, avg_pressure))
+
+    return smoothed_points

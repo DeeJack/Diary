@@ -322,9 +322,15 @@ class NotebookWidget(QGraphicsView):
         if self.is_notebook_dirty:
             self.logger.debug("Saving notebook (%d pages)...", len(self.notebook.pages))
             self.status_bar.showMessage("Saving...")
-            NotebookDAO.save(
-                self.notebook, settings.NOTEBOOK_FILE_PATH, self.key_buffer, self.salt
-            )
+            try:
+                NotebookDAO.save(
+                    self.notebook,
+                    settings.NOTEBOOK_FILE_PATH,
+                    self.key_buffer,
+                    self.salt,
+                )
+            except Exception as e:
+                self.logger.error(e)
             self.status_bar.showMessage("Save completed!")
         else:
             self.logger.debug("Skipping save due to no changes")

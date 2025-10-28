@@ -30,10 +30,10 @@ class PageGraphicsScene(QGraphicsScene):
     element_modified: pyqtSignal = pyqtSignal(PageElement)
     page_modified: pyqtSignal = pyqtSignal()
 
-    def __init__(self, page: Page | None = None, parent: QObject | None = None):
+    def __init__(self, page: Page, parent: QObject | None = None):
         super().__init__(parent)
 
-        self._page: Page = page or Page()
+        self._page: Page = page
         self._element_items: dict[str, QGraphicsItem] = {}
         self._item_elements: dict[QGraphicsItem, PageElement] = {}
         self._logger: logging.Logger = logging.getLogger("PageGraphicsScene")
@@ -87,8 +87,7 @@ class PageGraphicsScene(QGraphicsScene):
         self._element_items[element.element_id or ""] = graphics_item
         self._item_elements[graphics_item] = element
 
-        # Add to page if not already present
-        if self._page and element not in self._page.elements:
+        if element not in self._page.elements:
             self._page.elements.append(element)
 
         self._logger.debug(f"Added element {element.element_id} to scene")
@@ -173,11 +172,9 @@ class PageGraphicsScene(QGraphicsScene):
 
         self.page_modified.emit()
 
-    def get_elements_at_point(
-        self, point: QPointF, radius: float = 5.0
-    ) -> list[PageElement]:
+    def get_elements_at_point(self, point: QPointF) -> list[PageElement]:
         """Get all elements that intersect with the given point"""
-        elements = []
+        elements: list[PageElement] = []
 
         for graphics_item in self.items(point):
             element = self._item_elements.get(graphics_item)
@@ -285,7 +282,6 @@ class PageGraphicsScene(QGraphicsScene):
         line_color = QColor(0xDD, 0xCD, 0xC4)
 
         painter.setPen(QPen(line_color, 1.0))
-        self._logger.debug("Drawing lines (%sx%s)", rect.width(), rect.height())
 
         # Draw horizontal lines
         y = settings.PAGE_LINES_MARGIN

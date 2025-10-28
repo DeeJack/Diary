@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QGraphicsView,
     QGridLayout,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QPushButton,
     QVBoxLayout,
@@ -22,7 +23,7 @@ from diary.models.elements.stroke import Stroke
 from diary.models.elements.text import Text
 from diary.models.page import Page
 from diary.models.point import Point
-from diary.ui.widgets.page_widget import InputAction, InputType
+from diary.ui.input import InputAction, InputType
 from diary.ui.widgets.tool_selector import Tool
 
 from .page_graphics_scene import PageGraphicsScene
@@ -37,7 +38,7 @@ class PageGraphicsWidget(QWidget):
     needs_regeneration: pyqtSignal = pyqtSignal(int)
     page_modified: pyqtSignal = pyqtSignal()
 
-    def __init__(self, page: Page | None, page_index: int):
+    def __init__(self, page: Page, page_index: int):
         super().__init__()
 
         self.page_index: int = page_index
@@ -130,7 +131,6 @@ class PageGraphicsWidget(QWidget):
 
         # Create "Add below" button
         btn_below = QPushButton("Add below")
-        # btn_below.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         btn_below.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
         _ = btn_below.clicked.connect(lambda: self.add_below.emit(self))
 
@@ -191,9 +191,17 @@ class PageGraphicsWidget(QWidget):
             scene_pos = self._graphics_view.mapToScene(position.toPoint())
             point = Point(scene_pos.x(), scene_pos.y(), 1.0)
 
-            # Create text element with placeholder text
+            # TODO: Type without opening a dialog
+            text, ok = QInputDialog.getText(
+                self.parentWidget(),
+                "Insert text",
+                "Text to add",
+            )
+            if not ok:
+                return
+
             text_element = self._scene.create_text(
-                text="Type here...", position=point, color="black", size_px=20.0
+                text=text, position=point, color="black", size_px=20.0
             )
 
             if text_element:
@@ -204,7 +212,7 @@ class PageGraphicsWidget(QWidget):
         if action in [InputAction.PRESS, InputAction.MOVE]:
             # Find and remove elements at position
             scene_pos = self._graphics_view.mapToScene(position.toPoint())
-            elements = self._scene.get_elements_at_point(scene_pos, radius=10.0)
+            elements = self._scene.get_elements_at_point(scene_pos)
 
             for element in elements:
                 if isinstance(element, (Stroke, Text)):

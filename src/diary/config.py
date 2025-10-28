@@ -14,7 +14,7 @@ from diary.ui.widgets.tool_selector import Tool
 class Settings(BaseSettings):
     """Settings class for the Diary application"""
 
-    model_config = {
+    model_config = {  # pyright: ignore[reportUnannotatedClassAttribute]
         "env_file": ".env",
         "env_file_encoding": "utf-8",
     }
@@ -57,6 +57,7 @@ class Settings(BaseSettings):
         TYPE_STROKE = "stroke"
         TYPE_IMAGE = "image"
         TYPE_VOICE = "voice"
+        TYPE_TEXT = "text"
         METADATA = "metadata"
         POINTS = "points"
         COLOR = "color"

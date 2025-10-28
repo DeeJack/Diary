@@ -6,11 +6,11 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, override
+from typing import Any, cast, override
 
 from diary.config import settings
 
-from .elements import Image, Stroke, VoiceMemo
+from .elements import Image, Stroke, Text
 from .page_element import PageElement
 
 
@@ -80,7 +80,9 @@ class Page:
         """Builds the object from dict"""
         elements: list[PageElement] = []
 
-        for element in data[settings.SERIALIZATION_KEYS.ELEMENTS.value]:
+        for element in cast(
+            list[dict[str, str]], data[settings.SERIALIZATION_KEYS.ELEMENTS.value]
+        ):
             if (
                 element[settings.SERIALIZATION_KEYS.ELEMENT_TYPE.value]
                 == settings.SERIALIZATION_KEYS.TYPE_STROKE.value
@@ -93,9 +95,9 @@ class Page:
                 elements.append(Image.from_dict(element))
             elif (
                 element[settings.SERIALIZATION_KEYS.ELEMENT_TYPE.value]
-                == settings.SERIALIZATION_KEYS.TYPE_VOICE.value
+                == settings.SERIALIZATION_KEYS.TYPE_TEXT.value
             ):
-                elements.append(VoiceMemo.from_dict(element))
+                elements.append(Text.from_dict(element))
 
         return cls(
             elements,

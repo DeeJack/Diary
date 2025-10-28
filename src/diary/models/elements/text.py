@@ -1,12 +1,12 @@
 """A string of text in the page"""
 
-from dataclasses import dataclass
 import math
-from typing import override, Any, cast
+from dataclasses import dataclass
+from typing import Any, cast, override
 
 from diary.config import settings
-from diary.models.point import Point
 from diary.models.page_element import PageElement
+from diary.models.point import Point
 
 
 @dataclass
@@ -56,12 +56,13 @@ class Text(PageElement):
     @override
     def from_dict(cls, data: dict[str, Any]) -> "Text":
         """Deserialize this stroke from a dictionary loaded from JSON"""
+        position = cast(
+            list[float], data.get(settings.SERIALIZATION_KEYS.POSITION.value)
+        )
         return cls(
             element_id=data.get(settings.SERIALIZATION_KEYS.ELEMENT_ID.value),
             text=cast(str, data.get(settings.SERIALIZATION_KEYS.TEXT.value, "")),
-            position=cast(
-                Point, data.get(settings.SERIALIZATION_KEYS.POSITION.value, "")
-            ),
+            position=Point(position[0], position[1]),
             color=cast(str, data.get(settings.SERIALIZATION_KEYS.COLOR.value, "black")),
             size_px=float(data.get(settings.SERIALIZATION_KEYS.SIZE_PX.value, 20.0)),
         )
@@ -69,7 +70,7 @@ class Text(PageElement):
     @override
     def __eq__(self, other: object, /) -> bool:
         if not isinstance(other, Text):
-            return NotImplemented
+            return False
 
         parent_result = super().__eq__(other)  # Check for ID
         if parent_result is not NotImplemented:

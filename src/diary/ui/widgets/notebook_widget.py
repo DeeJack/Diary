@@ -32,6 +32,7 @@ from PyQt6.QtWidgets import (
     QGraphicsScene,
     QGraphicsView,
     QPinchGesture,
+    QPushButton,
     QScrollBar,
     QStatusBar,
     QWidget,
@@ -227,9 +228,6 @@ class NotebookWidget(QGraphicsView):
         ):
             return False
 
-        # Save the notebook since it likely changed
-        self.is_notebook_dirty = True
-
         # Get position in viewport
         pos: QPoint = event.position().toPoint()
         scene_pos: QPointF = self.mapToScene(pos)
@@ -249,6 +247,14 @@ class NotebookWidget(QGraphicsView):
                 page_widget: PageGraphicsWidget = widget
                 # Map scene coordinates to page coordinates
                 local_pos: QPointF = item.mapFromScene(scene_pos)
+
+                child_widget = page_widget.childAt(local_pos.toPoint())
+                if child_widget and isinstance(child_widget, QPushButton):
+                    # Let the button handle the event normally
+                    return False
+
+                # Save the notebook since it likely changed
+                self.is_notebook_dirty = True
                 page_widget.handle_mouse_event(event, local_pos)
                 return True
         event.ignore()

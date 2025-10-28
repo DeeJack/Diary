@@ -112,11 +112,6 @@ class PageGraphicsWidget(QWidget):
         # Set fixed size to match page dimensions
         self._graphics_view.setFixedSize(settings.PAGE_WIDTH, settings.PAGE_HEIGHT)
 
-        # Fit the scene exactly in the view
-        # self._graphics_view.fitInView(
-        #     self._scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio
-        # )
-
     def _setup_layout(self) -> None:
         """Setup the widget layout with page info and controls"""
         # Create page title
@@ -135,6 +130,8 @@ class PageGraphicsWidget(QWidget):
 
         # Create "Add below" button
         btn_below = QPushButton("Add below")
+        # btn_below.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        btn_below.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
         _ = btn_below.clicked.connect(lambda: self.add_below.emit(self))
 
         btn_row = QHBoxLayout()
@@ -156,6 +153,7 @@ class PageGraphicsWidget(QWidget):
 
         # Add the overlay layout to the same grid cell (0, 0)
         main_layout.addLayout(overlay_layout, 0, 0)
+        btn_below.raise_()
 
     def handle_drawing_input(
         self,

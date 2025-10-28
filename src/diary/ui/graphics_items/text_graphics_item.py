@@ -157,6 +157,8 @@ class TextGraphicsItem(BaseGraphicsItem):
         self.text_element.position = Point(
             new_position.x(), new_position.y(), self.text_element.position.pressure
         )
+        self.invalidate_cache()
+        self.update()
 
     def set_text(self, text: str) -> None:
         """Update the text content"""

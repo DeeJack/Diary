@@ -252,6 +252,8 @@ class ImageGraphicsItem(BaseGraphicsItem):
         self.image_element.position = Point(
             new_position.x(), new_position.y(), self.image_element.position.pressure
         )
+        self._update_scaled_pixmap()
+        self.invalidate_cache()
 
     def set_size(self, width: float, height: float) -> None:
         """Update the image size"""

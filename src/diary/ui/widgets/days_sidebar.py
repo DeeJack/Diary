@@ -1,9 +1,11 @@
 """The sidebar with the Diary entry for easy navigation"""
 
 from datetime import datetime
+from typing import Any, cast
 
-from PyQt6.QtWidgets import QDockWidget, QWidget, QListWidget, QListWidgetItem
 from PyQt6.QtCore import Qt, pyqtSlot
+from PyQt6.QtGui import QAction
+from PyQt6.QtWidgets import QDockWidget, QListWidget, QListWidgetItem, QWidget
 
 from diary.ui.widgets.notebook_widget import NotebookWidget
 
@@ -18,11 +20,11 @@ class DaysSidebar(QDockWidget):
         self.setAllowedAreas(
             Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
         )
-        self.entry_list = QListWidget()
+        self.entry_list: QListWidget = QListWidget()
         self.populate_entry_list()
         self._style_entry_list()
         self.setWidget(self.entry_list)
-        self.entry_list.itemClicked.connect(self.on_entry_selected)
+        _ = self.entry_list.itemClicked.connect(self.on_entry_selected)
 
     def populate_entry_list(self):
         """Fill the list with the diary entries"""
@@ -38,16 +40,16 @@ class DaysSidebar(QDockWidget):
 
     def create_toggle_action(self):
         """Create action to open/close the sidebar"""
-        sidebar_action = self.toggleViewAction()
+        sidebar_action = cast(QAction, self.toggleViewAction())
         sidebar_action.setText("Toggle Entry List")
         sidebar_action.setShortcut("Ctrl+E")
         return sidebar_action
 
     @pyqtSlot(QListWidgetItem)
-    def on_entry_selected(self, item):
+    def on_entry_selected(self, item: Any):
         """When an entry has been selected, scroll to that page"""
         # Retrieve the page index we stored
-        page_index = item.data(Qt.ItemDataRole.UserRole)
+        page_index = cast(int | None, item.data(Qt.ItemDataRole.UserRole))
         if page_index is not None:
             self.notebook_widget.scroll_to_page(page_index)
 

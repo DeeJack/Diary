@@ -22,12 +22,11 @@ class GraphicsItemFactory:
         """Create the appropriate graphics item for the given page element"""
         if isinstance(element, Stroke):
             return StrokeGraphicsItem(element, parent)
-        elif isinstance(element, Text):
+        if isinstance(element, Text):
             return TextGraphicsItem(element, parent)
-        elif isinstance(element, Image):
+        if isinstance(element, Image):
             return ImageGraphicsItem(element, parent)
-        else:
-            return None
+        return None
 
     @staticmethod
     def create_stroke_item(
@@ -67,6 +66,6 @@ class GraphicsItemFactory:
         """Clone an existing graphics item"""
         if isinstance(item, StrokeGraphicsItem):
             return item.clone()
-        elif isinstance(item, TextGraphicsItem):
+        if isinstance(item, TextGraphicsItem):
             return item.clone()
         return item.clone()

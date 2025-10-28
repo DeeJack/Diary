@@ -1,6 +1,5 @@
 """A string of text in the page"""
 
-import math
 from dataclasses import dataclass
 from typing import Any, cast, override
 
@@ -26,16 +25,6 @@ class Text(PageElement):
         self.position: Point = position
         self.color: str = color
         self.size_px: float = size_px
-
-    @override
-    def intersects(self, pos: Point, radius: float) -> bool:
-        # TODO: intersect the entire rect of the text, not just the origin!
-        distance = math.sqrt(
-            (self.position.x - pos.x) ** 2 + (self.position.y - pos.y) ** 2
-        )
-        if distance <= radius:
-            return True
-        return False
 
     @override
     def to_dict(self) -> dict[str, Any]:

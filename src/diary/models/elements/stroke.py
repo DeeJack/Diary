@@ -1,12 +1,11 @@
 """Represents a continuous Stroke of ink in the Page"""
 
 from dataclasses import dataclass
-import math
-from typing import override, Any, cast
+from typing import Any, cast, override
 
 from diary.config import settings
-from diary.models.point import Point
 from diary.models.page_element import PageElement
+from diary.models.point import Point
 
 
 @dataclass
@@ -26,14 +25,6 @@ class Stroke(PageElement):
         self.color: str = color
         self.thickness: float = size
         self.tool: str = tool
-
-    @override
-    def intersects(self, pos: Point, radius: float) -> bool:
-        for point in self.points:
-            distance = math.sqrt((point.x - pos.x) ** 2 + (point.y - pos.y) ** 2)
-            if distance <= radius:
-                return True
-        return False
 
     @override
     def to_dict(self) -> dict[str, Any]:

@@ -170,10 +170,7 @@ class NotebookWidget(QGraphicsView):
         if obj != self.viewport() or event is None or obj is None:
             return super().eventFilter(obj, event)
 
-        if (
-            settings.CURRENT_TOOL == Tool.DRAG
-            or settings.CURRENT_TOOL == Tool.SELECTION
-        ):
+        if settings.CURRENT_TOOL in {Tool.DRAG, Tool.SELECTION}:
             return super().eventFilter(obj, event)
 
         # Handle tablet events

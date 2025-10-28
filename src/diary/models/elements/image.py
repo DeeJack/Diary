@@ -33,21 +33,6 @@ class Image(PageElement):
         self.rotation: float = rotation
 
     @override
-    def intersects(self, pos: Point, radius: float) -> bool:
-        """Check if this image intersects with a circle at the given position and radius"""
-        # Simple bounding box check
-        left = self.position.x
-        right = self.position.x + self.width
-        top = self.position.y
-        bottom = self.position.y + self.height
-
-        # Check if point is inside the bounding box expanded by radius
-        return (
-            left - radius <= pos.x <= right + radius
-            and top - radius <= pos.y <= bottom + radius
-        )
-
-    @override
     def to_dict(self) -> dict[str, Any]:
         """Serialize this image to a dictionary for JSON storage"""
         return {

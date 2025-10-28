@@ -240,10 +240,6 @@ class StrokeGraphicsItem(BaseGraphicsItem):
         self._stroke_path = None
         self.invalidate_cache()
 
-    def intersects_point(self, point: QPointF, radius: float = 5.0) -> bool:
-        """Check if the stroke intersects with a point within the given radius"""
-        return self.stroke.intersects(Point(point.x(), point.y(), 1.0), radius)
-
     @override
     def type(self) -> int:
         """Return unique type identifier for stroke items"""

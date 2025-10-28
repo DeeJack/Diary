@@ -204,11 +204,12 @@ class ImageGraphicsItem(BaseGraphicsItem):
                 # Load from file path
                 if self._pixmap.load(self.image_element.image_path):
                     self._logger.debug(
-                        f"Loaded image from path: {self.image_element.image_path}"
+                        "Loaded image from path: %s", self.image_element.image_path
                     )
                 else:
                     self._logger.warning(
-                        f"Failed to load image from path: {self.image_element.image_path}"
+                        "Failed to load image from path: %s",
+                        self.image_element.image_path,
                     )
                     self._pixmap = None
 
@@ -221,7 +222,7 @@ class ImageGraphicsItem(BaseGraphicsItem):
                 self._update_scaled_pixmap()
 
         except Exception as e:
-            self._logger.error(f"Error loading image: {e}")
+            self._logger.error("Error loading image: %s", e)
             self._pixmap = None
 
     def _update_scaled_pixmap(self) -> None:
@@ -312,8 +313,7 @@ class ImageGraphicsItem(BaseGraphicsItem):
             # Transform the point
             transformed_point = transform.map(point)
             return self.get_image_rect().contains(transformed_point)
-        else:
-            return self.get_image_rect().contains(point)
+        return self.get_image_rect().contains(point)
 
     def get_handle_at_point(self, point: QPointF) -> str | None:
         """Get the resize handle at the given point, if any"""

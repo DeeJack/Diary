@@ -1,3 +1,5 @@
+"""Information about the input for events"""
+
 from enum import Enum
 
 

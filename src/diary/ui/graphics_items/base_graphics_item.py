@@ -1,6 +1,6 @@
 """Base graphics item class providing common functionality for diary elements"""
 
-from abc import abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 from typing import Any
 
 from PyQt6.QtCore import QRectF, Qt
@@ -15,8 +15,14 @@ from typing_extensions import override
 
 from diary.models.page_element import PageElement
 
+QGraphicsItemMeta = type(QGraphicsItem)
 
-class BaseGraphicsItem(QGraphicsItem):
+
+class GraphicsItemABCMeta(ABCMeta, QGraphicsItemMeta):
+    """To solve a pyright warning"""
+
+
+class BaseGraphicsItem(QGraphicsItem, ABC, metaclass=GraphicsItemABCMeta):
     """Base class for all diary element graphics items"""
 
     def __init__(self, element: PageElement, parent: QGraphicsItem | None = None):
@@ -53,7 +59,6 @@ class BaseGraphicsItem(QGraphicsItem):
     @abstractmethod
     def _calculate_bounding_rect(self) -> QRectF:
         """Calculate the bounding rectangle for this element"""
-        pass
 
     @override
     @abstractmethod
@@ -64,7 +69,6 @@ class BaseGraphicsItem(QGraphicsItem):
         widget: QWidget | None = None,
     ) -> None:
         """Paint this graphics item"""
-        pass
 
     def invalidate_cache(self) -> None:
         """Invalidate cached bounding rect and trigger update"""
@@ -98,7 +102,6 @@ class BaseGraphicsItem(QGraphicsItem):
 
     def _update_element_position(self, new_position: Any) -> None:
         """Update the underlying element's position (override in subclasses)"""
-        pass
 
     def _handle_selection_change(self, selected: bool) -> None:
         """Handle selection state change"""

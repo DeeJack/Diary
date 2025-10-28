@@ -4,8 +4,15 @@ import logging
 from datetime import datetime
 from typing import override
 
-from PyQt6.QtCore import QPointF, Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QMouseEvent, QPainter, QPointingDevice, QTabletEvent
+from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QPointF, Qt, pyqtSignal
+from PyQt6.QtGui import (
+    QFont,
+    QMouseEvent,
+    QPainter,
+    QPixmap,
+    QPointingDevice,
+    QTabletEvent,
+)
 from PyQt6.QtWidgets import (
     QFileDialog,
     QGraphicsView,
@@ -24,7 +31,6 @@ from diary.models.elements.stroke import Stroke
 from diary.models.elements.text import Text
 from diary.models.page import Page
 from diary.models.point import Point
-from diary.ui.adapters.image_adapter import ImageAdapter
 from diary.ui.input import InputAction, InputType
 from diary.ui.widgets.tool_selector import Tool
 
@@ -68,7 +74,7 @@ class PageGraphicsWidget(QWidget):
         # Configure widget properties
         self.setFixedSize(settings.PAGE_WIDTH, settings.PAGE_HEIGHT)
 
-        self._logger.debug(f"Created PageGraphicsWidget for page {page_index}")
+        self._logger.debug("Created PageGraphicsWidget for page %s", page_index)
 
     @property
     def page(self) -> Page:
@@ -210,7 +216,7 @@ class PageGraphicsWidget(QWidget):
             )
 
             if text_element:
-                self._logger.debug(f"Created text element at {scene_pos}")
+                self._logger.debug("Created text element at %s", scene_pos)
 
     def _handle_eraser_input(self, position: QPointF, action: InputAction) -> None:
         """Handle eraser input"""
@@ -222,7 +228,7 @@ class PageGraphicsWidget(QWidget):
             for element in elements:
                 if isinstance(element, (Stroke, Text)):
                     _ = self._scene.remove_element(element.element_id)
-                    self._logger.debug(f"Erased element {element.element_id}")
+                    self._logger.debug("Erased element %s", element.element_id)
 
     def _start_new_stroke(self, position: QPointF, pressure: float) -> None:
         """Start a new stroke"""
@@ -244,7 +250,7 @@ class PageGraphicsWidget(QWidget):
             self._current_stroke_item = graphics_item
 
         self._is_drawing = True
-        self._logger.debug(f"Started new stroke at {scene_pos}")
+        self._logger.debug("Started new stroke at %s", scene_pos)
 
     def _add_stroke_point(self, position: QPointF, pressure: float) -> None:
         """Add a point to the current stroke"""
@@ -265,7 +271,7 @@ class PageGraphicsWidget(QWidget):
         """Finish the current stroke"""
         if self._current_stroke:
             self._logger.debug(
-                f"Finished stroke with {len(self._current_stroke.points)} points"
+                "Finished stroke with %s points", len(self._current_stroke.points)
             )
 
             if device == InputType.TABLET:
@@ -323,7 +329,7 @@ class PageGraphicsWidget(QWidget):
             self._logger.debug("Selected image: %s", image_file)
             if not image_file:
                 return
-            (image_bytes, height, width) = ImageAdapter.read_image(image_file)
+            (image_bytes, height, width) = read_image(image_file)
             self._logger.debug(
                 "Saving image with path: %s and data: %s...%s, height: %s, width: %s",
                 image_file,
@@ -417,3 +423,30 @@ def smooth_stroke_moving_average(
         smoothed_points.append(Point(avg_x, avg_y, avg_pressure))
 
     return smoothed_points
+
+
+def read_image(file_path: str) -> tuple[bytes, int, int]:
+    """Reads the image from a path, and returns bytes, height, width"""
+    pixmap = QPixmap(file_path)
+    if pixmap.isNull():
+        raise ValueError("Couldn't load image")
+
+    MAX_DIMENSION = 1024.0
+    if pixmap.width() > MAX_DIMENSION or pixmap.height() > MAX_DIMENSION:
+        # Scale the pixmap down, keeping aspect ratio
+        pixmap = pixmap.scaled(
+            int(MAX_DIMENSION),
+            int(MAX_DIMENSION),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+
+    # Compress to JPG, quality 80
+    byte_array = QByteArray()
+    buffer = QBuffer(byte_array)
+    _ = buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+    # Save the pixmap to the buffer in JPEG format, quality 80
+    _ = pixmap.save(buffer, "JPG", 80)
+
+    image_bytes = byte_array.data()
+    return (image_bytes, pixmap.height(), pixmap.width())

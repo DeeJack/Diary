@@ -4,8 +4,6 @@ import uuid
 from abc import ABC, abstractmethod
 from typing import Any, override
 
-from diary.models.point import Point
-
 
 class PageElement(ABC):
     """Abstract base class for all elements that can be placed on a page"""
@@ -13,10 +11,6 @@ class PageElement(ABC):
     def __init__(self, element_type: str, element_id: str | None = None):
         self.element_type: str = element_type
         self.element_id: str = element_id or uuid.uuid4().hex
-
-    @abstractmethod
-    def intersects(self, pos: Point, radius: float) -> bool:
-        """Check if this element intersects with a circle at the given position and radius"""
 
     @abstractmethod
     def to_dict(self) -> dict[str, Any]:

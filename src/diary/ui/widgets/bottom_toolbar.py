@@ -71,7 +71,7 @@ class BottomToolbar(QToolBar):
 
         color_btn = QPushButton()
         color_btn.setText("Color")
-        _ = color_btn.clicked.connect(lambda: self.color_dialog.show())
+        _ = color_btn.clicked.connect(self.color_dialog.show)
         _ = self.color_dialog.colorSelected.connect(
             lambda: self.color_changed.emit(self.color_dialog.currentColor())
         )
@@ -100,6 +100,7 @@ class BottomToolbar(QToolBar):
         self._button_clicked(self.pen_btn, Tool.PEN)
 
     def _button_clicked(self, button: QPushButton, tool: Tool):
+        """When a button is clicked"""
         for other in self.buttons:
             other.setDisabled(False)
             other.setStyleSheet("")  # Reset to default style
@@ -115,17 +116,20 @@ class BottomToolbar(QToolBar):
         self.tool_changed.emit(tool)
 
     def _add_filling_spacer(self):
+        """Add a spacer that fills the entire space available"""
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         _ = self.addWidget(spacer)
 
     def _add_spacer(self, width: float):
+        """Add a spacer with a fixed width"""
         spacer = QWidget()
         spacer.setFixedWidth(int(width))
         _ = self.addWidget(spacer)
 
 
 def create_button(text: str) -> QPushButton:
+    """Creates a button with custom parameters and styling"""
     new_button: QPushButton = QPushButton()
     new_button.setText(text)
     new_button.setFont(QFont("Times New Roman", 14))
@@ -145,6 +149,7 @@ def create_button(text: str) -> QPushButton:
 
 
 def create_thickness_slider() -> QSlider:
+    """Creates the thickness slider"""
     thickness_slider: QSlider = QSlider(Qt.Orientation.Horizontal)
     thickness_slider.setMinimum(1)
     thickness_slider.setMaximum(10)

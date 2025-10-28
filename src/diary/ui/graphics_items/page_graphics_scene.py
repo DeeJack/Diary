@@ -60,7 +60,7 @@ class PageGraphicsScene(QGraphicsScene):
         if not self._page:
             return
 
-        self._logger.debug(f"Loading {len(self._page.elements)} elements into scene")
+        self._logger.debug("Loading %s elements into scene", len(self._page.elements))
 
         for element in self._page.elements:
             _ = self.add_element(element)
@@ -69,7 +69,7 @@ class PageGraphicsScene(QGraphicsScene):
         """Add a page element to the scene as a graphics item"""
         if element.element_id in self._element_items:
             self._logger.warning(
-                f"Element {element.element_id} already exists in scene"
+                "Element %s already exists in scene", element.element_id
             )
             return self._element_items[element.element_id]
 
@@ -77,7 +77,7 @@ class PageGraphicsScene(QGraphicsScene):
         graphics_item = GraphicsItemFactory.create_graphics_item(element)
         if not graphics_item:
             self._logger.error(
-                f"Could not create graphics item for element {element.element_id}"
+                "Could not create graphics item for element %s", element.element_id
             )
             return None
 
@@ -90,7 +90,7 @@ class PageGraphicsScene(QGraphicsScene):
         if element not in self._page.elements:
             self._page.elements.append(element)
 
-        self._logger.debug(f"Added element {element.element_id} to scene")
+        self._logger.debug("Added element %s to scene", element.element_id)
         self.element_added.emit(element)
         self.page_modified.emit()
 
@@ -99,7 +99,7 @@ class PageGraphicsScene(QGraphicsScene):
     def remove_element(self, element_id: str) -> bool:
         """Remove an element from the scene and page"""
         if element_id not in self._element_items:
-            self._logger.warning(f"Element {element_id} not found in scene")
+            self._logger.warning("Element %s not found in scene", element_id)
             return False
 
         graphics_item = self._element_items[element_id]
@@ -116,7 +116,7 @@ class PageGraphicsScene(QGraphicsScene):
         if self._page and element in self._page.elements:
             self._page.elements.remove(element)
 
-        self._logger.debug(f"Removed element {element_id} from scene")
+        self._logger.debug("Removed element %s from scene", element_id)
         self.element_removed.emit(element_id)
         self.page_modified.emit()
 
@@ -149,7 +149,7 @@ class PageGraphicsScene(QGraphicsScene):
         """Update an existing element in the scene"""
         graphics_item = self._element_items.get(element.element_id)
         if not graphics_item:
-            self._logger.warning(f"Element {element.element_id} not found for update")
+            self._logger.warning("Element %s not found for update", element.element_id)
             return
 
         # Update the graphics item's element data
@@ -325,8 +325,6 @@ class PageGraphicsScene(QGraphicsScene):
     def export_elements_to_page(self) -> Page:
         """Export all elements to a new Page object"""
         if not self._page:
-            from diary.models.page import Page
-
             self._page = Page()
 
         # Clear existing elements

@@ -1,11 +1,11 @@
 """Represents a VoiceMemo element that can be placed on a page"""
 
 from dataclasses import dataclass
-from typing import cast, override, Any
+from typing import Any, cast, override
 
 from diary.config import settings
-from diary.models.point import Point
 from diary.models.page_element import PageElement
+from diary.models.point import Point
 
 
 @dataclass
@@ -33,21 +33,6 @@ class VoiceMemo(PageElement):
         self.created_at: float | None = created_at
         self.width: float = width  # Visual representation size
         self.height: float = height
-
-    @override
-    def intersects(self, pos: Point, radius: float) -> bool:
-        """Check if this voice memo intersects with a circle at the given position and radius"""
-        # Simple bounding box check for the visual representation
-        left = self.position.x
-        right = self.position.x + self.width
-        top = self.position.y
-        bottom = self.position.y + self.height
-
-        # Check if point is inside the bounding box expanded by radius
-        return (
-            left - radius <= pos.x <= right + radius
-            and top - radius <= pos.y <= bottom + radius
-        )
 
     @override
     def to_dict(self) -> dict[str, Any]:

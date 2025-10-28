@@ -47,10 +47,9 @@ class Notebook:
 
         if day_diff == 0:  # Same day
             return last_page.streak_lvl
-        elif day_diff == 1:  # Next day
+        if day_diff == 1:  # Next day
             return last_page.streak_lvl + 1
-        else:  # Gap in days
-            return 0
+        return 0
 
     @override
     def __str__(self) -> str:

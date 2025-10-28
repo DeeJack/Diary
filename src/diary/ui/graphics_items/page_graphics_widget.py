@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import override
 
 from PyQt6.QtCore import QPointF, Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QMouseEvent, QPainter, QTabletEvent
+from PyQt6.QtGui import QFont, QMouseEvent, QPainter, QPointingDevice, QTabletEvent
 from PyQt6.QtWidgets import (
     QGraphicsView,
     QGridLayout,
@@ -161,15 +161,16 @@ class PageGraphicsWidget(QWidget):
         pressure: float = 1.0,
         action: InputAction = InputAction.PRESS,
         device: InputType = InputType.MOUSE,
+        is_eraser: bool = False,
     ) -> None:
         """Handle drawing input from mouse, tablet, or touch"""
         current_tool = settings.CURRENT_TOOL
 
-        if current_tool == Tool.PEN:
+        if current_tool == Tool.PEN and not is_eraser:
             self._handle_pen_input(position, pressure, action, device)
         elif current_tool == Tool.TEXT:
             self._handle_text_input(position, action)
-        elif current_tool == Tool.ERASER:
+        elif current_tool == Tool.ERASER or is_eraser:
             self._handle_eraser_input(position, action)
 
     def _handle_pen_input(
@@ -285,7 +286,6 @@ class PageGraphicsWidget(QWidget):
 
     def handle_tablet_event(self, event: QTabletEvent, pos: QPointF) -> None:
         """Handle tablet events for pressure-sensitive input"""
-        self._logger.debug("Tablet! %s", event)
         pressure = event.pressure() if event.pressure() > 0 else 1.0
 
         if event.type() == QTabletEvent.Type.TabletPress:
@@ -298,7 +298,11 @@ class PageGraphicsWidget(QWidget):
             return
 
         self.handle_drawing_input(
-            pos, pressure=pressure, action=action, device=InputType.TABLET
+            pos,
+            pressure=pressure,
+            action=action,
+            device=InputType.TABLET,
+            is_eraser=event.pointerType() == QPointingDevice.PointerType.Eraser,
         )
 
     def get_selected_elements(self) -> list[PageElement]:

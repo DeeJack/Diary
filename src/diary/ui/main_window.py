@@ -3,6 +3,7 @@
 import logging
 import secrets
 import sys
+from pathlib import Path
 from typing import cast, override
 
 from PyQt6.QtCore import Qt
@@ -19,7 +20,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from diary.config import settings
+from diary.config import SETTINGS_FILE_PATH, settings
 from diary.models import NotebookDAO
 from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.days_sidebar import DaysSidebar
@@ -160,5 +161,6 @@ class MainWindow(QMainWindow):
         """On app close event"""
         self.logger.debug("Close app event!")
         if a0 and hasattr(self, "notebook") and self.notebook_widget:
+            settings.save_to_file(Path(SETTINGS_FILE_PATH))
             self.notebook_widget.save()
             a0.accept()

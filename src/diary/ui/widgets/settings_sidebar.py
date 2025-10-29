@@ -74,6 +74,9 @@ class SettingsSidebar(QDockWidget):
     def _toggle_touch(self):
         settings.TOUCH_ENABLED = not settings.TOUCH_ENABLED
 
+    def _toggle_pressure(self):
+        settings.USE_PRESSURE = not settings.USE_PRESSURE
+
     def create_toggle_action(self):
         """Create action to open/close the sidebar"""
         sidebar_action = cast(QAction, self.toggleViewAction())

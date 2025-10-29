@@ -6,6 +6,7 @@ from typing import override
 
 from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QPointF, Qt, pyqtSignal
 from PyQt6.QtGui import (
+    QColor,
     QFont,
     QMouseEvent,
     QPainter,
@@ -236,7 +237,7 @@ class PageGraphicsWidget(QWidget):
         point = Point(scene_pos.x(), scene_pos.y(), pressure)
 
         # Get current drawing settings
-        color = settings.CURRENT_COLOR
+        color = QColor(settings.CURRENT_COLOR)
         thickness = settings.CURRENT_WIDTH
 
         # Create new stroke

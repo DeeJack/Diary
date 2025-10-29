@@ -2,6 +2,7 @@
 
 import logging
 import sys
+from pathlib import Path
 from typing import cast, override
 
 from PyQt6.QtCore import (
@@ -38,7 +39,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from diary.config import settings
+from diary.config import SETTINGS_FILE_PATH, settings
 from diary.models import Notebook, NotebookDAO, Page
 from diary.ui.graphics_items.page_graphics_widget import PageGraphicsWidget
 from diary.ui.widgets.save_worker import SaveWorker
@@ -362,6 +363,7 @@ class NotebookWidget(QGraphicsView):
         """Save notebook on close"""
         self.logger.debug("Close app event!")
         if a0 and self.notebook:
+            settings.save_to_file(Path(SETTINGS_FILE_PATH))
             self.save()
             a0.accept()
 
@@ -469,7 +471,7 @@ class NotebookWidget(QGraphicsView):
                 QApplication.setOverrideCursor(Qt.CursorShape.ArrowCursor)
 
     def change_color(self, new_color: QColor):
-        settings.CURRENT_COLOR = new_color
+        settings.CURRENT_COLOR = new_color.name()
         self.logger.debug("Setting new color: %s", new_color)
 
     def change_thickness(self, new_thickness: float):

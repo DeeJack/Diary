@@ -2,22 +2,20 @@
 Contains the configuration options for the Diary application
 """
 
+import json
 from enum import Enum
 from pathlib import Path
 
+from pydantic import ValidationError
 from pydantic_settings import BaseSettings
-from PyQt6.QtGui import QColor
 
 from diary.ui.widgets.tool_selector import Tool
+
+SETTINGS_FILE_PATH = "data/config.json"
 
 
 class Settings(BaseSettings):
     """Settings class for the Diary application"""
-
-    model_config = {  # pyright: ignore[reportUnannotatedClassAttribute]
-        "env_file": ".env",
-        "env_file_encoding": "utf-8",
-    }
 
     DATA_DIR_PATH: Path = Path("data")
     NOTEBOOK_FILE_PATH: Path = DATA_DIR_PATH / Path("notebook.enc")
@@ -41,7 +39,7 @@ class Settings(BaseSettings):
     AUTOSAVE_NOTEBOOK_TIMEOUT: int = 120  # in seconds
     CURRENT_TOOL: Tool = Tool.PEN
     CURRENT_WIDTH: float = 2.0
-    CURRENT_COLOR: QColor = QColor("black")
+    CURRENT_COLOR: str = "black"
     TOUCH_ENABLED: bool = False
     MOUSE_ENABLED: bool = True
 
@@ -73,5 +71,25 @@ class Settings(BaseSettings):
         TEXT = "text"
         SIZE_PX = "size_px"
 
+    @classmethod
+    def load_from_file(cls, path: Path) -> "Settings":
+        """Loads settings from a JSON file, falling back to defaults."""
+        if not path.exists():
+            return cls()  # Return default settings if file doesn't exist
 
-settings = Settings()
+        try:
+            with open(path, "r") as f:
+                data = json.load(f)
+            return cls(**data)
+        except (json.JSONDecodeError, ValidationError) as e:
+            print(f"Error loading settings from {path}: {e}. Using defaults.")
+            return cls()  # Return defaults on error
+
+    def save_to_file(self, path: Path):
+        """Saves the current settings to a JSON file."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w") as f:
+            _ = f.write(self.model_dump_json(indent=2))
+
+
+settings = Settings.load_from_file(Path(SETTINGS_FILE_PATH))

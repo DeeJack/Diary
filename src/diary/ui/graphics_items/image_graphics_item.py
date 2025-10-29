@@ -313,9 +313,7 @@ class ImageGraphicsItem(BaseGraphicsItem):
         if not self.isSelected():
             return None
 
-        handle_size = 8.0
-        # Convert scene point to local coordinates
-        local_point = self.mapFromScene(point)
+        handle_size = 16.0
         left = 0
         top = 0
         right = self.image_element.width
@@ -343,7 +341,7 @@ class ImageGraphicsItem(BaseGraphicsItem):
         }
 
         for handle_name, handle_rect in handles.items():
-            if handle_rect.contains(local_point):
+            if handle_rect.contains(point):
                 return handle_name
 
         return None
@@ -394,6 +392,7 @@ class ImageGraphicsItem(BaseGraphicsItem):
         if not event:
             return
         if hasattr(self, "_resize_handle") and self._resize_handle:
+            self._logger.debug("Resizing: %s", event.pos())
             self._handle_resize(event.pos())
             event.accept()
             return

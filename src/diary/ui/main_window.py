@@ -25,6 +25,7 @@ from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.days_sidebar import DaysSidebar
 from diary.ui.widgets.notebook_widget import NotebookWidget
 from diary.ui.widgets.page_navigator import PageNavigatorToolbar
+from diary.ui.widgets.settings_sidebar import SettingsSidebar
 from diary.ui.widgets.tool_selector import Tool
 from diary.utils.encryption import SecureBuffer, SecureEncryption
 
@@ -116,9 +117,14 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar)
         self.sidebar.hide()
 
+        settings_sidebar = SettingsSidebar(self)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, settings_sidebar)
+        settings_sidebar.hide()
+
         menu_bar = cast(QMenuBar, self.menuBar())
         view_menu = cast(QMenu, menu_bar.addMenu("&"))
         view_menu.addAction(self.sidebar.create_toggle_action())
+        view_menu.addAction(settings_sidebar.create_toggle_action())
 
         self.connect_signals()
         self.notebook_widget.update_navbar()

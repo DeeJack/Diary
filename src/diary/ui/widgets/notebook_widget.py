@@ -473,5 +473,5 @@ class NotebookWidget(QGraphicsView):
         self.logger.debug("Setting new color: %s", new_color)
 
     def change_thickness(self, new_thickness: float):
-        settings.PREFERRED_THICKNESS = new_thickness
+        settings.CURRENT_WIDTH = new_thickness
         self.logger.debug("Setting new thickness: %s", new_thickness)

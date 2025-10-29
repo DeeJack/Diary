@@ -243,6 +243,9 @@ class PageGraphicsWidget(QWidget):
         self._current_stroke = Stroke(
             points=[point], color=color.name(), size=thickness, tool="pen"
         )
+        self._logger.info(
+            "Created stroke with parameters: %s %s %s", point, color.name(), thickness
+        )
 
         # Add to scene and get graphics item
         graphics_item = self._scene.add_element(self._current_stroke)

@@ -34,14 +34,16 @@ class SettingsSidebar(QDockWidget):
         _ = self.entry_list.itemChanged.connect(self.on_item_changed)
 
     def _add_items(self):
-        mouse_ckb_idx = self._add_checkbox("Mouse enabled")
+        mouse_ckb_idx = self._add_checkbox("Mouse enabled", settings.MOUSE_ENABLED)
         self.items[mouse_ckb_idx] = self._toggle_mouse
-        touch_ckb_idx = self._add_checkbox("Touch enabled")
+        touch_ckb_idx = self._add_checkbox("Touch enabled", settings.TOUCH_ENABLED)
         self.items[touch_ckb_idx] = self._toggle_touch
-        pressure_ckb_idx = self._add_checkbox("Pen pressure enabled")
+        pressure_ckb_idx = self._add_checkbox(
+            "Pen pressure enabled", settings.USE_PRESSURE
+        )
         self.items[pressure_ckb_idx] = self._toggle_pressure
 
-    def _add_checkbox(self, label: str) -> int:
+    def _add_checkbox(self, label: str, checked: bool) -> int:
         curr_index = self.last_index
         self.last_index += 1
 
@@ -52,7 +54,9 @@ class SettingsSidebar(QDockWidget):
             item.flags() | Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
         )
         item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)
-        item.setCheckState(Qt.CheckState.Unchecked)
+        item.setCheckState(
+            Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
+        )
         self.entry_list.addItem(item)
         return curr_index
 

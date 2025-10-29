@@ -179,11 +179,11 @@ class NotebookWidget(QGraphicsView):
             return self._handle_tablet_event(event)
 
         # Handle mouse events for drawing
-        if isinstance(event, QMouseEvent):
+        if isinstance(event, QMouseEvent) and settings.MOUSE_ENABLED:
             return self._handle_mouse_event(event)
 
         # Handle touch events for drawing
-        if isinstance(event, QTouchEvent):
+        if isinstance(event, QTouchEvent) and settings.TOUCH_ENABLED:
             return self._handle_touch_event(event)
 
         return super().eventFilter(obj, event)

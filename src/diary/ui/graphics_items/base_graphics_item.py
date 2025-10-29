@@ -1,16 +1,16 @@
 """Base graphics item class providing common functionality for diary elements"""
 
 from abc import ABC, ABCMeta, abstractmethod
-from typing import Any
+from typing import Any, override
 
-from PyQt6.QtCore import QRectF
+from PyQt6 import QtGui
+from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QPainter
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QStyleOptionGraphicsItem,
     QWidget,
 )
-from typing_extensions import override
 
 from diary.models.page_element import PageElement
 
@@ -98,15 +98,13 @@ class BaseGraphicsItem(QGraphicsItem, ABC, metaclass=GraphicsItemABCMeta):
 
         return super().itemChange(change, value)
 
-    def _update_element_position(self, new_position: Any) -> None:
+    def _update_element_position(self, new_position: QPointF) -> None:
         """Update the underlying element's position (override in subclasses)"""
 
-    def _handle_selection_change(self, selected: bool) -> None:
+    def _handle_selection_change(self, _: bool) -> None:
         """Handle selection state change"""
-        if selected:
-            # Highlight selected items
-            self.setZValue(2.0)  # Bring to front
-        self.invalidate_cache()
+        # if selected:
+        #   self.setZValue(2.0)  # Bring to front
 
     @override
     def __str__(self) -> str:
@@ -123,3 +121,11 @@ class BaseGraphicsItem(QGraphicsItem, ABC, metaclass=GraphicsItemABCMeta):
             f"pos={self.pos()}, "
             f"bounds={self.boundingRect()})"
         )
+
+    @override
+    def keyPressEvent(self, event: QtGui.QKeyEvent | None) -> None:
+        if not event:
+            return
+        if self.isSelected() and event.key() == Qt.Key.Key_Cancel:
+            self.hide()
+        return super().keyPressEvent(event)

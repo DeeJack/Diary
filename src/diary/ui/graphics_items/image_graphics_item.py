@@ -9,7 +9,6 @@ from PyQt6.QtGui import (
     QPainter,
     QPen,
     QPixmap,
-    QTransform,
 )
 from PyQt6.QtWidgets import (
     QGraphicsItem,
@@ -18,6 +17,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from diary.config import settings
 from diary.models.elements.image import Image
 from diary.models.point import Point
 
@@ -41,7 +41,9 @@ class ImageGraphicsItem(BaseGraphicsItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
 
-        # Enable transformations
+        self.setPos(self.image_element.position.x, self.image_element.position.y)
+
+        # Enable transformations (use local coordinates)
         self.setTransformOriginPoint(
             self.image_element.width / 2, self.image_element.height / 2
         )
@@ -57,10 +59,10 @@ class ImageGraphicsItem(BaseGraphicsItem):
     @override
     def _calculate_bounding_rect(self) -> QRectF:
         """Calculate the bounding rectangle for the image"""
-        # Base rectangle from image dimensions
+        # Base rectangle in local coordinates (starting from 0,0)
         rect = QRectF(
-            self.image_element.position.x,
-            self.image_element.position.y,
+            0,
+            0,
             self.image_element.width,
             self.image_element.height,
         )
@@ -95,17 +97,17 @@ class ImageGraphicsItem(BaseGraphicsItem):
 
         # Apply rotation if specified
         if self.image_element.rotation != 0.0:
-            center_x = self.image_element.position.x + self.image_element.width / 2
-            center_y = self.image_element.position.y + self.image_element.height / 2
+            center_x = self.image_element.width / 2
+            center_y = self.image_element.height / 2
 
             painter.translate(center_x, center_y)
             painter.rotate(self.image_element.rotation)
             painter.translate(-center_x, -center_y)
 
-        # Draw the image
+        # Draw the image in local coordinates
         target_rect = QRectF(
-            self.image_element.position.x,
-            self.image_element.position.y,
+            0,
+            0,
             self.image_element.width,
             self.image_element.height,
         )
@@ -124,8 +126,8 @@ class ImageGraphicsItem(BaseGraphicsItem):
     def _draw_placeholder(self, painter: QPainter) -> None:
         """Draw a placeholder when image cannot be loaded"""
         rect = QRectF(
-            self.image_element.position.x,
-            self.image_element.position.y,
+            0,
+            0,
             self.image_element.width,
             self.image_element.height,
         )
@@ -145,8 +147,8 @@ class ImageGraphicsItem(BaseGraphicsItem):
     def _draw_selection_highlight(self, painter: QPainter) -> None:
         """Draw selection highlight around the image"""
         rect = QRectF(
-            self.image_element.position.x - 2,
-            self.image_element.position.y - 2,
+            -2,
+            -2,
             self.image_element.width + 4,
             self.image_element.height + 4,
         )
@@ -162,11 +164,11 @@ class ImageGraphicsItem(BaseGraphicsItem):
         handle_size = 8.0
         handle_color = QColor(0, 120, 255)
 
-        # Calculate handle positions
-        left = self.image_element.position.x
-        top = self.image_element.position.y
-        right = left + self.image_element.width
-        bottom = top + self.image_element.height
+        # Calculate handle positions in local coordinates
+        left = 0
+        top = 0
+        right = self.image_element.width
+        bottom = self.image_element.height
 
         handle_positions = [
             QPointF(left, top),  # Top-left
@@ -250,11 +252,13 @@ class ImageGraphicsItem(BaseGraphicsItem):
     @override
     def _update_element_position(self, new_position: QPointF) -> None:
         """Update the image element's position when the graphics item moves"""
-        self.image_element.position = Point(
-            new_position.x(), new_position.y(), self.image_element.position.pressure
-        )
-        self._update_scaled_pixmap()
-        self.invalidate_cache()
+        if (
+            0 <= new_position.x() <= settings.PAGE_WIDTH
+            and 0 <= new_position.y() <= settings.PAGE_HEIGHT
+        ):
+            self.image_element.position = Point(
+                new_position.x(), new_position.y(), self.image_element.position.pressure
+            )
 
     def set_size(self, width: float, height: float) -> None:
         """Update the image size"""
@@ -281,39 +285,28 @@ class ImageGraphicsItem(BaseGraphicsItem):
         self.update()
 
     def get_image_rect(self) -> QRectF:
-        """Get the actual image rectangle (without padding)"""
+        """Get the actual image rectangle in scene coordinates"""
         return QRectF(
-            self.image_element.position.x,
-            self.image_element.position.y,
+            self.pos().x(),
+            self.pos().y(),
             self.image_element.width,
             self.image_element.height,
         )
 
     def intersects_point(self, point: QPointF, radius: float = 5.0) -> bool:
         """Check if the image intersects with a point within the given radius"""
-        image_rect = self.get_image_rect()
-        expanded_rect = image_rect.adjusted(-radius, -radius, radius, radius)
-        return expanded_rect.contains(point)
+        # Convert point to local coordinates
+        local_point = self.mapFromScene(point)
+        local_rect = QRectF(0, 0, self.image_element.width, self.image_element.height)
+        expanded_rect = local_rect.adjusted(-radius, -radius, radius, radius)
+        return expanded_rect.contains(local_point)
 
     def contains_point(self, point: QPointF) -> bool:
         """Check if the point is inside the image"""
-        # Handle rotation by transforming the point
-        if self.image_element.rotation != 0.0:
-            center_x = self.image_element.position.x + self.image_element.width / 2
-            center_y = self.image_element.position.y + self.image_element.height / 2
-
-            # Create inverse rotation transform
-            transform = (
-                QTransform()
-                .translate(center_x, center_y)
-                .rotate(-self.image_element.rotation)
-                .translate(-center_x, -center_y)
-            )
-
-            # Transform the point
-            transformed_point = transform.map(point)
-            return self.get_image_rect().contains(transformed_point)
-        return self.get_image_rect().contains(point)
+        # Convert point to local coordinates and check against local rect
+        local_point = self.mapFromScene(point)
+        local_rect = QRectF(0, 0, self.image_element.width, self.image_element.height)
+        return local_rect.contains(local_point)
 
     def get_handle_at_point(self, point: QPointF) -> str | None:
         """Get the resize handle at the given point, if any"""
@@ -321,10 +314,12 @@ class ImageGraphicsItem(BaseGraphicsItem):
             return None
 
         handle_size = 8.0
-        left = self.image_element.position.x
-        top = self.image_element.position.y
-        right = left + self.image_element.width
-        bottom = top + self.image_element.height
+        # Convert scene point to local coordinates
+        local_point = self.mapFromScene(point)
+        left = 0
+        top = 0
+        right = self.image_element.width
+        bottom = self.image_element.height
 
         handles = {
             "top-left": QRectF(
@@ -348,7 +343,7 @@ class ImageGraphicsItem(BaseGraphicsItem):
         }
 
         for handle_name, handle_rect in handles.items():
-            if handle_rect.contains(point):
+            if handle_rect.contains(local_point):
                 return handle_name
 
         return None
@@ -385,7 +380,9 @@ class ImageGraphicsItem(BaseGraphicsItem):
                 # Store resize start state
                 self._resize_handle = handle
                 self._resize_start_pos = event.pos()
-                self._resize_start_rect = self.get_image_rect()
+                self._resize_start_rect = QRectF(
+                    0, 0, self.image_element.width, self.image_element.height
+                )
                 event.accept()
                 return
 
@@ -427,20 +424,29 @@ class ImageGraphicsItem(BaseGraphicsItem):
 
         # Calculate new dimensions based on handle
         if handle == "bottom-right":
-            new_width = max(20, current_pos.x() - start_rect.left())
-            new_height = max(20, current_pos.y() - start_rect.top())
+            new_width = max(20, current_pos.x())
+            new_height = max(20, current_pos.y())
             self.set_size(new_width, new_height)
 
         elif handle == "top-left":
-            new_width = max(20, start_rect.right() - current_pos.x())
-            new_height = max(20, start_rect.bottom() - current_pos.y())
+            new_width = max(20, start_rect.width() - current_pos.x())
+            new_height = max(20, start_rect.height() - current_pos.y())
 
-            # Update position and size
-            self.image_element.position = Point(
-                current_pos.x(), current_pos.y(), self.image_element.position.pressure
+            # Update position and size for top-left handle
+            # Calculate new scene position based on the offset
+            offset_x = current_pos.x()
+            offset_y = current_pos.y()
+            current_scene_pos = self.pos()
+            new_scene_pos = QPointF(
+                current_scene_pos.x() + offset_x, current_scene_pos.y() + offset_y
             )
-            self.set_size(new_width, new_height)
 
-        # Add more handle cases as needed
+            self.image_element.position = Point(
+                new_scene_pos.x(),
+                new_scene_pos.y(),
+                self.image_element.position.pressure,
+            )
+            self.setPos(new_scene_pos)
+            self.set_size(new_width, new_height)
 
         self.invalidate_cache()

@@ -3,11 +3,10 @@
 from abc import ABC, ABCMeta, abstractmethod
 from typing import Any
 
-from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtCore import QRectF
 from PyQt6.QtGui import QPainter
 from PyQt6.QtWidgets import (
     QGraphicsItem,
-    QGraphicsSceneHoverEvent,
     QStyleOptionGraphicsItem,
     QWidget,
 )
@@ -34,7 +33,6 @@ class BaseGraphicsItem(QGraphicsItem, ABC, metaclass=GraphicsItemABCMeta):
         self.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
-        self.setAcceptHoverEvents(True)
 
     @property
     def element(self) -> PageElement:
@@ -107,21 +105,8 @@ class BaseGraphicsItem(QGraphicsItem, ABC, metaclass=GraphicsItemABCMeta):
         """Handle selection state change"""
         if selected:
             # Highlight selected items
-            self.setZValue(1.0)  # Bring to front
-        else:
-            self.setZValue(0.0)  # Normal z-order
-
-    @override
-    def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent | None) -> None:
-        """Handle hover enter events"""
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        super().hoverEnterEvent(event)
-
-    @override
-    def hoverLeaveEvent(self, event: QGraphicsSceneHoverEvent | None) -> None:
-        """Handle hover leave events"""
-        self.unsetCursor()
-        super().hoverLeaveEvent(event)
+            self.setZValue(2.0)  # Bring to front
+        self.invalidate_cache()
 
     @override
     def __str__(self) -> str:

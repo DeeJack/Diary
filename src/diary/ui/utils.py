@@ -1,7 +1,13 @@
-from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, Qt
-from PyQt6.QtGui import QPixmap
+import logging
+from pathlib import Path
 
-from diary.models import Point
+from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QSize, Qt
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtPdf import QPdfDocument
+from PyQt6.QtWidgets import QFileDialog
+
+from diary.config import settings
+from diary.models import Image, Notebook, Page, Point
 
 
 def smooth_stroke_moving_average(
@@ -57,3 +63,74 @@ def read_image(file_path: str) -> tuple[bytes, int, int]:
 
     image_bytes = byte_array.data()
     return (image_bytes, pixmap.height(), pixmap.width())
+
+
+def import_from_pdf() -> Notebook:
+    pdf_file, _ = QFileDialog.getOpenFileName(
+        None, caption="Choose PDF file", filter="PDF File (*.pdf)"
+    )
+    if not pdf_file:
+        return Notebook()
+
+    pixmaps_pages = _import_from_pdf(Path(pdf_file))
+
+    notebook = Notebook()
+    for pixmap in pixmaps_pages:
+        image_data = QByteArray()
+        buffer = QBuffer(image_data)
+        _ = buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+        _ = pixmap.save(buffer, "PNG")
+        page_img = Image(
+            Point(0, 0), pixmap.width(), pixmap.height(), image_data=image_data.data()
+        )
+        notebook.add_page(Page(elements=[page_img]))
+    return notebook
+
+
+def _import_from_pdf(pdf_path: Path) -> list[QPixmap]:
+    if not pdf_path.exists():
+        raise ValueError("PDF file doesn't exists!")
+
+    doc = QPdfDocument(None)
+    e = doc.load(pdf_path.as_posix())
+    if e != QPdfDocument.Error.None_:
+        logging.getLogger("Utils").error("Error in PDF: %s\n%s", pdf_path, e)
+        return []
+
+    if doc.status() != QPdfDocument.Status.Ready:
+        logging.getLogger("Utils").error("Error loading PDF file: %s", doc.status())
+        return []
+    logging.getLogger("Utils").info(
+        "PDF document read and ready, with %s pages!", doc.pageCount()
+    )
+
+    DPI = 150
+    pages: list[QPixmap] = []
+    for page_num in range(doc.pageCount()):
+        logging.getLogger("Utils").debug(
+            "Rendering page %s/%s", page_num, doc.pageCount()
+        )
+        page_size = doc.pagePointSize(page_num)
+        width_in_pixels = int(page_size.width() * DPI / 72)
+        height_in_pixels = int(page_size.height() * DPI / 72)
+
+        image = doc.render(page_num, QSize(width_in_pixels, height_in_pixels))
+        pixmap = QPixmap.fromImage(image)
+
+        if (
+            pixmap.width() > settings.PAGE_WIDTH
+            or pixmap.height() > settings.PAGE_HEIGHT
+        ):
+            pixmap = pixmap.scaled(
+                settings.PAGE_WIDTH,
+                settings.PAGE_HEIGHT,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+
+        pages.append(pixmap)
+
+    logging.getLogger("Utils").info("Returning the pages as Pixmaps")
+
+    doc.close()
+    return pages

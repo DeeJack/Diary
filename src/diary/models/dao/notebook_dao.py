@@ -1,9 +1,9 @@
 """Methods to save and load the Notebook"""
 
 import json
+import logging
 from pathlib import Path
 from typing import Callable, cast
-import logging
 
 import msgpack
 import zstd

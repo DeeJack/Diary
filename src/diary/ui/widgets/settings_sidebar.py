@@ -38,6 +38,8 @@ class SettingsSidebar(QDockWidget):
         self.items[mouse_ckb_idx] = self._toggle_mouse
         touch_ckb_idx = self._add_checkbox("Touch enabled")
         self.items[touch_ckb_idx] = self._toggle_touch
+        pressure_ckb_idx = self._add_checkbox("Pen pressure enabled")
+        self.items[pressure_ckb_idx] = self._toggle_pressure
 
     def _add_checkbox(self, label: str) -> int:
         curr_index = self.last_index

@@ -3,6 +3,7 @@ Contains the configuration options for the Diary application
 """
 
 import json
+import logging
 from enum import Enum
 from pathlib import Path
 
@@ -73,23 +74,26 @@ class Settings(BaseSettings):
 
     @classmethod
     def load_from_file(cls, path: Path) -> "Settings":
-        """Loads settings from a JSON file, falling back to defaults."""
+        """Loads settings from a JSON file."""
         if not path.exists():
-            return cls()  # Return default settings if file doesn't exist
+            return cls()  # Return default
 
         try:
             with open(path, "r") as f:
                 data = json.load(f)
             return cls(**data)
         except (json.JSONDecodeError, ValidationError) as e:
-            print(f"Error loading settings from {path}: {e}. Using defaults.")
-            return cls()  # Return defaults on error
+            logging.getLogger("Config").error("Error loading settings: %s", e)
+            return cls()  # Return defaults
 
     def save_to_file(self, path: Path):
-        """Saves the current settings to a JSON file."""
+        """Saves settings to JSON file."""
         path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w") as f:
-            _ = f.write(self.model_dump_json(indent=2))
+        try:
+            with open(path, "w") as f:
+                _ = f.write(self.model_dump_json(indent=2))
+        except Exception as e:
+            logging.getLogger("Config").error("Error saving settings: %s", e)
 
 
 settings = Settings.load_from_file(Path(SETTINGS_FILE_PATH))

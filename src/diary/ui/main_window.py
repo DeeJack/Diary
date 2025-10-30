@@ -162,5 +162,5 @@ class MainWindow(QMainWindow):
         self.logger.debug("Close app event!")
         if a0 and hasattr(self, "notebook") and self.notebook_widget:
             settings.save_to_file(Path(SETTINGS_FILE_PATH))
-            self.notebook_widget.save()
+            self.notebook_widget.save_manager.force_save_on_close()
             a0.accept()

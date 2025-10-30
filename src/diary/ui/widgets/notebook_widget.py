@@ -11,8 +11,6 @@ from PyQt6.QtCore import (
     QPoint,
     QPointF,
     Qt,
-    QThread,
-    QTimer,
     pyqtSignal,
 )
 from PyQt6.QtGui import (
@@ -39,11 +37,10 @@ from PyQt6.QtWidgets import (
 )
 
 from diary.config import SETTINGS_FILE_PATH, settings
-from diary.models import Notebook, NotebookDAO, Page
+from diary.models import Notebook, Page
 from diary.ui.graphics_items.page_graphics_widget import PageGraphicsWidget
-from diary.ui.widgets.save_worker import SaveWorker
+from diary.ui.widgets.save_manager import SaveManager
 from diary.ui.widgets.tool_selector import Tool, get_cursor_from_tool
-from diary.utils.backup import BackupManager
 from diary.utils.encryption import SecureBuffer
 
 
@@ -66,6 +63,7 @@ class NotebookWidget(QGraphicsView):
         self.min_zoom: float = 0.6
         self.max_zoom: float = 1.4
         self.notebook: Notebook = notebook or Notebook([Page(), Page()])
+        self.logger: logging.Logger = logging.getLogger("NotebookWidget")
 
         self.pages_data: list[Page] = self.notebook.pages
         self.page_height: int = settings.PAGE_HEIGHT + settings.PAGE_BETWEEN_SPACING
@@ -76,22 +74,15 @@ class NotebookWidget(QGraphicsView):
         # Dictionary to hold background rectangles for all pages (always visible)
         self.page_backgrounds: dict[int, QGraphicsRectItem] = {}
 
-        self.key_buffer: SecureBuffer = key_buffer
-        self.salt: bytes = salt
-        self.backup_manager: BackupManager = BackupManager()
-        self.logger: logging.Logger = logging.getLogger("NotebookWidget")
-        self.is_saving: bool = False
-        self.save_thread: QThread = QThread()
-        self.save_worker: SaveWorker = SaveWorker(
+        # Initialize save manager
+        self.save_manager: SaveManager = SaveManager(
             self.notebook,
             settings.NOTEBOOK_FILE_PATH,
-            self.key_buffer,
-            self.salt,
+            key_buffer,
+            salt,
             status_bar,
         )
-        self.status_bar: QStatusBar = status_bar
         self.this_scene: QGraphicsScene = QGraphicsScene()
-        self.is_notebook_dirty: bool = False
         self._initial_load_complete: bool = False
 
         self._setup_notebook_widget()
@@ -116,12 +107,6 @@ class NotebookWidget(QGraphicsView):
         scroll_bar = self.verticalScrollBar()
         if scroll_bar:
             _ = scroll_bar.valueChanged.connect(self._on_scroll)
-
-        # Setup save timer
-        timer = QTimer(self)
-        timer.setInterval(1000 * settings.AUTOSAVE_NOTEBOOK_TIMEOUT)
-        _ = timer.timeout.connect(self.save_async)
-        timer.start()
 
     def _layout_page_backgrounds(self):
         """Draw page backgrounds for all pages as placeholders"""
@@ -206,9 +191,7 @@ class NotebookWidget(QGraphicsView):
         _ = page_widget.add_below_dynamic.connect(
             lambda idx=page_index: self._add_page_below_dynamic(idx)
         )
-        _ = page_widget.page_modified.connect(
-            lambda: setattr(self, "is_notebook_dirty", True)
-        )
+        _ = page_widget.page_modified.connect(self.save_manager.mark_dirty)
 
         # Add to scene as proxy widget
         try:
@@ -319,7 +302,7 @@ class NotebookWidget(QGraphicsView):
                 # Convert to page-local coordinates
                 page_local_pos = scene_pos - proxy_widget.pos()
                 page_widget.handle_tablet_event(event, page_local_pos)
-                self.is_notebook_dirty = True
+                self.save_manager.mark_dirty()
                 return True
 
         return False
@@ -343,7 +326,7 @@ class NotebookWidget(QGraphicsView):
                 # Convert to page-local coordinates
                 page_local_pos = scene_pos - proxy_widget.pos()
                 page_widget.handle_mouse_event(event, page_local_pos)
-                self.is_notebook_dirty = True
+                self.save_manager.mark_dirty()
                 return True
 
         return False
@@ -364,57 +347,17 @@ class NotebookWidget(QGraphicsView):
             sys.exit(0)
         return super().keyPressEvent(event)
 
-    def _setup_save_worker(self):
-        """Setup the Save Worker mechanism"""
-        self.save_thread = QThread()
-        self.save_worker = SaveWorker(
-            self.notebook,
-            settings.NOTEBOOK_FILE_PATH,
-            self.key_buffer,
-            self.salt,
-            self.status_bar,
-        )
-        self.save_worker.moveToThread(self.save_thread)
-
-        _ = self.save_thread.started.connect(self.save_worker.run)
-        _ = self.save_worker.finished.connect(self.on_save_finished)
-        _ = self.save_worker.error.connect(self.on_save_error)
-
-        _ = self.save_worker.finished.connect(self.save_thread.quit)
-        _ = self.save_thread.finished.connect(self.save_worker.deleteLater)
-        _ = self.save_thread.finished.connect(self.save_thread.deleteLater)
-
-    def save_async(self):
-        """Save notebook in separate thread"""
-        if self.is_saving:
-            return
-        self.is_saving = True
-        self._setup_save_worker()
-        self.logger.debug("Starting save on other thread")
-        self.save_thread.start()
-
-    def save(self):
+    def save(self) -> None:
         """Save notebook synchronously"""
-        if self.is_notebook_dirty:
-            self.logger.debug("Saving notebook (%d pages)...", len(self.notebook.pages))
-            self.status_bar.showMessage("Saving...")
-            try:
-                NotebookDAO.save(
-                    self.notebook,
-                    settings.NOTEBOOK_FILE_PATH,
-                    self.key_buffer,
-                    self.salt,
-                )
-            except Exception as e:
-                self.logger.error(e)
-            self.status_bar.showMessage("Save completed!")
-        else:
-            self.logger.debug("Skipping save due to no changes")
+        self.save_manager.save()
 
-        self.logger.debug("Creating backup...")
-        self.status_bar.showMessage("Creating backup...")
-        self.backup_manager.save_backups()
-        self.status_bar.showMessage("Backup completed!")
+    def save_async(self) -> None:
+        """Save notebook asynchronously"""
+        self.save_manager.save_async()
+
+    def is_dirty(self) -> bool:
+        """Check if notebook has unsaved changes"""
+        return self.save_manager.is_dirty()
 
     def _add_page_below_dynamic(self, page_idx: int) -> None:
         """Add a page below if this is the last page"""
@@ -444,7 +387,7 @@ class NotebookWidget(QGraphicsView):
                 proxy_widget.setPos(0, y_offset)
                 self.active_page_widgets[new_page_idx] = proxy_widget
 
-            self.is_notebook_dirty = True
+            self.save_manager.mark_dirty()
             self.update_navbar()
 
     @override
@@ -453,17 +396,7 @@ class NotebookWidget(QGraphicsView):
         self.logger.debug("Close app event!")
         if a0 and self.notebook:
             settings.save_to_file(Path(SETTINGS_FILE_PATH))
-            self.save()
-
-    def on_save_finished(self, success: bool, message: str):
-        """Save completed"""
-        self.is_saving = False
-        self.logger.debug("Save finished with result %s, message %s", success, message)
-
-    def on_save_error(self, error_msg: str):
-        """Save error occurred"""
-        self.logger.error("Error while saving: %s", error_msg)
-        self.is_saving = False
+            self.save_manager.force_save_on_close()
 
     def _get_current_page_index(self):
         """Estimate current page index based on viewport"""

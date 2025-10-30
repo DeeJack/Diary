@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     PAGE_BETWEEN_SPACING: int = 10
     USE_PRESSURE: bool = False
     PREFERRED_THICKNESS: float = 1.0
+    PAGE_BACKGROUND_COLOR: str = "#E0E0E0"
+    PAGE_LINES_COLOR: str = "#DDCDC4"
 
     AUTOSAVE_NOTEBOOK_TIMEOUT: int = 120  # in seconds
     CURRENT_TOOL: Tool = Tool.PEN

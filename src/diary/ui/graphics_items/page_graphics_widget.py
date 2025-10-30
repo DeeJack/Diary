@@ -18,10 +18,8 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QGraphicsView,
     QGridLayout,
-    QHBoxLayout,
     QInputDialog,
     QLabel,
-    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -43,8 +41,7 @@ from .stroke_graphics_item import StrokeGraphicsItem
 class PageGraphicsWidget(QWidget):
     """Widget for displaying diary pages using QGraphicsItem architecture"""
 
-    add_below: pyqtSignal = pyqtSignal(object)
-    add_below_dynamic: pyqtSignal = pyqtSignal(object)
+    add_below_dynamic: pyqtSignal = pyqtSignal()
     needs_regeneration: pyqtSignal = pyqtSignal(int)
     page_modified: pyqtSignal = pyqtSignal()
 
@@ -140,14 +137,14 @@ class PageGraphicsWidget(QWidget):
         title_label.setStyleSheet("color: black;")
 
         # Create "Add below" button
-        btn_below = QPushButton("Add below")
-        btn_below.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
-        _ = btn_below.clicked.connect(lambda: self.add_below.emit(self))
+        # btn_below = QPushButton("Add below")
+        # btn_below.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
+        # _ = btn_below.clicked.connect(lambda: self.add_below.emit(self))
 
-        btn_row = QHBoxLayout()
-        btn_row.addStretch()
-        btn_row.addWidget(btn_below)
-        btn_row.addStretch()
+        # btn_row = QHBoxLayout()
+        # btn_row.addStretch()
+        # btn_row.addWidget(btn_below)
+        # btn_row.addStretch()
 
         # Main layout
         main_layout = QGridLayout(self)
@@ -158,12 +155,12 @@ class PageGraphicsWidget(QWidget):
         overlay_layout = QVBoxLayout()
         overlay_layout.addWidget(title_label)
         overlay_layout.addStretch()
-        overlay_layout.addLayout(btn_row)
+        # overlay_layout.addLayout(btn_row)
         overlay_layout.setContentsMargins(0, 10, 0, 10)
 
         # Add the overlay layout to the same grid cell (0, 0)
         main_layout.addLayout(overlay_layout, 0, 0)
-        btn_below.raise_()
+        # btn_below.raise_()
 
     def handle_drawing_input(
         self,
@@ -256,6 +253,9 @@ class PageGraphicsWidget(QWidget):
 
         self._is_drawing = True
         self._logger.debug("Started new stroke at %s", scene_pos)
+
+        if point.y > settings.PAGE_HEIGHT / 10 * 8:
+            self.add_below_dynamic.emit()
 
     def _add_stroke_point(self, position: QPointF, pressure: float) -> None:
         """Add a point to the current stroke"""

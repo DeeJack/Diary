@@ -134,8 +134,8 @@ class NotebookWidget(QGraphicsView):
             background = QGraphicsRectItem(
                 0, y_offset, settings.PAGE_WIDTH, settings.PAGE_HEIGHT
             )
-            background.setBrush(QBrush(QColor(245, 245, 245)))  # Light gray background
-            background.setPen(QColor(200, 200, 200))  # Light border
+            background.setBrush(QBrush(QColor(settings.PAGE_BACKGROUND_COLOR)))
+            # background.setPen(QColor(settings.PAGE_BACKGROUND_COLOR))
 
             self.this_scene.addItem(background)
             self.page_backgrounds[i] = background
@@ -183,7 +183,8 @@ class NotebookWidget(QGraphicsView):
             if page_index not in self.active_page_widgets:
                 page_data = self.pages_data[page_index]
                 proxy_widget = self._add_page_to_scene(page_data, page_index)
-                assert proxy_widget is not None
+                if not proxy_widget:
+                    return
 
                 # Calculate the y_offset for this page
                 y_offset = page_index * self.page_height
@@ -202,12 +203,8 @@ class NotebookWidget(QGraphicsView):
         # Create the page widget
         page_widget = PageGraphicsWidget(page_data, page_index)
 
-        # Connect page widget signals
-        _ = page_widget.add_below.connect(
-            lambda _, idx=page_index: self._add_page_below(self.pages_data[idx])
-        )
         _ = page_widget.add_below_dynamic.connect(
-            lambda _, idx=page_index: self._add_page_below_dynamic(self.pages_data[idx])
+            lambda idx=page_index: self._add_page_below_dynamic(idx)
         )
         _ = page_widget.page_modified.connect(
             lambda: setattr(self, "is_notebook_dirty", True)
@@ -396,17 +393,6 @@ class NotebookWidget(QGraphicsView):
         self.logger.debug("Starting save on other thread")
         self.save_thread.start()
 
-    def _add_page_below(self, page: Page) -> None:
-        """Add a new page below the selected page"""
-        page_index = self.pages_data.index(page)
-
-        self.pages_data.insert(page_index + 1, Page())
-        self.notebook.pages = self.pages_data
-
-        # Refresh the layout
-        self._reposition_all_pages()
-        self.is_notebook_dirty = True
-
     def save(self):
         """Save notebook synchronously"""
         if self.is_notebook_dirty:
@@ -430,25 +416,36 @@ class NotebookWidget(QGraphicsView):
         self.backup_manager.save_backups()
         self.status_bar.showMessage("Backup completed!")
 
-    def _add_page_below_dynamic(self, page: Page) -> None:
+    def _add_page_below_dynamic(self, page_idx: int) -> None:
         """Add a page below if this is the last page"""
-        if self.notebook.pages[-1] == page:
-            self._add_page_below(page)
+        if page_idx == len(self.pages_data) - 1:
+            self.notebook.add_page()
 
-    def _reposition_all_pages(self):
-        """Reposition all pages to update the layout"""
-        # Clear backgrounds
-        for background in self.page_backgrounds.values():
-            self.this_scene.removeItem(background)
+            new_page_idx = len(self.pages_data) - 1
+            new_page_data = self.pages_data[new_page_idx]
 
-        # Clear active widgets
-        for proxy_widget in self.active_page_widgets.values():
-            self.this_scene.removeItem(proxy_widget)
-        self.active_page_widgets.clear()
+            # Add background
+            y_offset = new_page_idx * self.page_height
+            background = QGraphicsRectItem(
+                0, y_offset, settings.PAGE_WIDTH, settings.PAGE_HEIGHT
+            )
+            background.setBrush(QBrush(QColor(settings.PAGE_BACKGROUND_COLOR)))
+            self.this_scene.addItem(background)
+            self.page_backgrounds[new_page_idx] = background
 
-        # Recreate layout
-        self._layout_page_backgrounds()
-        self._on_scroll()
+            # Update scene rect to include the new page
+            total_height = len(self.pages_data) * self.page_height
+            self.this_scene.setSceneRect(0, 0, settings.PAGE_WIDTH, total_height)
+
+            # Load the new page
+            proxy_widget = self._add_page_to_scene(new_page_data, new_page_idx)
+            if proxy_widget:
+                # Position the new page
+                proxy_widget.setPos(0, y_offset)
+                self.active_page_widgets[new_page_idx] = proxy_widget
+
+            self.is_notebook_dirty = True
+            self.update_navbar()
 
     @override
     def closeEvent(self, a0: QCloseEvent | None):

@@ -14,9 +14,9 @@ from PyQt6.QtCore import (
     QThread,
     QTimer,
     pyqtSignal,
-    pyqtSlot,  # pyright: ignore[reportUnknownVariableType]
 )
 from PyQt6.QtGui import (
+    QBrush,
     QCloseEvent,
     QColor,
     QKeyEvent,
@@ -30,11 +30,10 @@ from PyQt6.QtWidgets import (
     QApplication,
     QGestureEvent,
     QGraphicsProxyWidget,
+    QGraphicsRectItem,
     QGraphicsScene,
     QGraphicsView,
     QPinchGesture,
-    QPushButton,
-    QScrollBar,
     QStatusBar,
     QWidget,
 )
@@ -43,7 +42,7 @@ from diary.config import SETTINGS_FILE_PATH, settings
 from diary.models import Notebook, NotebookDAO, Page
 from diary.ui.graphics_items.page_graphics_widget import PageGraphicsWidget
 from diary.ui.widgets.save_worker import SaveWorker
-from diary.ui.widgets.tool_selector import Tool
+from diary.ui.widgets.tool_selector import Tool, get_cursor_from_tool
 from diary.utils.backup import BackupManager
 from diary.utils.encryption import SecureBuffer
 
@@ -68,7 +67,15 @@ class NotebookWidget(QGraphicsView):
         self.max_zoom: float = 1.4
         self.notebook: Notebook = notebook or Notebook([Page(), Page()])
 
-        self.page_proxies: list[QGraphicsProxyWidget] = []
+        self.pages_data: list[Page] = self.notebook.pages
+        self.page_height: int = settings.PAGE_HEIGHT + settings.PAGE_BETWEEN_SPACING
+
+        # { page_index: QGraphicsProxyWidget, ... }
+        self.active_page_widgets: dict[int, QGraphicsProxyWidget] = {}
+
+        # Dictionary to hold background rectangles for all pages (always visible)
+        self.page_backgrounds: dict[int, QGraphicsRectItem] = {}
+
         self.key_buffer: SecureBuffer = key_buffer
         self.salt: bytes = salt
         self.backup_manager: BackupManager = BackupManager()
@@ -88,7 +95,8 @@ class NotebookWidget(QGraphicsView):
         self._initial_load_complete: bool = False
 
         self._setup_notebook_widget()
-        self._layout_pages()
+        self._layout_page_backgrounds()
+        self._on_scroll()  # Initial load
 
     def _setup_notebook_widget(self):
         """Init configurations for the widget"""
@@ -105,11 +113,112 @@ class NotebookWidget(QGraphicsView):
         self.setRenderHints(self.renderHints())
         self.select_tool(Tool.PEN)
 
+        scroll_bar = self.verticalScrollBar()
+        if scroll_bar:
+            _ = scroll_bar.valueChanged.connect(self._on_scroll)
+
         # Setup save timer
         timer = QTimer(self)
         timer.setInterval(1000 * settings.AUTOSAVE_NOTEBOOK_TIMEOUT)
         _ = timer.timeout.connect(self.save_async)
         timer.start()
+
+    def _layout_page_backgrounds(self):
+        """Draw page backgrounds for all pages as placeholders"""
+        self.page_backgrounds.clear()
+
+        for i, _ in enumerate(self.pages_data):
+            y_offset = i * self.page_height
+
+            # Create a light background rectangle
+            background = QGraphicsRectItem(
+                0, y_offset, settings.PAGE_WIDTH, settings.PAGE_HEIGHT
+            )
+            background.setBrush(QBrush(QColor(245, 245, 245)))  # Light gray background
+            background.setPen(QColor(200, 200, 200))  # Light border
+
+            self.this_scene.addItem(background)
+            self.page_backgrounds[i] = background
+
+        # Set scene rect to contain all pages
+        total_height = len(self.pages_data) * self.page_height
+        self.this_scene.setSceneRect(0, 0, settings.PAGE_WIDTH, total_height)
+
+    def _on_scroll(self, value: int = 0) -> None:
+        """Handle scroll events to lazy load pages"""
+        _ = value
+        # Determine which pages should be visible
+        viewport = self.viewport()
+        if not viewport:
+            return
+        visible_rect = self.mapToScene(viewport.rect()).boundingRect()
+        first_visible_page = max(0, int(visible_rect.top() / self.page_height))
+        last_visible_page = min(
+            len(self.pages_data) - 1, int(visible_rect.bottom() / self.page_height)
+        )
+
+        # Add buffer pages above and below for smoother scrolling
+        buffer_pages = 6
+        first_visible_page = max(0, first_visible_page - buffer_pages)
+        last_visible_page = min(
+            len(self.pages_data) - 1, last_visible_page + buffer_pages
+        )
+
+        # Determine pages to load and unload
+        pages_to_load = set(range(first_visible_page, last_visible_page + 1))
+        pages_to_unload = set(self.active_page_widgets.keys()) - pages_to_load
+
+        # Unload old widgets
+        for page_index in pages_to_unload:
+            proxy_widget = self.active_page_widgets.pop(page_index, None)
+            if proxy_widget:
+                try:
+                    self.this_scene.removeItem(proxy_widget)
+                    self.logger.debug("Unloaded page %s", page_index)
+                except RuntimeError:
+                    pass  # Object has been destoryed (when closing)
+
+        # Load new widgets
+        for page_index in pages_to_load:
+            if page_index not in self.active_page_widgets:
+                page_data = self.pages_data[page_index]
+                proxy_widget = self._add_page_to_scene(page_data, page_index)
+                assert proxy_widget is not None
+
+                # Calculate the y_offset for this page
+                y_offset = page_index * self.page_height
+                proxy_widget.setPos(0, y_offset)
+
+                # Store the active widget
+                self.active_page_widgets[page_index] = proxy_widget
+
+                self.logger.debug("Loaded page %s at y_offset %s", page_index, y_offset)
+        # Update current page indicator
+        self.update_navbar()
+
+    def _add_page_to_scene(
+        self, page_data: Page, page_index: int
+    ) -> QGraphicsProxyWidget | None:
+        # Create the page widget
+        page_widget = PageGraphicsWidget(page_data, page_index)
+
+        # Connect page widget signals
+        _ = page_widget.add_below.connect(
+            lambda _, idx=page_index: self._add_page_below(self.pages_data[idx])
+        )
+        _ = page_widget.add_below_dynamic.connect(
+            lambda _, idx=page_index: self._add_page_below_dynamic(self.pages_data[idx])
+        )
+        _ = page_widget.page_modified.connect(
+            lambda: setattr(self, "is_notebook_dirty", True)
+        )
+
+        # Add to scene as proxy widget
+        try:
+            proxy_widget = self.this_scene.addWidget(page_widget)
+        except RuntimeError:
+            return None  # Object has been deleted (when closing)
+        return proxy_widget
 
     @override
     def viewportEvent(self, event: QEvent | None):
@@ -190,10 +299,6 @@ class NotebookWidget(QGraphicsView):
 
     def _handle_tablet_event(self, event: QTabletEvent) -> bool:
         """Handle tablet events and forward to appropriate page widget"""
-
-        # Save the notebook since it likely changed
-        self.is_notebook_dirty = True
-
         # Get position in viewport
         pos: QPoint = event.position().toPoint()
         scene_pos: QPointF = self.mapToScene(pos)
@@ -202,66 +307,48 @@ class NotebookWidget(QGraphicsView):
         scene = self.scene()
         if scene is None:
             return False
-        item = scene.itemAt(scene_pos, self.transform())
+        # Convert position to QPoint for mapToScene
+        point = QPoint(int(event.position().x()), int(event.position().y()))
+        scene_pos = self.mapToScene(point)
 
-        if item and isinstance(item, QGraphicsProxyWidget):
-            widget: QWidget | None = item.widget()
-            if widget is None:
-                return False
+        # Find which page this event belongs to
+        page_index = int(scene_pos.y() / self.page_height)
 
-            if isinstance(widget, PageGraphicsWidget):
-                page_widget: PageGraphicsWidget = widget
-                # Map scene coordinates to page coordinates
-                local_pos: QPointF = item.mapFromScene(scene_pos)
-                # Forward event
-                page_widget.handle_tablet_event(
-                    event,
-                    local_pos,
-                )
-                return True  # Event handled
+        if page_index in self.active_page_widgets:
+            proxy_widget = self.active_page_widgets[page_index]
+            page_widget = proxy_widget.widget()
 
-        event.ignore()
+            if isinstance(page_widget, PageGraphicsWidget):
+                # Convert to page-local coordinates
+                page_local_pos = scene_pos - proxy_widget.pos()
+                page_widget.handle_tablet_event(event, page_local_pos)
+                self.is_notebook_dirty = True
+                return True
+
         return False
 
-    def _handle_mouse_event(self, event: QMouseEvent) -> bool:
+    def _handle_mouse_event(self, event: QEvent) -> bool:
         """Handle mouse events and forward to appropriate page widget"""
-        # Only handle left mouse button for drawing
-        if (
-            event.button() != Qt.MouseButton.LeftButton
-            and event.type() != QMouseEvent.Type.MouseMove
-        ):
+        if not isinstance(event, QMouseEvent):
             return False
+        pos = event.position() if hasattr(event, "position") else event.pos()
+        point = QPoint(int(pos.x()), int(pos.y()))
+        scene_pos = self.mapToScene(point)
 
-        # Get position in viewport
-        pos: QPoint = event.position().toPoint()
-        scene_pos: QPointF = self.mapToScene(pos)
+        # Find which page this event belongs to
+        page_index = int(scene_pos.y() / self.page_height)
 
-        # Find page at position
-        scene = self.scene()
-        if scene is None:
-            return False
-        item = scene.itemAt(scene_pos, self.transform())
+        if page_index in self.active_page_widgets:
+            proxy_widget = self.active_page_widgets[page_index]
+            page_widget = proxy_widget.widget()
 
-        if item and isinstance(item, QGraphicsProxyWidget):
-            widget: QWidget | None = item.widget()
-            if widget is None:
-                return False
-
-            if isinstance(widget, PageGraphicsWidget):
-                page_widget: PageGraphicsWidget = widget
-                # Map scene coordinates to page coordinates
-                local_pos: QPointF = item.mapFromScene(scene_pos)
-
-                child_widget = page_widget.childAt(local_pos.toPoint())
-                if child_widget and isinstance(child_widget, QPushButton):
-                    # Let the button handle the event normally
-                    return False
-
-                # Save the notebook since it likely changed
+            if isinstance(page_widget, PageGraphicsWidget):
+                # Convert to page-local coordinates
+                page_local_pos = scene_pos - proxy_widget.pos()
+                page_widget.handle_mouse_event(event, page_local_pos)
                 self.is_notebook_dirty = True
-                page_widget.handle_mouse_event(event, local_pos)
                 return True
-        event.ignore()
+
         return False
 
     def _handle_touch_event(self, event: object) -> bool:
@@ -311,15 +398,14 @@ class NotebookWidget(QGraphicsView):
 
     def _add_page_below(self, page: Page) -> None:
         """Add a new page below the selected page"""
-        self.logger.debug("Adding page below")
-        index = self.notebook.pages.index(page) + 1
-        new_page = Page()
-        self.notebook.pages.insert(index, new_page)
-        page_widget = PageGraphicsWidget(new_page, index - 1)
-        proxy = self._add_page_to_scene(page_widget)
-        self.page_proxies.insert(index, proxy)
+        page_index = self.pages_data.index(page)
+
+        self.pages_data.insert(page_index + 1, Page())
+        self.notebook.pages = self.pages_data
+
+        # Refresh the layout
         self._reposition_all_pages()
-        self.update()
+        self.is_notebook_dirty = True
 
     def save(self):
         """Save notebook synchronously"""
@@ -349,14 +435,20 @@ class NotebookWidget(QGraphicsView):
         if self.notebook.pages[-1] == page:
             self._add_page_below(page)
 
-    def _reposition_all_pages(self) -> None:
-        """Reposition all pages with correct spacing"""
-        spacing = settings.PAGE_BETWEEN_SPACING
-        y_position = 0
-        for proxy in self.page_proxies:
-            page_widget = cast(PageGraphicsWidget, proxy.widget())
-            proxy.setPos(0, y_position)
-            y_position += page_widget.height() + spacing
+    def _reposition_all_pages(self):
+        """Reposition all pages to update the layout"""
+        # Clear backgrounds
+        for background in self.page_backgrounds.values():
+            self.this_scene.removeItem(background)
+
+        # Clear active widgets
+        for proxy_widget in self.active_page_widgets.values():
+            self.this_scene.removeItem(proxy_widget)
+        self.active_page_widgets.clear()
+
+        # Recreate layout
+        self._layout_page_backgrounds()
+        self._on_scroll()
 
     @override
     def closeEvent(self, a0: QCloseEvent | None):
@@ -365,7 +457,6 @@ class NotebookWidget(QGraphicsView):
         if a0 and self.notebook:
             settings.save_to_file(Path(SETTINGS_FILE_PATH))
             self.save()
-            a0.accept()
 
     def on_save_finished(self, success: bool, message: str):
         """Save completed"""
@@ -377,34 +468,6 @@ class NotebookWidget(QGraphicsView):
         self.logger.error("Error while saving: %s", error_msg)
         self.is_saving = False
 
-    def cancel_save(self):
-        """Cancel ongoing save operation"""
-        if self.save_worker:
-            self.save_worker.cancel()
-
-    def _add_page_to_scene(self, page_widget: PageGraphicsWidget):
-        """Add a new PageWidget to the scene"""
-        proxy = self.this_scene.addWidget(page_widget)
-        assert proxy is not None
-        _ = page_widget.add_below.connect(
-            lambda _: self._add_page_below(page_widget.page)
-        )
-        _ = page_widget.add_below_dynamic.connect(
-            lambda _: self._add_page_below_dynamic(page_widget.page)
-        )
-        return proxy
-
-    def _layout_pages(self):
-        """Setup the layout for the pages, without loading them"""
-        y_pos = 0
-        for i, page_data in enumerate(self.notebook.pages):
-            page_widget = PageGraphicsWidget(page_data, i)
-            proxy_widget = self._add_page_to_scene(page_widget)
-            proxy_widget.setPos(0, y_pos)
-            self.page_proxies.append(proxy_widget)
-            # self.page_cache[i] = page_widget  # No content yet
-            y_pos += page_widget.height() + settings.PAGE_BETWEEN_SPACING
-
     def _get_current_page_index(self):
         """Estimate current page index based on viewport"""
         center_y = self.mapToScene(cast(QWidget, self.viewport()).rect().center()).y()
@@ -414,61 +477,45 @@ class NotebookWidget(QGraphicsView):
     def scroll_to_page(self, page_index: int):
         """Scrolls to the selected page."""
         self.logger.debug("Scrolling to %s", page_index)
-        if 0 <= page_index < len(self.notebook.pages):
+        if 0 <= page_index < len(self.pages_data):
             # Calculate the Y position of the target page
-            y_pos = page_index * (settings.PAGE_HEIGHT + settings.PAGE_BETWEEN_SPACING)
-            cast(QScrollBar, self.verticalScrollBar()).setValue(int(y_pos))
+            y_pos = page_index * self.page_height
+            scroll_bar = self.verticalScrollBar()
+            if scroll_bar:
+                scroll_bar.setValue(int(y_pos))
 
-    @pyqtSlot()  # pyright: ignore[reportUntypedFunctionDecorator]
-    def go_to_first_page(self):
-        """PyQtSlot to scroll to the first page"""
+    def go_to_first_page(self) -> None:
+        """Navigate to first page"""
         self.scroll_to_page(0)
 
-    @pyqtSlot()  # pyright: ignore[reportUntypedFunctionDecorator]
-    def go_to_last_page(self):
-        """PyQtSlot to scroll to the last page"""
-        total_pages = len(self.notebook.pages)
-        if total_pages > 0:
-            self.scroll_to_page(total_pages - 1)
+    def go_to_last_page(self) -> None:
+        """Navigate to last page"""
+        if self.pages_data:
+            self.scroll_to_page(len(self.pages_data) - 1)
 
     def update_navbar(self):
-        """Updates the indexes for the Page Navigator"""
-        self.current_page_changed.emit(
-            self._get_current_page_index(), len(self.notebook.pages)
-        )
+        """Update navigation bar with current page info"""
+        current_page = self._get_current_page_index()
+        total_pages = len(self.pages_data)
+        self.current_page_changed.emit(current_page, total_pages)
 
     @override
     def showEvent(self, event: QShowEvent | None) -> None:
-        """
-        Overrides the show event to scroll to the last page on initial startup.
-        """
+        """Handle show event"""
         super().showEvent(event)
-
         if not self._initial_load_complete:
-            QTimer.singleShot(5, self.go_to_last_page)
             self._initial_load_complete = True
+            self.go_to_last_page()
 
     def select_tool(self, new_tool: Tool):
         settings.CURRENT_TOOL = new_tool
         self.logger.debug("Setting new tool: %s", new_tool)
 
-        self.setDragMode(QGraphicsView.DragMode.NoDrag)
-        match new_tool:
-            case Tool.TEXT:
-                QApplication.setOverrideCursor(Qt.CursorShape.IBeamCursor)
-            case Tool.PEN:
-                QApplication.setOverrideCursor(Qt.CursorShape.CrossCursor)
-            case Tool.ERASER:
-                QApplication.setOverrideCursor(Qt.CursorShape.ForbiddenCursor)
-            case Tool.DRAG:
-                QApplication.setOverrideCursor(Qt.CursorShape.OpenHandCursor)
-                self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
-            case Tool.IMAGE:
-                QApplication.setOverrideCursor(Qt.CursorShape.CrossCursor)
-            case Tool.AUDIO:
-                QApplication.setOverrideCursor(Qt.CursorShape.CrossCursor)
-            case Tool.SELECTION:
-                QApplication.setOverrideCursor(Qt.CursorShape.ArrowCursor)
+        if new_tool != Tool.DRAG:
+            self.setDragMode(QGraphicsView.DragMode.NoDrag)
+        else:
+            self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        QApplication.setOverrideCursor(get_cursor_from_tool(new_tool))
 
     def change_color(self, new_color: QColor):
         settings.CURRENT_COLOR = new_color.name()

@@ -403,6 +403,7 @@ class PageGraphicsWidget(QWidget):
 
     @override
     def keyPressEvent(self, a0: QKeyEvent | None) -> None:
+        """On key pressed (delete element)"""
         event = a0
         if event and event.key() == Qt.Key.Key_Delete:
             selected_elements = self.get_selected_elements()

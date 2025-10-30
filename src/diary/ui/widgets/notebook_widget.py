@@ -5,36 +5,7 @@ import sys
 from pathlib import Path
 from typing import cast, override
 
-from PyQt6.QtCore import (
-    QEvent,
-    QObject,
-    QPoint,
-    QPointF,
-    Qt,
-    pyqtSignal,
-)
-from PyQt6.QtGui import (
-    QBrush,
-    QCloseEvent,
-    QColor,
-    QKeyEvent,
-    QMouseEvent,
-    QShowEvent,
-    QTabletEvent,
-    QTouchEvent,
-    QWheelEvent,
-)
-from PyQt6.QtWidgets import (
-    QApplication,
-    QGestureEvent,
-    QGraphicsProxyWidget,
-    QGraphicsRectItem,
-    QGraphicsScene,
-    QGraphicsView,
-    QPinchGesture,
-    QStatusBar,
-    QWidget,
-)
+from PyQt6 import QtCore, QtGui, QtWidgets
 
 from diary.config import SETTINGS_FILE_PATH, settings
 from diary.models import Notebook, Page
@@ -44,35 +15,32 @@ from diary.ui.widgets.tool_selector import Tool, get_cursor_from_tool
 from diary.utils.encryption import SecureBuffer
 
 
-class NotebookWidget(QGraphicsView):
+class NotebookWidget(QtWidgets.QGraphicsView):
     """The widget for the Notebook containing the PageWidgets"""
 
-    current_page_changed: pyqtSignal = pyqtSignal(
+    current_page_changed: QtCore.pyqtSignal = QtCore.pyqtSignal(
         int, int
     )  # current_page_index, total_pages
+    current_zoom: float = 1.0
+    min_zoom: float = 0.6
+    max_zoom: float = 1.4
+    page_height: int = settings.PAGE_HEIGHT + settings.PAGE_BETWEEN_SPACING
+    _initial_load_complete: bool = False
 
     def __init__(
         self,
         key_buffer: SecureBuffer,
         salt: bytes,
-        status_bar: QStatusBar,
+        status_bar: QtWidgets.QStatusBar,
         notebook: Notebook | None = None,
     ):
         super().__init__()
-        self.current_zoom: float = 0.9
-        self.min_zoom: float = 0.6
-        self.max_zoom: float = 1.4
         self.notebook: Notebook = notebook or Notebook([Page(), Page()])
-        self.logger: logging.Logger = logging.getLogger("NotebookWidget")
-
-        self.pages_data: list[Page] = self.notebook.pages
-        self.page_height: int = settings.PAGE_HEIGHT + settings.PAGE_BETWEEN_SPACING
-
+        self._logger: logging.Logger = logging.getLogger("NotebookWidget")
         # { page_index: QGraphicsProxyWidget, ... }
-        self.active_page_widgets: dict[int, QGraphicsProxyWidget] = {}
-
+        self.active_page_widgets: dict[int, QtWidgets.QGraphicsProxyWidget] = {}
         # Dictionary to hold background rectangles for all pages (always visible)
-        self.page_backgrounds: dict[int, QGraphicsRectItem] = {}
+        self.page_backgrounds: dict[int, QtWidgets.QGraphicsRectItem] = {}
 
         # Initialize save manager
         self.save_manager: SaveManager = SaveManager(
@@ -82,8 +50,7 @@ class NotebookWidget(QGraphicsView):
             salt,
             status_bar,
         )
-        self.this_scene: QGraphicsScene = QGraphicsScene()
-        self._initial_load_complete: bool = False
+        self.this_scene: QtWidgets.QGraphicsScene = QtWidgets.QGraphicsScene()
 
         self._setup_notebook_widget()
         self._layout_page_backgrounds()
@@ -95,9 +62,10 @@ class NotebookWidget(QGraphicsView):
         # Accept events, handle dragging...
         current_viewport = self.viewport()
         assert current_viewport is not None
-        current_viewport.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents)
+        current_viewport.setAttribute(QtCore.Qt.WidgetAttribute.WA_AcceptTouchEvents)
         current_viewport.grabGesture(
-            Qt.GestureType.PinchGesture, Qt.GestureFlag.ReceivePartialGestures
+            QtCore.Qt.GestureType.PinchGesture,
+            QtCore.Qt.GestureFlag.ReceivePartialGestures,
         )
         current_viewport.installEventFilter(self)
 
@@ -112,21 +80,23 @@ class NotebookWidget(QGraphicsView):
         """Draw page backgrounds for all pages as placeholders"""
         self.page_backgrounds.clear()
 
-        for i, _ in enumerate(self.pages_data):
+        for i, _ in enumerate(self.notebook.pages):
             y_offset = i * self.page_height
 
             # Create a light background rectangle
-            background = QGraphicsRectItem(
+            background = QtWidgets.QGraphicsRectItem(
                 0, y_offset, settings.PAGE_WIDTH, settings.PAGE_HEIGHT
             )
-            background.setBrush(QBrush(QColor(settings.PAGE_BACKGROUND_COLOR)))
+            background.setBrush(
+                QtGui.QBrush(QtGui.QColor(settings.PAGE_BACKGROUND_COLOR))
+            )
             # background.setPen(QColor(settings.PAGE_BACKGROUND_COLOR))
 
             self.this_scene.addItem(background)
             self.page_backgrounds[i] = background
 
         # Set scene rect to contain all pages
-        total_height = len(self.pages_data) * self.page_height
+        total_height = len(self.notebook.pages) * self.page_height
         self.this_scene.setSceneRect(0, 0, settings.PAGE_WIDTH, total_height)
 
     def _on_scroll(self, value: int = 0) -> None:
@@ -139,14 +109,14 @@ class NotebookWidget(QGraphicsView):
         visible_rect = self.mapToScene(viewport.rect()).boundingRect()
         first_visible_page = max(0, int(visible_rect.top() / self.page_height))
         last_visible_page = min(
-            len(self.pages_data) - 1, int(visible_rect.bottom() / self.page_height)
+            len(self.notebook.pages) - 1, int(visible_rect.bottom() / self.page_height)
         )
 
         # Add buffer pages above and below for smoother scrolling
         buffer_pages = 6
         first_visible_page = max(0, first_visible_page - buffer_pages)
         last_visible_page = min(
-            len(self.pages_data) - 1, last_visible_page + buffer_pages
+            len(self.notebook.pages) - 1, last_visible_page + buffer_pages
         )
 
         # Determine pages to load and unload
@@ -159,14 +129,14 @@ class NotebookWidget(QGraphicsView):
             if proxy_widget:
                 try:
                     self.this_scene.removeItem(proxy_widget)
-                    self.logger.debug("Unloaded page %s", page_index)
+                    self._logger.debug("Unloaded page %s", page_index)
                 except RuntimeError:
                     pass  # Object has been destoryed (when closing)
 
         # Load new widgets
         for page_index in pages_to_load:
             if page_index not in self.active_page_widgets:
-                page_data = self.pages_data[page_index]
+                page_data = self.notebook.pages[page_index]
                 proxy_widget = self._add_page_to_scene(page_data, page_index)
                 if not proxy_widget:
                     return
@@ -178,13 +148,15 @@ class NotebookWidget(QGraphicsView):
                 # Store the active widget
                 self.active_page_widgets[page_index] = proxy_widget
 
-                self.logger.debug("Loaded page %s at y_offset %s", page_index, y_offset)
+                self._logger.debug(
+                    "Loaded page %s at y_offset %s", page_index, y_offset
+                )
         # Update current page indicator
         self.update_navbar()
 
     def _add_page_to_scene(
         self, page_data: Page, page_index: int
-    ) -> QGraphicsProxyWidget | None:
+    ) -> QtWidgets.QGraphicsProxyWidget | None:
         # Create the page widget
         page_widget = PageGraphicsWidget(page_data, page_index)
 
@@ -201,21 +173,21 @@ class NotebookWidget(QGraphicsView):
         return proxy_widget
 
     @override
-    def viewportEvent(self, event: QEvent | None):
+    def viewportEvent(self, event: QtCore.QEvent | None):
         """Handles the Pinch gesture to zoom in/out"""
-        if event is None or not isinstance(event, QGestureEvent):
+        if event is None or not isinstance(event, QtWidgets.QGestureEvent):
             return super().viewportEvent(event)
 
-        if event.type() == QEvent.Type.Gesture:
-            pinch = event.gesture(Qt.GestureType.PinchGesture)
+        if event.type() == QtCore.QEvent.Type.Gesture:
+            pinch = event.gesture(QtCore.Qt.GestureType.PinchGesture)
             if (
                 pinch
-                and pinch.state() == Qt.GestureState.GestureUpdated
-                and isinstance(pinch, QPinchGesture)
+                and pinch.state() == QtCore.Qt.GestureState.GestureUpdated
+                and isinstance(pinch, QtWidgets.QPinchGesture)
             ):
                 # Scale view around center point
                 self.setTransformationAnchor(
-                    QGraphicsView.ViewportAnchor.AnchorUnderMouse
+                    QtWidgets.QGraphicsView.ViewportAnchor.AnchorUnderMouse
                 )
 
                 scale_factor: float = self.current_zoom * pinch.scaleFactor()
@@ -232,13 +204,13 @@ class NotebookWidget(QGraphicsView):
         return super().viewportEvent(event)
 
     @override
-    def wheelEvent(self, event: QWheelEvent | None):
+    def wheelEvent(self, event: QtGui.QWheelEvent | None):
         """
         Zooms in/out on the current cursor position if CTRL is being pressed
         """
         if event is None:
             return
-        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+        if event.modifiers() & QtCore.Qt.KeyboardModifier.ControlModifier:
             delta = event.angleDelta().y()
             if delta > 0:
                 new_zoom = self.current_zoom * 1.15
@@ -255,8 +227,9 @@ class NotebookWidget(QGraphicsView):
             super().wheelEvent(event)
 
     @override
-    def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def eventFilter(self, a0: QtCore.QObject | None, a1: QtCore.QEvent | None) -> bool:
         """Intercepts events to forward Tablet and Mouse Events to the PageWidget"""
+        obj, event = a0, a1
         if obj != self.viewport() or event is None or obj is None:
             return super().eventFilter(obj, event)
 
@@ -264,31 +237,27 @@ class NotebookWidget(QGraphicsView):
             return super().eventFilter(obj, event)
 
         # Handle tablet events
-        if isinstance(event, QTabletEvent):
+        if isinstance(event, QtGui.QTabletEvent):
             return self._handle_tablet_event(event)
 
         # Handle mouse events for drawing
-        if isinstance(event, QMouseEvent) and settings.MOUSE_ENABLED:
+        if isinstance(event, QtGui.QMouseEvent) and settings.MOUSE_ENABLED:
             return self._handle_mouse_event(event)
-
-        # Handle touch events for drawing
-        if isinstance(event, QTouchEvent) and settings.TOUCH_ENABLED:
-            return self._handle_touch_event(event)
 
         return super().eventFilter(obj, event)
 
-    def _handle_tablet_event(self, event: QTabletEvent) -> bool:
+    def _handle_tablet_event(self, event: QtGui.QTabletEvent) -> bool:
         """Handle tablet events and forward to appropriate page widget"""
         # Get position in viewport
-        pos: QPoint = event.position().toPoint()
-        scene_pos: QPointF = self.mapToScene(pos)
+        pos: QtCore.QPoint = event.position().toPoint()
+        scene_pos: QtCore.QPointF = self.mapToScene(pos)
 
         # Find page at position
         scene = self.scene()
         if scene is None:
             return False
         # Convert position to QPoint for mapToScene
-        point = QPoint(int(event.position().x()), int(event.position().y()))
+        point = QtCore.QPoint(int(event.position().x()), int(event.position().y()))
         scene_pos = self.mapToScene(point)
 
         # Find which page this event belongs to
@@ -307,12 +276,12 @@ class NotebookWidget(QGraphicsView):
 
         return False
 
-    def _handle_mouse_event(self, event: QEvent) -> bool:
+    def _handle_mouse_event(self, event: QtCore.QEvent) -> bool:
         """Handle mouse events and forward to appropriate page widget"""
-        if not isinstance(event, QMouseEvent):
+        if not isinstance(event, QtGui.QMouseEvent):
             return False
         pos = event.position() if hasattr(event, "position") else event.pos()
-        point = QPoint(int(pos.x()), int(pos.y()))
+        point = QtCore.QPoint(int(pos.x()), int(pos.y()))
         scene_pos = self.mapToScene(point)
 
         # Find which page this event belongs to
@@ -331,18 +300,13 @@ class NotebookWidget(QGraphicsView):
 
         return False
 
-    def _handle_touch_event(self, event: object) -> bool:
-        """Handle touch events and forward to appropriate page widget (future implementation)"""
-        _ = event
-        return False
-
     @override
-    def keyPressEvent(self, event: QKeyEvent | None) -> None:
+    def keyPressEvent(self, event: QtGui.QKeyEvent | None) -> None:
         """Close app with 'Q'"""
         if not event:
             return super().keyPressEvent(event)
-        if event.key() == Qt.Key.Key_Q:
-            self.logger.debug("Pressed 'Q', closing...")
+        if event.key() == QtCore.Qt.Key.Key_Q:
+            self._logger.debug("Pressed 'Q', closing...")
             _ = self.close()
             sys.exit(0)
         return super().keyPressEvent(event)
@@ -361,23 +325,25 @@ class NotebookWidget(QGraphicsView):
 
     def _add_page_below_dynamic(self, page_idx: int) -> None:
         """Add a page below if this is the last page"""
-        if page_idx == len(self.pages_data) - 1:
+        if page_idx == len(self.notebook.pages) - 1:
             self.notebook.add_page()
 
-            new_page_idx = len(self.pages_data) - 1
-            new_page_data = self.pages_data[new_page_idx]
+            new_page_idx = len(self.notebook.pages) - 1
+            new_page_data = self.notebook.pages[new_page_idx]
 
             # Add background
             y_offset = new_page_idx * self.page_height
-            background = QGraphicsRectItem(
+            background = QtWidgets.QGraphicsRectItem(
                 0, y_offset, settings.PAGE_WIDTH, settings.PAGE_HEIGHT
             )
-            background.setBrush(QBrush(QColor(settings.PAGE_BACKGROUND_COLOR)))
+            background.setBrush(
+                QtGui.QBrush(QtGui.QColor(settings.PAGE_BACKGROUND_COLOR))
+            )
             self.this_scene.addItem(background)
             self.page_backgrounds[new_page_idx] = background
 
             # Update scene rect to include the new page
-            total_height = len(self.pages_data) * self.page_height
+            total_height = len(self.notebook.pages) * self.page_height
             self.this_scene.setSceneRect(0, 0, settings.PAGE_WIDTH, total_height)
 
             # Load the new page
@@ -391,23 +357,25 @@ class NotebookWidget(QGraphicsView):
             self.update_navbar()
 
     @override
-    def closeEvent(self, a0: QCloseEvent | None):
+    def closeEvent(self, a0: QtGui.QCloseEvent | None):
         """Save notebook on close"""
-        self.logger.debug("Close app event!")
+        self._logger.debug("Close app event!")
         if a0 and self.notebook:
             settings.save_to_file(Path(SETTINGS_FILE_PATH))
             self.save_manager.force_save_on_close()
 
     def _get_current_page_index(self):
         """Estimate current page index based on viewport"""
-        center_y = self.mapToScene(cast(QWidget, self.viewport()).rect().center()).y()
+        center_y = self.mapToScene(
+            cast(QtWidgets.QWidget, self.viewport()).rect().center()
+        ).y()
         page_height = settings.PAGE_HEIGHT + settings.PAGE_BETWEEN_SPACING
         return max(0, int(center_y / page_height))
 
     def scroll_to_page(self, page_index: int):
         """Scrolls to the selected page."""
-        self.logger.debug("Scrolling to %s", page_index)
-        if 0 <= page_index < len(self.pages_data):
+        self._logger.debug("Scrolling to %s", page_index)
+        if 0 <= page_index < len(self.notebook.pages):
             # Calculate the Y position of the target page
             y_pos = page_index * self.page_height
             scroll_bar = self.verticalScrollBar()
@@ -420,17 +388,17 @@ class NotebookWidget(QGraphicsView):
 
     def go_to_last_page(self) -> None:
         """Navigate to last page"""
-        if self.pages_data:
-            self.scroll_to_page(len(self.pages_data) - 1)
+        if self.notebook.pages:
+            self.scroll_to_page(len(self.notebook.pages) - 1)
 
     def update_navbar(self):
         """Update navigation bar with current page info"""
         current_page = self._get_current_page_index()
-        total_pages = len(self.pages_data)
+        total_pages = len(self.notebook.pages)
         self.current_page_changed.emit(current_page, total_pages)
 
     @override
-    def showEvent(self, event: QShowEvent | None) -> None:
+    def showEvent(self, event: QtGui.QShowEvent | None) -> None:
         """Handle show event"""
         super().showEvent(event)
         if not self._initial_load_complete:
@@ -438,19 +406,22 @@ class NotebookWidget(QGraphicsView):
             self.go_to_last_page()
 
     def select_tool(self, new_tool: Tool):
+        """Selects a new tool, changing the cursor and drag mode"""
         settings.CURRENT_TOOL = new_tool
-        self.logger.debug("Setting new tool: %s", new_tool)
+        self._logger.debug("Setting new tool: %s", new_tool)
 
         if new_tool != Tool.DRAG:
-            self.setDragMode(QGraphicsView.DragMode.NoDrag)
+            self.setDragMode(QtWidgets.QGraphicsView.DragMode.NoDrag)
         else:
-            self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
-        QApplication.setOverrideCursor(get_cursor_from_tool(new_tool))
+            self.setDragMode(QtWidgets.QGraphicsView.DragMode.ScrollHandDrag)
+        QtWidgets.QApplication.setOverrideCursor(get_cursor_from_tool(new_tool))
 
-    def change_color(self, new_color: QColor):
+    def change_color(self, new_color: QtGui.QColor):
+        """Change the color for the pen"""
         settings.CURRENT_COLOR = new_color.name()
-        self.logger.debug("Setting new color: %s", new_color)
+        self._logger.debug("Setting new color: %s", new_color)
 
     def change_thickness(self, new_thickness: float):
+        """Change the thickness for the pen"""
         settings.CURRENT_WIDTH = new_thickness
-        self.logger.debug("Setting new thickness: %s", new_thickness)
+        self._logger.debug("Setting new thickness: %s", new_thickness)

@@ -61,12 +61,14 @@ class SettingsSidebar(QDockWidget):
         return curr_index
 
     def on_item_clicked(self, item: QListWidgetItem):
+        """When an option gets clicked, update checkbox"""
         if item.checkState() == Qt.CheckState.Unchecked:
             item.setCheckState(Qt.CheckState.Checked)
         else:
             item.setCheckState(Qt.CheckState.Unchecked)
 
     def on_item_changed(self, item: QListWidgetItem):
+        """When the state of an item changes, call the relative function"""
         try:
             self.items[int(item.whatsThis())]()
         except ValueError as e:

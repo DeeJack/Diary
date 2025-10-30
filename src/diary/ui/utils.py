@@ -1,3 +1,5 @@
+"""Utility functions for the UI"""
+
 import logging
 from pathlib import Path
 
@@ -66,6 +68,7 @@ def read_image(file_path: str) -> tuple[bytes, int, int]:
 
 
 def import_from_pdf() -> Notebook:
+    """Opens a FileDialog to import a PDF file, converting it to images and creating a new notebook"""
     pdf_file, _ = QFileDialog.getOpenFileName(
         None, caption="Choose PDF file", filter="PDF File (*.pdf)"
     )

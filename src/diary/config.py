@@ -81,7 +81,7 @@ class Settings(BaseSettings):
             return cls()  # Return default
 
         try:
-            with open(path, "r") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             return cls(**data)
         except (json.JSONDecodeError, ValidationError) as e:
@@ -92,7 +92,7 @@ class Settings(BaseSettings):
         """Saves settings to JSON file."""
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
-            with open(path, "w") as f:
+            with open(path, "w", encoding="utf-8") as f:
                 _ = f.write(self.model_dump_json(indent=2))
         except Exception as e:
             logging.getLogger("Config").error("Error saving settings: %s", e)

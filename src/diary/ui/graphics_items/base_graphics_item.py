@@ -124,8 +124,9 @@ class BaseGraphicsItem(QGraphicsItem, ABC, metaclass=GraphicsItemABCMeta):
 
     @override
     def keyPressEvent(self, event: QtGui.QKeyEvent | None) -> None:
+        """On key pressed (delete element)"""
         if not event:
-            return
+            return None
         if self.isSelected() and event.key() == Qt.Key.Key_Cancel:
             self.hide()
         return super().keyPressEvent(event)

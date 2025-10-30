@@ -18,18 +18,21 @@ class Tool(Enum):
 
 
 def get_cursor_from_tool(tool: Tool) -> Qt.CursorShape:
+    """Get the cursor corresponding to a Tool"""
+    cursor: Qt.CursorShape
     match tool:
         case Tool.TEXT:
-            return Qt.CursorShape.IBeamCursor
+            cursor = Qt.CursorShape.IBeamCursor
         case Tool.PEN:
-            return Qt.CursorShape.CrossCursor
+            cursor = Qt.CursorShape.CrossCursor
         case Tool.ERASER:
-            return Qt.CursorShape.ForbiddenCursor
+            cursor = Qt.CursorShape.ForbiddenCursor
         case Tool.DRAG:
-            return Qt.CursorShape.OpenHandCursor
+            cursor = Qt.CursorShape.OpenHandCursor
         case Tool.IMAGE:
-            return Qt.CursorShape.CrossCursor
+            cursor = Qt.CursorShape.CrossCursor
         case Tool.AUDIO:
-            return Qt.CursorShape.CrossCursor
+            cursor = Qt.CursorShape.CrossCursor
         case Tool.SELECTION:
-            return Qt.CursorShape.ArrowCursor
+            cursor = Qt.CursorShape.ArrowCursor
+    return cursor

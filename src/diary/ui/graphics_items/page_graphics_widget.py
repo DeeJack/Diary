@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import override
 
-from PyQt6.QtCore import QPointF, Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, QPointF, Qt, pyqtSignal
 from PyQt6.QtGui import (
     QColor,
     QFont,
@@ -303,11 +303,11 @@ class PageGraphicsWidget(QWidget):
         """Handle tablet events for pressure-sensitive input"""
         pressure = event.pressure() if event.pressure() > 0 else 1.0
 
-        if event.type() == QTabletEvent.Type.TabletPress:
+        if event.type() == QEvent.Type.TabletPress:
             action = InputAction.PRESS
-        if event.type() == QTabletEvent.Type.TabletMove:
+        elif event.type() == QEvent.Type.TabletMove:
             action = InputAction.MOVE
-        elif event.type() == QTabletEvent.Type.TabletRelease:
+        elif event.type() == QEvent.Type.TabletRelease:
             action = InputAction.RELEASE
         else:
             return

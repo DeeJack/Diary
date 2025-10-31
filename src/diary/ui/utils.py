@@ -82,7 +82,7 @@ def import_from_pdf() -> Notebook:
         image_data = QByteArray()
         buffer = QBuffer(image_data)
         _ = buffer.open(QIODevice.OpenModeFlag.WriteOnly)
-        _ = pixmap.save(buffer, "PNG")
+        _ = pixmap.save(buffer, "JPEG", quality=95)
         page_img = Image(
             Point(0, 0), pixmap.width(), pixmap.height(), image_data=image_data.data()
         )
@@ -107,7 +107,7 @@ def _import_from_pdf(pdf_path: Path) -> list[QPixmap]:
         "PDF document read and ready, with %s pages!", doc.pageCount()
     )
 
-    DPI = 150
+    DPI = 250
     pages: list[QPixmap] = []
     for page_num in range(doc.pageCount()):
         logging.getLogger("Utils").debug(

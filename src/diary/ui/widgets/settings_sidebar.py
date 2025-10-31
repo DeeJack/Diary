@@ -9,6 +9,8 @@ from PyQt6.QtWidgets import (
     QDockWidget,
     QListWidget,
     QListWidgetItem,
+    QPushButton,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -21,17 +23,36 @@ class SettingsSidebar(QDockWidget):
     last_index: int = 0
 
     def __init__(self, parent: QWidget | None = None):
-        super().__init__(parent)
+        super().__init__("Settings", parent)
 
         self.setAllowedAreas(
             Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
         )
         self.items: dict[int, Callable[[], None]] = {}
+
+        main_container = QWidget()
+        layout = QVBoxLayout()
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(5)
+
         self.entry_list: QListWidget = QListWidget()
         self._add_items()
         self.setWidget(self.entry_list)
         _ = self.entry_list.itemClicked.connect(self.on_item_clicked)
         _ = self.entry_list.itemChanged.connect(self.on_item_changed)
+
+        import_btn = QPushButton()
+        import_btn.setText("Import PDF")
+
+        change_pw_btn = QPushButton()
+        change_pw_btn.setText("Change Password")
+
+        layout.addWidget(self.entry_list)
+        layout.addWidget(import_btn)
+        layout.addWidget(change_pw_btn)
+        layout.addStretch()
+        main_container.setLayout(layout)
+        self.setWidget(main_container)
 
     def _add_items(self):
         mouse_ckb_idx = self._add_checkbox("Mouse enabled", settings.MOUSE_ENABLED)

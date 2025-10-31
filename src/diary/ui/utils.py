@@ -6,7 +6,7 @@ from pathlib import Path
 from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QSize, Qt
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtPdf import QPdfDocument
-from PyQt6.QtWidgets import QFileDialog
+from PyQt6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
 from diary.config import settings
 from diary.models import Image, Notebook, Page, Point
@@ -137,3 +137,17 @@ def _import_from_pdf(pdf_path: Path) -> list[QPixmap]:
 
     doc.close()
     return pages
+
+
+def show_error_dialog(
+    parent: QWidget | None, title: str, text: str
+) -> QMessageBox.StandardButton:
+    button = QMessageBox.critical(
+        parent,
+        title,
+        text,
+        buttons=QMessageBox.StandardButton.Ok,
+        defaultButton=QMessageBox.StandardButton.Ok,
+    )
+
+    return button

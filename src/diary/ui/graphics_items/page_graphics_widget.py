@@ -4,25 +4,8 @@ import logging
 from datetime import datetime
 from typing import override
 
+from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import QEvent, QPointF, Qt, pyqtSignal
-from PyQt6.QtGui import (
-    QColor,
-    QFont,
-    QKeyEvent,
-    QMouseEvent,
-    QPainter,
-    QPointingDevice,
-    QTabletEvent,
-)
-from PyQt6.QtWidgets import (
-    QFileDialog,
-    QGraphicsView,
-    QGridLayout,
-    QInputDialog,
-    QLabel,
-    QVBoxLayout,
-    QWidget,
-)
 
 from diary.config import settings
 from diary.models import PageElement
@@ -31,14 +14,14 @@ from diary.models.elements.text import Text
 from diary.models.page import Page
 from diary.models.point import Point
 from diary.ui.input import InputAction, InputType
-from diary.ui.utils import read_image, smooth_stroke_moving_average
+from diary.ui.utils import read_image, show_error_dialog, smooth_stroke_moving_average
 from diary.ui.widgets.tool_selector import Tool
 
 from .page_graphics_scene import PageGraphicsScene
 from .stroke_graphics_item import StrokeGraphicsItem
 
 
-class PageGraphicsWidget(QWidget):
+class PageGraphicsWidget(QtWidgets.QWidget):
     """Widget for displaying diary pages using QGraphicsItem architecture"""
 
     add_below_dynamic: pyqtSignal = pyqtSignal()
@@ -56,7 +39,9 @@ class PageGraphicsWidget(QWidget):
 
         # Create the graphics scene and view
         self._scene: PageGraphicsScene = PageGraphicsScene(page)
-        self._graphics_view: QGraphicsView = QGraphicsView(self._scene)
+        self._graphics_view: QtWidgets.QGraphicsView = QtWidgets.QGraphicsView(
+            self._scene
+        )
 
         # Configure the graphics view
         self._setup_graphics_view()
@@ -91,7 +76,7 @@ class PageGraphicsWidget(QWidget):
         return self._scene
 
     @property
-    def graphics_view(self) -> QGraphicsView:
+    def graphics_view(self) -> QtWidgets.QGraphicsView:
         """Get the graphics view"""
         return self._graphics_view
 
@@ -106,16 +91,23 @@ class PageGraphicsWidget(QWidget):
         )
 
         # Configure view properties
-        self._graphics_view.setDragMode(QGraphicsView.DragMode.NoDrag)
+        self._graphics_view.setDragMode(QtWidgets.QGraphicsView.DragMode.NoDrag)
         self._graphics_view.setInteractive(True)
         self._graphics_view.setMouseTracking(True)
 
+        # Install event filter on the graphics view to handle events
+        viewport = self._graphics_view.viewport()
+        if viewport:
+            viewport.installEventFilter(self)
+
         # Enable high-quality rendering
-        self._graphics_view.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        self._graphics_view.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
         self._graphics_view.setRenderHint(
-            QPainter.RenderHint.SmoothPixmapTransform, True
+            QtGui.QPainter.RenderHint.SmoothPixmapTransform, True
         )
-        self._graphics_view.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+        self._graphics_view.setRenderHint(
+            QtGui.QPainter.RenderHint.TextAntialiasing, True
+        )
 
         # Set fixed size to match page dimensions
         self._graphics_view.setFixedSize(settings.PAGE_WIDTH, settings.PAGE_HEIGHT)
@@ -131,36 +123,42 @@ class PageGraphicsWidget(QWidget):
             streak_info = f" (Streak: {self.page.streak_lvl})"
 
         title = f"{page_date}{streak_info}"
-        title_label = QLabel(title)
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setFont(QFont("Times New Roman", 16))
-        title_label.setStyleSheet("color: black;")
+        self.title_label: QtWidgets.QLabel = QtWidgets.QLabel(title)
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title_label.setFont(QtGui.QFont("Times New Roman", 16))
+        self.title_label.setStyleSheet("color: black;")
 
         # Create "Add below" button
-        # btn_below = QPushButton("Add below")
-        # btn_below.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
+        btn_below = QtWidgets.QPushButton("Add below")
+        btn_below.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
         # _ = btn_below.clicked.connect(lambda: self.add_below.emit(self))
 
-        # btn_row = QHBoxLayout()
-        # btn_row.addStretch()
-        # btn_row.addWidget(btn_below)
-        # btn_row.addStretch()
+        change_date_btn = QtWidgets.QPushButton("Change date")
+        change_date_btn.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
+        _ = change_date_btn.clicked.connect(self.change_date)
+
+        btn_row = QtWidgets.QHBoxLayout()
+        btn_row.addStretch()
+        btn_row.addWidget(btn_below)
+        btn_row.addWidget(change_date_btn)
+        btn_row.addStretch()
 
         # Main layout
-        main_layout = QGridLayout(self)
+        main_layout = QtWidgets.QGridLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self._graphics_view, 0, 0)
 
         # Create an overlay layout for the title and button
-        overlay_layout = QVBoxLayout()
-        overlay_layout.addWidget(title_label)
+        overlay_layout = QtWidgets.QVBoxLayout()
+        overlay_layout.addWidget(self.title_label)
         overlay_layout.addStretch()
-        # overlay_layout.addLayout(btn_row)
+        overlay_layout.addLayout(btn_row)
         overlay_layout.setContentsMargins(0, 10, 0, 10)
 
         # Add the overlay layout to the same grid cell (0, 0)
         main_layout.addLayout(overlay_layout, 0, 0)
         # btn_below.raise_()
+        change_date_btn.raise_()
 
     def handle_drawing_input(
         self,
@@ -202,7 +200,7 @@ class PageGraphicsWidget(QWidget):
             point = Point(scene_pos.x(), scene_pos.y(), 1.0)
 
             # TODO: Type without opening a dialog
-            text, ok = QInputDialog.getText(
+            text, ok = QtWidgets.QInputDialog.getText(
                 self.parentWidget(),
                 "Insert text",
                 "Text to add",
@@ -235,7 +233,7 @@ class PageGraphicsWidget(QWidget):
         point = Point(scene_pos.x(), scene_pos.y(), pressure)
 
         # Get current drawing settings
-        color = QColor(settings.CURRENT_COLOR)
+        color = QtGui.QColor(settings.CURRENT_COLOR)
         thickness = settings.CURRENT_WIDTH
 
         # Create new stroke
@@ -288,19 +286,51 @@ class PageGraphicsWidget(QWidget):
         self._current_stroke_item = None
         self._is_drawing = False
 
-    def handle_mouse_event(self, event: QMouseEvent, pos: QPointF) -> None:
-        """Handle mouse move events"""
+    @override
+    def eventFilter(self, a0: QtCore.QObject | None, a1: QtCore.QEvent | None) -> bool:
+        """Handle events for drawing and input"""
+        obj, event = a0, a1
+        if obj != self._graphics_view.viewport() or event is None or obj is None:
+            return super().eventFilter(obj, event)
+
+        # Skip events for drag and selection tools
+        if settings.CURRENT_TOOL in {Tool.DRAG, Tool.SELECTION}:
+            return super().eventFilter(obj, event)
+
+        # Handle tablet events
+        if isinstance(event, QtGui.QTabletEvent):
+            return self._handle_tablet_event(event)
+
+        # Handle mouse events for drawing
+        if isinstance(event, QtGui.QMouseEvent) and settings.MOUSE_ENABLED:
+            return self._handle_mouse_event(event)
+
+        return super().eventFilter(obj, event)
+
+    def _handle_mouse_event(self, event: QtGui.QMouseEvent) -> bool:
+        """Handle mouse events"""
+        # Convert viewport position to scene coordinates
+        scene_pos = self._graphics_view.mapToScene(event.pos())
+        pos = QPointF(scene_pos.x(), scene_pos.y())
+
         action = InputAction.PRESS
-        if event.type() == QMouseEvent.Type.MouseMove:
+        if event.type() == QtGui.QMouseEvent.Type.MouseMove:
             action = InputAction.MOVE
-        elif event.type() == QMouseEvent.Type.MouseButtonRelease:
+        elif event.type() == QtGui.QMouseEvent.Type.MouseButtonRelease:
             action = InputAction.RELEASE
 
-        if event.buttons() & Qt.MouseButton.LeftButton:
+        if event.buttons() & Qt.MouseButton.LeftButton or action == InputAction.RELEASE:
             self.handle_drawing_input(pos, pressure=1.0, action=action)
+            return True
 
-    def handle_tablet_event(self, event: QTabletEvent, pos: QPointF) -> None:
-        """Handle tablet events for pressure-sensitive input"""
+        return False
+
+    def _handle_tablet_event(self, event: QtGui.QTabletEvent) -> bool:
+        """Handle tablet (pen) events"""
+        # Convert viewport position to scene coordinates
+        scene_pos = self._graphics_view.mapToScene(event.position().toPoint())
+        pos = QPointF(scene_pos.x(), scene_pos.y())
+
         pressure = event.pressure() if event.pressure() > 0 else 1.0
 
         if event.type() == QEvent.Type.TabletPress:
@@ -310,15 +340,16 @@ class PageGraphicsWidget(QWidget):
         elif event.type() == QEvent.Type.TabletRelease:
             action = InputAction.RELEASE
         else:
-            return
+            return False
 
         self.handle_drawing_input(
             pos,
             pressure=pressure,
             action=action,
             device=InputType.TABLET,
-            is_eraser=event.pointerType() == QPointingDevice.PointerType.Eraser,
+            is_eraser=event.pointerType() == QtGui.QPointingDevice.PointerType.Eraser,
         )
+        return True
 
     def _handle_image_input(self, position: QPointF, action: InputAction):
         """Handle input with Image tool"""
@@ -326,7 +357,7 @@ class PageGraphicsWidget(QWidget):
             scene_pos = self._graphics_view.mapToScene(position.toPoint())
             point = Point(scene_pos.x(), scene_pos.y(), 1.0)
 
-            image_file, _ = QFileDialog.getOpenFileName(
+            image_file, _ = QtWidgets.QFileDialog.getOpenFileName(
                 self.parentWidget(),
                 "Select image",
                 filter=("Images (*.png *.xpm *.jpg *.jpeg *.webp)"),
@@ -402,7 +433,7 @@ class PageGraphicsWidget(QWidget):
         )
 
     @override
-    def keyPressEvent(self, a0: QKeyEvent | None) -> None:
+    def keyPressEvent(self, a0: QtGui.QKeyEvent | None) -> None:
         """On key pressed (delete element)"""
         event = a0
         if event and event.key() == Qt.Key.Key_Delete:
@@ -413,3 +444,22 @@ class PageGraphicsWidget(QWidget):
             for item in self._scene.selectedItems():
                 item.hide()
         return super().keyPressEvent(event)
+
+    def change_date(self):
+        new_date_str, _ = QtWidgets.QInputDialog.getText(
+            self.parentWidget(), "New date", "Format: 01/01/2025"
+        )
+        fields = new_date_str.split("/")
+        if len(fields) != 3:
+            return show_error_dialog(self, "Error", "Wrong format")
+
+        try:
+            new_date = datetime.strptime(
+                f"{fields[0]}/{fields[1]}/{fields[2]}", "%d/%m/%Y"
+            )
+            self.page.created_at = new_date.timestamp()
+            self.page_modified.emit()
+            self.title_label.setText(new_date.strftime("%Y/%m/%d"))
+        except ValueError as e:
+            _ = show_error_dialog(self, "Error", "Wrong format")
+            self._logger.error(e)

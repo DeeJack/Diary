@@ -14,7 +14,7 @@ from diary.models.elements.text import Text
 from diary.models.page import Page
 from diary.models.point import Point
 from diary.ui.input import InputAction, InputType
-from diary.ui.utils import read_image, smooth_stroke_moving_average
+from diary.ui.utils import read_image, show_error_dialog, smooth_stroke_moving_average
 from diary.ui.widgets.tool_selector import Tool
 
 from .page_graphics_scene import PageGraphicsScene
@@ -123,25 +123,25 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             streak_info = f" (Streak: {self.page.streak_lvl})"
 
         title = f"{page_date}{streak_info}"
-        title_label = QtWidgets.QLabel(title)
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setFont(QtGui.QFont("Times New Roman", 16))
-        title_label.setStyleSheet("color: black;")
+        self.title_label: QtWidgets.QLabel = QtWidgets.QLabel(title)
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title_label.setFont(QtGui.QFont("Times New Roman", 16))
+        self.title_label.setStyleSheet("color: black;")
 
         # Create "Add below" button
-        # btn_below = QtWidgets.QPushButton("Add below")
-        # btn_below.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
+        btn_below = QtWidgets.QPushButton("Add below")
+        btn_below.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
         # _ = btn_below.clicked.connect(lambda: self.add_below.emit(self))
 
-        # change_date_btn = QtWidgets.QPushButton("Change date")
-        # change_date_btn.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
-        # _ = change_date_btn.clicked.connect(self.change_date)
+        change_date_btn = QtWidgets.QPushButton("Change date")
+        change_date_btn.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
+        _ = change_date_btn.clicked.connect(self.change_date)
 
-        # btn_row = QtWidgets.QHBoxLayout()
-        # btn_row.addStretch()
-        # btn_row.addWidget(btn_below)
-        # btn_row.addWidget(change_date_btn)
-        # btn_row.addStretch()
+        btn_row = QtWidgets.QHBoxLayout()
+        btn_row.addStretch()
+        btn_row.addWidget(btn_below)
+        btn_row.addWidget(change_date_btn)
+        btn_row.addStretch()
 
         # Main layout
         main_layout = QtWidgets.QGridLayout(self)
@@ -150,15 +150,15 @@ class PageGraphicsWidget(QtWidgets.QWidget):
 
         # Create an overlay layout for the title and button
         overlay_layout = QtWidgets.QVBoxLayout()
-        overlay_layout.addWidget(title_label)
+        overlay_layout.addWidget(self.title_label)
         overlay_layout.addStretch()
-        # overlay_layout.addLayout(btn_row)
+        overlay_layout.addLayout(btn_row)
         overlay_layout.setContentsMargins(0, 10, 0, 10)
 
         # Add the overlay layout to the same grid cell (0, 0)
         main_layout.addLayout(overlay_layout, 0, 0)
         # btn_below.raise_()
-        # change_date_btn.raise_()
+        change_date_btn.raise_()
 
     def handle_drawing_input(
         self,
@@ -444,3 +444,22 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             for item in self._scene.selectedItems():
                 item.hide()
         return super().keyPressEvent(event)
+
+    def change_date(self):
+        new_date_str, _ = QtWidgets.QInputDialog.getText(
+            self.parentWidget(), "New date", "Format: 01/01/2025"
+        )
+        fields = new_date_str.split("/")
+        if len(fields) != 3:
+            return show_error_dialog(self, "Error", "Wrong format")
+
+        try:
+            new_date = datetime.strptime(
+                f"{fields[0]}/{fields[1]}/{fields[2]}", "%d/%m/%Y"
+            )
+            self.page.created_at = new_date.timestamp()
+            self.page_modified.emit()
+            self.title_label.setText(new_date.strftime("%Y/%m/%d"))
+        except ValueError as e:
+            _ = show_error_dialog(self, "Error", "Wrong format")
+            self._logger.error(e)

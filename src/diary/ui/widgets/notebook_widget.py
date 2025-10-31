@@ -67,7 +67,6 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             QtCore.Qt.GestureType.PinchGesture,
             QtCore.Qt.GestureFlag.ReceivePartialGestures,
         )
-        current_viewport.installEventFilter(self)
 
         self.setRenderHints(self.renderHints())
         self.select_tool(Tool.PEN)
@@ -225,80 +224,6 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             event.accept()
         else:
             super().wheelEvent(event)
-
-    @override
-    def eventFilter(self, a0: QtCore.QObject | None, a1: QtCore.QEvent | None) -> bool:
-        """Intercepts events to forward Tablet and Mouse Events to the PageWidget"""
-        obj, event = a0, a1
-        if obj != self.viewport() or event is None or obj is None:
-            return super().eventFilter(obj, event)
-
-        if settings.CURRENT_TOOL in {Tool.DRAG, Tool.SELECTION}:
-            return super().eventFilter(obj, event)
-
-        # Handle tablet events
-        if isinstance(event, QtGui.QTabletEvent):
-            return self._handle_tablet_event(event)
-
-        # Handle mouse events for drawing
-        if isinstance(event, QtGui.QMouseEvent) and settings.MOUSE_ENABLED:
-            return self._handle_mouse_event(event)
-
-        return super().eventFilter(obj, event)
-
-    def _handle_tablet_event(self, event: QtGui.QTabletEvent) -> bool:
-        """Handle tablet events and forward to appropriate page widget"""
-        # Get position in viewport
-        pos: QtCore.QPoint = event.position().toPoint()
-        scene_pos: QtCore.QPointF = self.mapToScene(pos)
-
-        # Find page at position
-        scene = self.scene()
-        if scene is None:
-            return False
-        # Convert position to QPoint for mapToScene
-        point = QtCore.QPoint(int(event.position().x()), int(event.position().y()))
-        scene_pos = self.mapToScene(point)
-
-        # Find which page this event belongs to
-        page_index = int(scene_pos.y() / self.page_height)
-
-        if page_index in self.active_page_widgets:
-            proxy_widget = self.active_page_widgets[page_index]
-            page_widget = proxy_widget.widget()
-
-            if isinstance(page_widget, PageGraphicsWidget):
-                # Convert to page-local coordinates
-                page_local_pos = scene_pos - proxy_widget.pos()
-                page_widget.handle_tablet_event(event, page_local_pos)
-                self.save_manager.mark_dirty()
-                return True
-
-        return False
-
-    def _handle_mouse_event(self, event: QtCore.QEvent) -> bool:
-        """Handle mouse events and forward to appropriate page widget"""
-        if not isinstance(event, QtGui.QMouseEvent):
-            return False
-        pos = event.position() if hasattr(event, "position") else event.pos()
-        point = QtCore.QPoint(int(pos.x()), int(pos.y()))
-        scene_pos = self.mapToScene(point)
-
-        # Find which page this event belongs to
-        page_index = int(scene_pos.y() / self.page_height)
-
-        if page_index in self.active_page_widgets:
-            proxy_widget = self.active_page_widgets[page_index]
-            page_widget = proxy_widget.widget()
-
-            if isinstance(page_widget, PageGraphicsWidget):
-                # Convert to page-local coordinates
-                page_local_pos = scene_pos - proxy_widget.pos()
-                page_widget.handle_mouse_event(event, page_local_pos)
-                self.save_manager.mark_dirty()
-                return True
-
-        return False
 
     @override
     def keyPressEvent(self, event: QtGui.QKeyEvent | None) -> None:

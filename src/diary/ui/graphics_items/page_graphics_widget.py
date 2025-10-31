@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import override
 
-from PyQt6 import QtGui, QtWidgets
+from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import QEvent, QPointF, Qt, pyqtSignal
 
 from diary.config import settings
@@ -94,6 +94,11 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self._graphics_view.setDragMode(QtWidgets.QGraphicsView.DragMode.NoDrag)
         self._graphics_view.setInteractive(True)
         self._graphics_view.setMouseTracking(True)
+
+        # Install event filter on the graphics view to handle events
+        viewport = self._graphics_view.viewport()
+        if viewport:
+            viewport.installEventFilter(self)
 
         # Enable high-quality rendering
         self._graphics_view.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
@@ -281,19 +286,51 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self._current_stroke_item = None
         self._is_drawing = False
 
-    def handle_mouse_event(self, event: QtGui.QMouseEvent, pos: QPointF) -> None:
-        """Handle mouse move events"""
+    @override
+    def eventFilter(self, a0: QtCore.QObject | None, a1: QtCore.QEvent | None) -> bool:
+        """Handle events for drawing and input"""
+        obj, event = a0, a1
+        if obj != self._graphics_view.viewport() or event is None or obj is None:
+            return super().eventFilter(obj, event)
+
+        # Skip events for drag and selection tools
+        if settings.CURRENT_TOOL in {Tool.DRAG, Tool.SELECTION}:
+            return super().eventFilter(obj, event)
+
+        # Handle tablet events
+        if isinstance(event, QtGui.QTabletEvent):
+            return self._handle_tablet_event(event)
+
+        # Handle mouse events for drawing
+        if isinstance(event, QtGui.QMouseEvent) and settings.MOUSE_ENABLED:
+            return self._handle_mouse_event(event)
+
+        return super().eventFilter(obj, event)
+
+    def _handle_mouse_event(self, event: QtGui.QMouseEvent) -> bool:
+        """Handle mouse events"""
+        # Convert viewport position to scene coordinates
+        scene_pos = self._graphics_view.mapToScene(event.pos())
+        pos = QPointF(scene_pos.x(), scene_pos.y())
+
         action = InputAction.PRESS
         if event.type() == QtGui.QMouseEvent.Type.MouseMove:
             action = InputAction.MOVE
         elif event.type() == QtGui.QMouseEvent.Type.MouseButtonRelease:
             action = InputAction.RELEASE
 
-        if event.buttons() & Qt.MouseButton.LeftButton:
+        if event.buttons() & Qt.MouseButton.LeftButton or action == InputAction.RELEASE:
             self.handle_drawing_input(pos, pressure=1.0, action=action)
+            return True
 
-    def handle_tablet_event(self, event: QtGui.QTabletEvent, pos: QPointF) -> None:
-        """Handle tablet events for pressure-sensitive input"""
+        return False
+
+    def _handle_tablet_event(self, event: QtGui.QTabletEvent) -> bool:
+        """Handle tablet (pen) events"""
+        # Convert viewport position to scene coordinates
+        scene_pos = self._graphics_view.mapToScene(event.position().toPoint())
+        pos = QPointF(scene_pos.x(), scene_pos.y())
+
         pressure = event.pressure() if event.pressure() > 0 else 1.0
 
         if event.type() == QEvent.Type.TabletPress:
@@ -303,7 +340,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         elif event.type() == QEvent.Type.TabletRelease:
             action = InputAction.RELEASE
         else:
-            return
+            return False
 
         self.handle_drawing_input(
             pos,
@@ -312,6 +349,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             device=InputType.TABLET,
             is_eraser=event.pointerType() == QtGui.QPointingDevice.PointerType.Eraser,
         )
+        return True
 
     def _handle_image_input(self, position: QPointF, action: InputAction):
         """Handle input with Image tool"""

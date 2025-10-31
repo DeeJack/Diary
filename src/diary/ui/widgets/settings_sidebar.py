@@ -1,101 +1,66 @@
 """Sidebar with all the settings"""
 
-import logging
-from typing import Callable, cast
+from typing import cast
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QDockWidget,
-    QListWidget,
-    QListWidgetItem,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
 from diary.config import settings
+from diary.models import Notebook
+from diary.ui.utils import import_from_pdf, show_progress_dialog
 
 
 class SettingsSidebar(QDockWidget):
     """Sidebar with all the settings"""
 
     last_index: int = 0
+    pdf_imported: pyqtSignal = pyqtSignal()
 
-    def __init__(self, parent: QWidget | None = None):
+    def __init__(self, parent: QWidget | None, notebook: Notebook):
         super().__init__("Settings", parent)
-
         self.setAllowedAreas(
             Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
         )
-        self.items: dict[int, Callable[[], None]] = {}
+        self._notebook: Notebook = notebook
 
         main_container = QWidget()
         layout = QVBoxLayout()
         layout.setContentsMargins(5, 5, 5, 5)
         layout.setSpacing(5)
 
-        self.entry_list: QListWidget = QListWidget()
-        self._add_items()
-        self.setWidget(self.entry_list)
-        _ = self.entry_list.itemClicked.connect(self.on_item_clicked)
-        _ = self.entry_list.itemChanged.connect(self.on_item_changed)
+        mouse_checkbox = QCheckBox()
+        mouse_checkbox.setText("Mouse enabled")
+        _ = mouse_checkbox.checkStateChanged.connect(self._toggle_mouse)
+
+        pressure_checkbox = QCheckBox()
+        pressure_checkbox.setText("Pressure enabled")
+        _ = pressure_checkbox.checkStateChanged.connect(self._toggle_pressure)
 
         import_btn = QPushButton()
         import_btn.setText("Import PDF")
+        _ = import_btn.clicked.connect(self._import_pdf)
 
         change_pw_btn = QPushButton()
         change_pw_btn.setText("Change Password")
 
-        layout.addWidget(self.entry_list)
+        layout.addWidget(mouse_checkbox)
+        layout.addWidget(pressure_checkbox)
         layout.addWidget(import_btn)
         layout.addWidget(change_pw_btn)
+        layout.setSpacing(20)
         layout.addStretch()
         main_container.setLayout(layout)
+        main_container.setContentsMargins(10, 10, 10, 10)
         self.setWidget(main_container)
 
-    def _add_items(self):
-        mouse_ckb_idx = self._add_checkbox("Mouse enabled", settings.MOUSE_ENABLED)
-        self.items[mouse_ckb_idx] = self._toggle_mouse
-        touch_ckb_idx = self._add_checkbox("Touch enabled", settings.TOUCH_ENABLED)
-        self.items[touch_ckb_idx] = self._toggle_touch
-        pressure_ckb_idx = self._add_checkbox(
-            "Pen pressure enabled", settings.USE_PRESSURE
-        )
-        self.items[pressure_ckb_idx] = self._toggle_pressure
-
-    def _add_checkbox(self, label: str, checked: bool) -> int:
-        curr_index = self.last_index
-        self.last_index += 1
-
-        item = QListWidgetItem()
-        item.setWhatsThis(str(curr_index))
-        item.setText(label)
-        item.setFlags(
-            item.flags() | Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
-        )
-        item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)
-        item.setCheckState(
-            Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
-        )
-        self.entry_list.addItem(item)
-        return curr_index
-
-    def on_item_clicked(self, item: QListWidgetItem):
-        """When an option gets clicked, update checkbox"""
-        if item.checkState() == Qt.CheckState.Unchecked:
-            item.setCheckState(Qt.CheckState.Checked)
-        else:
-            item.setCheckState(Qt.CheckState.Unchecked)
-
-    def on_item_changed(self, item: QListWidgetItem):
-        """When the state of an item changes, call the relative function"""
-        try:
-            self.items[int(item.whatsThis())]()
-        except ValueError as e:
-            logging.getLogger("Settings").error(
-                "WhatsThis not an int? %s, %s", item.whatsThis(), e
-            )
+        self.setFixedWidth(300)
 
     def _toggle_mouse(self):
         settings.MOUSE_ENABLED = not settings.MOUSE_ENABLED
@@ -112,3 +77,13 @@ class SettingsSidebar(QDockWidget):
         sidebar_action.setText("Toggle Settings")
         sidebar_action.setShortcut("Ctrl+,")
         return sidebar_action
+
+    def _import_pdf(self):
+        dialog = show_progress_dialog(
+            self.parentWidget(), "Importing...", "Importing PDF file"
+        )
+        pages = import_from_pdf()
+        if pages:
+            self._notebook.pages.extend(pages)
+            self.pdf_imported.emit()
+            _ = dialog.close()

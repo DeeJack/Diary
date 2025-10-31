@@ -6,10 +6,10 @@ from pathlib import Path
 from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QSize, Qt
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtPdf import QPdfDocument
-from PyQt6.QtWidgets import QFileDialog, QMessageBox, QWidget
+from PyQt6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog, QWidget
 
 from diary.config import settings
-from diary.models import Image, Notebook, Page, Point
+from diary.models import Image, Page, Point
 
 
 def smooth_stroke_moving_average(
@@ -67,17 +67,17 @@ def read_image(file_path: str) -> tuple[bytes, int, int]:
     return (image_bytes, pixmap.height(), pixmap.width())
 
 
-def import_from_pdf() -> Notebook:
+def import_from_pdf() -> list[Page]:
     """Opens a FileDialog to import a PDF file, converting it to images and creating a new notebook"""
     pdf_file, _ = QFileDialog.getOpenFileName(
         None, caption="Choose PDF file", filter="PDF File (*.pdf)"
     )
     if not pdf_file:
-        return Notebook()
+        return []
 
     pixmaps_pages = _import_from_pdf(Path(pdf_file))
 
-    notebook = Notebook()
+    results: list[Page] = []
     for pixmap in pixmaps_pages:
         image_data = QByteArray()
         buffer = QBuffer(image_data)
@@ -86,8 +86,8 @@ def import_from_pdf() -> Notebook:
         page_img = Image(
             Point(0, 0), pixmap.width(), pixmap.height(), image_data=image_data.data()
         )
-        notebook.add_page(Page(elements=[page_img]))
-    return notebook
+        results.append(Page(elements=[page_img]))
+    return results
 
 
 def _import_from_pdf(pdf_path: Path) -> list[QPixmap]:
@@ -151,3 +151,30 @@ def show_error_dialog(
     )
 
     return button
+
+
+def show_info_dialog(
+    parent: QWidget | None, title: str, text: str
+) -> QMessageBox.StandardButton:
+    button = QMessageBox.information(
+        parent,
+        title,
+        text,
+        buttons=QMessageBox.StandardButton.Ok,
+        defaultButton=QMessageBox.StandardButton.Ok,
+    )
+
+    return button
+
+
+def show_progress_dialog(
+    parent: QWidget | None, title: str, text: str
+) -> QProgressDialog:
+    dialog = QProgressDialog(parent)
+    dialog.setWindowTitle(title)
+    dialog.setLabelText(text)
+    dialog.setMaximum(0)
+    dialog.setMinimumWidth(400)
+    dialog.resize(400, dialog.sizeHint().height())
+    dialog.show()
+    return dialog

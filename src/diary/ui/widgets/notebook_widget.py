@@ -350,3 +350,34 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         """Change the thickness for the pen"""
         settings.CURRENT_WIDTH = new_thickness
         self._logger.debug("Setting new thickness: %s", new_thickness)
+
+    def reload(self) -> None:
+        """Reload the notebook from file, refreshing all content"""
+        self._logger.debug("Reloading notebook from file")
+
+        # Clear all active widgets
+        for proxy_widget in self.active_page_widgets.values():
+            try:
+                self.this_scene.removeItem(proxy_widget)
+            except RuntimeError:
+                pass  # Object may have been destroyed
+        self.active_page_widgets.clear()
+
+        # Clear page backgrounds
+        for background in self.page_backgrounds.values():
+            try:
+                self.this_scene.removeItem(background)
+            except RuntimeError:
+                pass  # Object may have been destroyed
+        self.page_backgrounds.clear()
+
+        # Re-layout page backgrounds for the reloaded notebook
+        self._layout_page_backgrounds()
+
+        # Trigger scroll handler to reload visible pages
+        self._on_scroll()
+
+        # Update navigation bar
+        self.update_navbar()
+
+        self._logger.debug("Notebook reload complete")

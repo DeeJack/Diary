@@ -2,14 +2,15 @@
 
 import datetime
 import logging
+import os
 from typing import override
-
 
 from diary.config import settings
 
 
 def configure_logging():
     """Configure console and file handlers for the logging library"""
+    os.makedirs(settings.LOGGING_DIR_PATH, exist_ok=True)
     now: str = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M")
     FILE_NAME = settings.LOGGING_DIR_PATH / f"{now}.log"
 

@@ -2,18 +2,20 @@
 The main file that starts the Diary PyQt6 application
 """
 
-import sys
-import logging
 import ctypes
+import logging
+import os
+import sys
 
-from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QApplication
 
-from diary.ui.main_window import MainWindow
+from diary.config import settings
 from diary.logger import configure_logging
-
+from diary.ui.main_window import MainWindow
 
 if __name__ == "__main__":
+    os.makedirs(settings.DATA_DIR_PATH, exist_ok=True)
     configure_logging()
     logging.debug("Starting the application...")
 

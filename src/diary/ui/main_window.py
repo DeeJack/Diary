@@ -56,6 +56,7 @@ class MainWindow(QMainWindow):
         self.bottom_toolbar: BottomToolbar
         self.sidebar: DaysSidebar
         self.notebook_widget: NotebookWidget
+        self.settings_sidebar: SettingsSidebar
 
         self.logger.debug("Input dialog result: %s", ok)
 
@@ -118,14 +119,14 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar)
         self.sidebar.hide()
 
-        settings_sidebar = SettingsSidebar(self)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, settings_sidebar)
-        settings_sidebar.hide()
+        self.settings_sidebar = SettingsSidebar(self, old_notebook)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.settings_sidebar)
+        self.settings_sidebar.hide()
 
         menu_bar = cast(QMenuBar, self.menuBar())
         view_menu = cast(QMenu, menu_bar.addMenu("&"))
         view_menu.addAction(self.sidebar.create_toggle_action())
-        view_menu.addAction(settings_sidebar.create_toggle_action())
+        view_menu.addAction(self.settings_sidebar.create_toggle_action())
 
         self.connect_signals()
         self.notebook_widget.update_navbar()
@@ -156,6 +157,8 @@ class MainWindow(QMainWindow):
             lambda c: self.notebook_widget.change_color(cast(QColor, c))
         )
 
+        _ = self.settings_sidebar.pdf_imported.connect(self.pdf_imported)
+
     @override
     def closeEvent(self, a0: QCloseEvent | None):
         """On app close event"""
@@ -164,3 +167,8 @@ class MainWindow(QMainWindow):
             settings.save_to_file(Path(SETTINGS_FILE_PATH))
             self.notebook_widget.save_manager.force_save_on_close()
             a0.accept()
+
+    def pdf_imported(self):
+        self.notebook_widget.save_manager.mark_dirty()
+        self.notebook_widget.reload()
+        self.notebook_widget.save_manager.save_async()

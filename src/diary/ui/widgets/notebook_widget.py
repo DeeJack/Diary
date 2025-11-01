@@ -187,11 +187,6 @@ class NotebookWidget(QtWidgets.QGraphicsView):
                 and pinch.state() == QtCore.Qt.GestureState.GestureUpdated
                 and isinstance(pinch, QtWidgets.QPinchGesture)
             ):
-                # Scale view around center point
-                self.setTransformationAnchor(
-                    QtWidgets.QGraphicsView.ViewportAnchor.AnchorUnderMouse
-                )
-
                 scale_factor: float = self.current_zoom * pinch.scaleFactor()
                 new_zoom = max(
                     self.min_zoom * 1.15, min(scale_factor, self.max_zoom * 1.15)

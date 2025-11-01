@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import cast, override
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QCloseEvent, QColor
+from PyQt6.QtGui import QAction, QCloseEvent, QColor
 from PyQt6.QtWidgets import (
     QInputDialog,
     QLineEdit,
@@ -125,17 +125,19 @@ class MainWindow(QMainWindow):
 
         menu_bar = cast(QMenuBar, self.menuBar())
         view_menu = cast(QMenu, menu_bar.addMenu("&"))
-        view_menu.addAction(self.sidebar.create_toggle_action())
-        view_menu.addAction(self.settings_sidebar.create_toggle_action())
+        sidebar_action = self.sidebar.create_toggle_action()
+        settings_action = self.settings_sidebar.create_toggle_action()
+        view_menu.addAction(sidebar_action)
+        view_menu.addAction(settings_action)
 
-        self.connect_signals()
+        self.connect_signals(sidebar_action, settings_action)
         self.notebook_widget.update_navbar()
         self.this_layout.addWidget(self.toolbar)
         self.this_layout.addWidget(self.notebook_widget)
         self.this_layout.addWidget(self.bottom_toolbar)
         self.setCentralWidget(main_widget)
 
-    def connect_signals(self):
+    def connect_signals(self, sidebar_toggle: QAction, settings_toggle: QAction):
         """Connects the Page Navigator signals"""
         _ = self.notebook_widget.current_page_changed.connect(
             self.toolbar.update_page_display
@@ -146,6 +148,8 @@ class MainWindow(QMainWindow):
         _ = self.toolbar.go_to_last_requested.connect(
             self.notebook_widget.go_to_last_page
         )
+        _ = self.toolbar.open_navigation.connect(sidebar_toggle.trigger)
+        _ = self.toolbar.open_settings.connect(settings_toggle.trigger)
 
         _ = self.bottom_toolbar.tool_changed.connect(
             lambda tool: self.notebook_widget.select_tool(cast(Tool, tool))

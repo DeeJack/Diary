@@ -16,6 +16,8 @@ class PageNavigatorToolbar(QToolBar):
 
     go_to_first_requested: pyqtSignal = pyqtSignal()
     go_to_last_requested: pyqtSignal = pyqtSignal()
+    open_navigation: pyqtSignal = pyqtSignal()
+    open_settings: pyqtSignal = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__("Navigation", parent)
@@ -26,21 +28,21 @@ class PageNavigatorToolbar(QToolBar):
 
         # Go to first
         self.first_btn: QPushButton = QPushButton()
-        self.first_btn.setText("⏮️")
+        self.first_btn.setText("Toggle navigation")
         self.first_btn.setFont(QFont("Times New Roman", 12))
-        self.first_btn.setFixedWidth(30)
-        _ = self.first_btn.clicked.connect(self.go_to_first_requested.emit)
+        # self.first_btn.setFixedWidth(30)
+        _ = self.first_btn.clicked.connect(self.open_navigation.emit)
 
         # Go to Last
         self.last_btn: QPushButton = QPushButton()
-        self.last_btn.setText("⏭️")
+        self.last_btn.setText("Toggle settings")
         self.last_btn.setFont(QFont("Times New Roman", 12))
-        self.last_btn.setFixedWidth(30)
-        _ = self.last_btn.clicked.connect(self.go_to_last_requested.emit)
+        # self.last_btn.setFixedWidth(30)
+        _ = self.last_btn.clicked.connect(self.open_settings.emit)
 
         # Current page display
         self.page_label: QLabel = QLabel("Page 1 / ?")
-        self.page_label.setStyleSheet("font-weight: bold; padding: 0 10px;")
+        self.page_label.setStyleSheet("font-weight: bold; ")
 
         spacer_left = QWidget()
         spacer_left.setSizePolicy(
@@ -63,8 +65,8 @@ class PageNavigatorToolbar(QToolBar):
         self.page_label.setText(f"Page {current_page + 1} / {total_pages}")
 
         # Disable buttons when they are not needed
-        self.first_btn.setEnabled(current_page > 0)
-        self.last_btn.setEnabled(current_page < total_pages - 1)
-        if total_pages == 0:
-            self.first_btn.setEnabled(False)
-            self.last_btn.setEnabled(False)
+        # self.first_btn.setEnabled(current_page > 0)
+        # self.last_btn.setEnabled(current_page < total_pages - 1)
+        # if total_pages == 0:
+        #     self.first_btn.setEnabled(False)
+        #     self.last_btn.setEnabled(False)

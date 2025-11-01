@@ -38,7 +38,7 @@ class ImageGraphicsItem(BaseGraphicsItem):
         self._resize_start_rect: QRectF
 
         # Configure item flags for images
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
 
         self.setPos(self.image_element.position.x, self.image_element.position.y)

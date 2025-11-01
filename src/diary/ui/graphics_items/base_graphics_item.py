@@ -31,8 +31,8 @@ class BaseGraphicsItem(QGraphicsItem, ABC, metaclass=GraphicsItemABCMeta):
 
         # Enable caching, movable objects, and hover events
         self.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
 
     @property
     def element(self) -> PageElement:
@@ -103,8 +103,6 @@ class BaseGraphicsItem(QGraphicsItem, ABC, metaclass=GraphicsItemABCMeta):
 
     def _handle_selection_change(self, _: bool) -> None:
         """Handle selection state change"""
-        # if selected:
-        #   self.setZValue(2.0)  # Bring to front
 
     @override
     def __str__(self) -> str:

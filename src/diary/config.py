@@ -40,11 +40,12 @@ class Settings(BaseSettings):
     PAGE_LINES_COLOR: str = "#DDCDC4"
 
     AUTOSAVE_NOTEBOOK_TIMEOUT: int = 120  # in seconds
-    CURRENT_TOOL: Tool = Tool.PEN
+    MOUSE_TOOL: Tool = Tool.PEN
+    TABLET_TOOL: Tool = Tool.PEN
     CURRENT_WIDTH: float = 2.0
     CURRENT_COLOR: str = "black"
     TOUCH_ENABLED: bool = False
-    MOUSE_ENABLED: bool = True
+    MOUSE_ENABLED: bool = False
 
     class SERIALIZATION_KEYS(Enum):
         """Value used as the keys for the serialization"""

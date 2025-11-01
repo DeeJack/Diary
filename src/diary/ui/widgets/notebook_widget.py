@@ -10,8 +10,9 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from diary.config import SETTINGS_FILE_PATH, settings
 from diary.models import Notebook, Page
 from diary.ui.graphics_items.page_graphics_widget import PageGraphicsWidget
+from diary.ui.input import InputType
 from diary.ui.widgets.save_manager import SaveManager
-from diary.ui.widgets.tool_selector import Tool, get_cursor_from_tool
+from diary.ui.widgets.tool_selector import Tool
 from diary.utils.encryption import SecureBuffer
 
 
@@ -63,13 +64,15 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         current_viewport = self.viewport()
         assert current_viewport is not None
         current_viewport.setAttribute(QtCore.Qt.WidgetAttribute.WA_AcceptTouchEvents)
+        current_viewport.setAttribute(QtCore.Qt.WidgetAttribute.WA_TabletTracking, True)
+        current_viewport.installEventFilter(self)
         current_viewport.grabGesture(
             QtCore.Qt.GestureType.PinchGesture,
             QtCore.Qt.GestureFlag.ReceivePartialGestures,
         )
 
         self.setRenderHints(self.renderHints())
-        self.select_tool(Tool.PEN)
+        self.select_tool(Tool.PEN, "mouse")
 
         scroll_bar = self.verticalScrollBar()
         if scroll_bar:
@@ -330,16 +333,36 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             self._initial_load_complete = True
             self.go_to_last_page()
 
-    def select_tool(self, new_tool: Tool):
-        """Selects a new tool, changing the cursor and drag mode"""
-        settings.CURRENT_TOOL = new_tool
-        self._logger.debug("Setting new tool: %s", new_tool)
+    def select_tool(self, new_tool: Tool, device: str = "tablet"):
+        """Selects a new tool for a specific device, changing the cursor and drag mode"""
+        if device == "mouse":
+            settings.MOUSE_TOOL = new_tool
+        else:  # tablet/pen
+            settings.TABLET_TOOL = new_tool
 
-        if new_tool != Tool.DRAG:
-            self.setDragMode(QtWidgets.QGraphicsView.DragMode.NoDrag)
+        if not settings.MOUSE_ENABLED or new_tool == Tool.DRAG:
+            self.setDragMode(self.DragMode.ScrollHandDrag)
         else:
-            self.setDragMode(QtWidgets.QGraphicsView.DragMode.ScrollHandDrag)
-        QtWidgets.QApplication.setOverrideCursor(get_cursor_from_tool(new_tool))
+            self.setDragMode(self.DragMode.NoDrag)
+
+        # If the tool is Selection, set all the items to be selectable/movable
+        # Otherwise, unset the flag
+        for page in self.this_scene.items():
+            if isinstance(page, QtWidgets.QGraphicsProxyWidget) and isinstance(
+                page.widget(), PageGraphicsWidget
+            ):
+                page_widget = cast(PageGraphicsWidget, page.widget())
+                for element in page_widget._scene.items():
+                    element.setFlag(
+                        QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable,
+                        new_tool == Tool.SELECTION,
+                    )
+                    element.setFlag(
+                        QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable,
+                        new_tool == Tool.SELECTION,
+                    )
+
+        self._logger.debug("Setting new tool: %s for device: %s", new_tool, device)
 
     def change_color(self, new_color: QtGui.QColor):
         """Change the color for the pen"""
@@ -381,3 +404,83 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         self.update_navbar()
 
         self._logger.debug("Notebook reload complete")
+
+    @override
+    def eventFilter(self, a0: QtCore.QObject | None, a1: QtCore.QEvent | None) -> bool:
+        """Handle events for drawing and input across all pages"""
+        obj, event = a0, a1
+        if obj != self.viewport() or event is None or obj is None:
+            return super().eventFilter(obj, event)
+
+        # Skip events for drag and selection tools based on input device
+        if isinstance(event, QtGui.QTabletEvent):
+            active_tool = settings.TABLET_TOOL
+            device = InputType.TABLET
+        else:  # Mouse event
+            active_tool = settings.MOUSE_TOOL
+            device = InputType.MOUSE
+
+        if active_tool in {Tool.DRAG, Tool.SELECTION} or (
+            not settings.MOUSE_ENABLED and device == InputType.MOUSE
+        ):
+            self.setDragMode(self.DragMode.ScrollHandDrag)
+            return super().eventFilter(obj, event)
+
+        # Handle tablet events
+        if isinstance(event, QtGui.QTabletEvent):
+            return self._handle_tablet_event(event)
+
+        # Handle mouse events for drawing
+        if isinstance(event, QtGui.QMouseEvent) and settings.MOUSE_ENABLED:
+            return self._handle_mouse_event(event)
+
+        return super().eventFilter(obj, event)
+
+    def _handle_tablet_event(self, event: QtGui.QTabletEvent) -> bool:
+        """Handle tablet events and route to correct page"""
+        # Convert position to QPoint for mapToScene
+        if (
+            settings.TABLET_TOOL != Tool.DRAG
+            and self.dragMode() != self.DragMode.NoDrag
+        ):
+            self.setDragMode(self.DragMode.NoDrag)
+        point = QtCore.QPoint(int(event.position().x()), int(event.position().y()))
+        scene_pos = self.mapToScene(point)
+
+        # Find which page this event belongs to
+        page_index = int(scene_pos.y() / self.page_height)
+
+        if page_index in self.active_page_widgets:
+            proxy_widget = self.active_page_widgets[page_index]
+            page_widget = proxy_widget.widget()
+
+            if isinstance(page_widget, PageGraphicsWidget):
+                # Convert to page-local coordinates
+                page_local_pos = scene_pos - proxy_widget.pos()
+                _ = page_widget.handle_tablet_event(event, page_local_pos)
+                self.save_manager.mark_dirty()
+                return True
+
+        return False
+
+    def _handle_mouse_event(self, event: QtGui.QMouseEvent) -> bool:
+        """Handle mouse events and route to correct page"""
+        # Convert viewport position to scene coordinates
+        pos: QtCore.QPoint = event.position().toPoint()
+        scene_pos: QtCore.QPointF = self.mapToScene(pos)
+
+        # Find which page this event belongs to
+        page_index = int(scene_pos.y() / self.page_height)
+
+        if page_index in self.active_page_widgets:
+            proxy_widget = self.active_page_widgets[page_index]
+            page_widget = proxy_widget.widget()
+
+            if isinstance(page_widget, PageGraphicsWidget):
+                # Convert to page-local coordinates
+                page_local_pos = scene_pos - proxy_widget.pos()
+                _ = page_widget.handle_mouse_event(event, page_local_pos)
+                self.save_manager.mark_dirty()
+                return True
+
+        return False

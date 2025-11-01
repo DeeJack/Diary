@@ -37,10 +37,12 @@ class SettingsSidebar(QDockWidget):
 
         mouse_checkbox = QCheckBox()
         mouse_checkbox.setText("Mouse enabled")
+        mouse_checkbox.setChecked(settings.MOUSE_ENABLED)
         _ = mouse_checkbox.checkStateChanged.connect(self._toggle_mouse)
 
         pressure_checkbox = QCheckBox()
         pressure_checkbox.setText("Pressure enabled")
+        pressure_checkbox.setChecked(settings.USE_PRESSURE)
         _ = pressure_checkbox.checkStateChanged.connect(self._toggle_pressure)
 
         import_btn = QPushButton()

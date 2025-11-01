@@ -35,6 +35,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self._current_stroke: Stroke | None = None
         self._current_stroke_item: StrokeGraphicsItem | None = None
         self._is_drawing: bool = False
+        self._is_erasing: bool = False
         self._logger: logging.Logger = logging.getLogger("PageGraphicsWidget")
 
         # Create the graphics scene and view
@@ -216,7 +217,9 @@ class PageGraphicsWidget(QtWidgets.QWidget):
 
     def _handle_eraser_input(self, position: QPointF, action: InputAction) -> None:
         """Handle eraser input"""
-        if action in [InputAction.PRESS, InputAction.MOVE]:
+        if action == InputAction.PRESS:
+            self._is_erasing = True
+        elif action == InputAction.MOVE and self._is_erasing:
             # Find and remove elements at position
             scene_pos = self._graphics_view.mapToScene(position.toPoint())
             elements = self._scene.get_elements_at_point(scene_pos)
@@ -225,6 +228,8 @@ class PageGraphicsWidget(QtWidgets.QWidget):
                 if isinstance(element, (Stroke, Text)):
                     _ = self._scene.remove_element(element.element_id)
                     self._logger.debug("Erased element %s", element.element_id)
+        else:
+            self._is_erasing = False
 
     def _start_new_stroke(self, position: QPointF, pressure: float) -> None:
         """Start a new stroke"""
@@ -278,8 +283,9 @@ class PageGraphicsWidget(QtWidgets.QWidget):
 
             if device == InputType.TABLET:
                 self._current_stroke.points = smooth_stroke_moving_average(
-                    self._current_stroke.points, 8
+                    self._current_stroke.points, 6
                 )
+                self.updateGeometry()
 
         self._current_stroke = None
         self._current_stroke_item = None

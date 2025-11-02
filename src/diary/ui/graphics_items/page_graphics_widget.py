@@ -288,6 +288,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             self._current_stroke
             and self._current_stroke_item
             and settings.SMOOTHING_ENABLED
+            and len(self._current_stroke.points) > 2
         ):
             # Smooth the stroke points
             smoothed_points = smooth_stroke_advanced(self._current_stroke.points)

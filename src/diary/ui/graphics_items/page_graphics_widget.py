@@ -14,7 +14,11 @@ from diary.models.elements.text import Text
 from diary.models.page import Page
 from diary.models.point import Point
 from diary.ui.input import InputAction, InputType
-from diary.ui.utils import read_image, show_error_dialog, smooth_stroke_moving_average
+from diary.ui.utils import (
+    read_image,
+    show_error_dialog,
+    smooth_stroke_advanced,
+)
 from diary.ui.widgets.tool_selector import Tool
 
 from .page_graphics_scene import PageGraphicsScene
@@ -184,6 +188,8 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self, position: QPointF, pressure: float, action: InputAction, device: InputType
     ) -> None:
         """Handle pen/drawing input"""
+        if not settings.USE_PRESSURE:
+            pressure = 1.0
         match action:
             case InputAction.PRESS:
                 self._start_new_stroke(position, pressure)
@@ -250,6 +256,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
 
         # Add to scene and get graphics item
         graphics_item = self._scene.add_element(self._current_stroke)
+
         if isinstance(graphics_item, StrokeGraphicsItem):
             self._current_stroke_item = graphics_item
 
@@ -276,16 +283,14 @@ class PageGraphicsWidget(QtWidgets.QWidget):
 
     def _finish_current_stroke(self, device: InputType) -> None:
         """Finish the current stroke"""
-        if self._current_stroke:
-            self._logger.debug(
-                "Finished stroke with %s points", len(self._current_stroke.points)
-            )
+        _ = device  # Mark parameter as used to avoid warnings
+        if self._current_stroke and self._current_stroke_item:
+            # Smooth the stroke points
+            smoothed_points = smooth_stroke_advanced(self._current_stroke.points)
 
-            if device == InputType.TABLET:
-                self._current_stroke.points = smooth_stroke_moving_average(
-                    self._current_stroke.points, 6
-                )
-                self.updateGeometry()
+            self._current_stroke_item.set_points(smoothed_points)
+
+            self._logger.debug("Finished stroke with %s points", len(smoothed_points))
 
         self._current_stroke = None
         self._current_stroke_item = None

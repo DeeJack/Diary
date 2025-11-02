@@ -40,6 +40,137 @@ def smooth_stroke_moving_average(
     return smoothed_points
 
 
+def decimate_stroke_points(
+    stroke_points: list[Point], min_distance: float = 2.0
+) -> list[Point]:
+    """
+    Remove points that are too close together to reduce noise and redundancy.
+
+    Args:
+        stroke_points: List of points to decimate
+        min_distance: Minimum distance between consecutive points
+
+    Returns:
+        Decimated list of points
+    """
+    if len(stroke_points) <= 2:
+        return stroke_points
+
+    decimated: list[Point] = [stroke_points[0]]  # Always keep first point
+
+    for i in range(1, len(stroke_points) - 1):
+        current = stroke_points[i]
+        last_kept = decimated[-1]
+
+        # Calculate distance from last kept point
+        dx = current.x - last_kept.x
+        dy = current.y - last_kept.y
+        distance = (dx * dx + dy * dy) ** 0.5
+
+        if distance >= min_distance:
+            decimated.append(current)
+
+    # Always keep last point
+    if len(stroke_points) > 1:
+        decimated.append(stroke_points[-1])
+
+    return decimated
+
+
+def smooth_stroke_catmull_rom(
+    stroke_points: list[Point], tension: float = 0.5
+) -> list[Point]:
+    """
+    Smooth a stroke using Catmull-Rom spline interpolation for natural curves.
+
+    Args:
+        stroke_points: List of points to smooth
+        tension: Controls curve tightness (0.0 = tight, 1.0 = loose)
+
+    Returns:
+        Smoothed list of points with interpolated curves
+    """
+    if len(stroke_points) <= 3:
+        return stroke_points
+
+    smoothed: list[Point] = []
+
+    # Add first point
+    smoothed.append(stroke_points[0])
+
+    # For each segment between points, create smooth curve
+    for i in range(len(stroke_points) - 1):
+        # Get control points for Catmull-Rom spline
+        p0 = stroke_points[max(0, i - 1)]
+        p1 = stroke_points[i]
+        p2 = stroke_points[min(len(stroke_points) - 1, i + 1)]
+        p3 = stroke_points[min(len(stroke_points) - 1, i + 2)]
+
+        # Number of interpolation steps based on distance
+        dx = p2.x - p1.x
+        dy = p2.y - p1.y
+        segment_length = (dx * dx + dy * dy) ** 0.5
+        num_steps = max(2, int(segment_length / 3.0))  # One step every 3 pixels
+
+        # Generate interpolated points along the curve
+        for step in range(1, num_steps):
+            t = step / num_steps
+
+            # Catmull-Rom spline calculation
+            t2 = t * t
+            t3 = t2 * t
+
+            # Basis functions for Catmull-Rom
+            b0 = -tension * t3 + 2 * tension * t2 - tension * t
+            b1 = (2 - tension) * t3 + (tension - 3) * t2 + 1
+            b2 = (tension - 2) * t3 + (3 - 2 * tension) * t2 + tension * t
+            b3 = tension * t3 - tension * t2
+
+            # Calculate interpolated position
+            x = b0 * p0.x + b1 * p1.x + b2 * p2.x + b3 * p3.x
+            y = b0 * p0.y + b1 * p1.y + b2 * p2.y + b3 * p3.y
+            pressure = (
+                b0 * p0.pressure
+                + b1 * p1.pressure
+                + b2 * p2.pressure
+                + b3 * p3.pressure
+            )
+
+            # Clamp pressure to valid range
+            pressure = max(0.1, min(1.0, pressure))
+
+            smoothed.append(Point(x, y, pressure))
+
+    # Add last point
+    smoothed.append(stroke_points[-1])
+
+    return smoothed
+
+
+def smooth_stroke_advanced(stroke_points: list[Point]) -> list[Point]:
+    """
+    Apply advanced smoothing pipeline: decimation + Catmull-Rom spline interpolation.
+
+    Args:
+        stroke_points: Original stroke points
+
+    Returns:
+        Smoothed and interpolated stroke points
+    """
+    if len(stroke_points) <= 2:
+        return stroke_points
+
+    # Decimate points to remove noise and redundancy
+    decimated = decimate_stroke_points(stroke_points, min_distance=1.4)
+
+    # Apply Catmull-Rom smoothing for natural curves
+    smoothed = smooth_stroke_catmull_rom(decimated, tension=0.17)
+
+    averaged = smooth_stroke_moving_average(smoothed, 3)
+
+    return averaged
+
+
 def read_image(file_path: str) -> tuple[bytes, int, int]:
     """Reads the image from a path, and returns bytes, height, width"""
     pixmap = QPixmap(file_path)
@@ -142,6 +273,7 @@ def _import_from_pdf(pdf_path: Path) -> list[QPixmap]:
 def show_error_dialog(
     parent: QWidget | None, title: str, text: str
 ) -> QMessageBox.StandardButton:
+    """Show an error dialog, given the title and the text to show"""
     button = QMessageBox.critical(
         parent,
         title,
@@ -156,6 +288,7 @@ def show_error_dialog(
 def show_info_dialog(
     parent: QWidget | None, title: str, text: str
 ) -> QMessageBox.StandardButton:
+    """Show an info dialog, given the title and the text to show"""
     button = QMessageBox.information(
         parent,
         title,
@@ -170,6 +303,7 @@ def show_info_dialog(
 def show_progress_dialog(
     parent: QWidget | None, title: str, text: str
 ) -> QProgressDialog:
+    """Show a continuous progress dialog"""
     dialog = QProgressDialog(parent)
     dialog.setWindowTitle(title)
     dialog.setLabelText(text)

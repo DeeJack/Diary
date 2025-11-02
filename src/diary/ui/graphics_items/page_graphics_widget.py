@@ -284,7 +284,11 @@ class PageGraphicsWidget(QtWidgets.QWidget):
     def _finish_current_stroke(self, device: InputType) -> None:
         """Finish the current stroke"""
         _ = device  # Mark parameter as used to avoid warnings
-        if self._current_stroke and self._current_stroke_item:
+        if (
+            self._current_stroke
+            and self._current_stroke_item
+            and settings.SMOOTHING_ENABLED
+        ):
             # Smooth the stroke points
             smoothed_points = smooth_stroke_advanced(self._current_stroke.points)
 

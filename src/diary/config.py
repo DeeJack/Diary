@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     CURRENT_COLOR: str = "black"
     TOUCH_ENABLED: bool = False
     MOUSE_ENABLED: bool = False
+    SMOOTHING_ENABLED: bool = True
 
     class SERIALIZATION_KEYS(Enum):
         """Value used as the keys for the serialization"""

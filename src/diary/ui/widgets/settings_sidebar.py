@@ -45,6 +45,11 @@ class SettingsSidebar(QDockWidget):
         pressure_checkbox.setChecked(settings.USE_PRESSURE)
         _ = pressure_checkbox.checkStateChanged.connect(self._toggle_pressure)
 
+        smoothing_checkbox = QCheckBox()
+        smoothing_checkbox.setText("Stroke smoothing enabled")
+        smoothing_checkbox.setChecked(settings.SMOOTHING_ENABLED)
+        _ = smoothing_checkbox.checkStateChanged.connect(self._toggle_smoothing)
+
         import_btn = QPushButton()
         import_btn.setText("Import PDF")
         _ = import_btn.clicked.connect(self._import_pdf)
@@ -54,6 +59,7 @@ class SettingsSidebar(QDockWidget):
 
         layout.addWidget(mouse_checkbox)
         layout.addWidget(pressure_checkbox)
+        layout.addWidget(smoothing_checkbox)
         layout.addWidget(import_btn)
         layout.addWidget(change_pw_btn)
         layout.setSpacing(20)
@@ -72,6 +78,9 @@ class SettingsSidebar(QDockWidget):
 
     def _toggle_pressure(self):
         settings.USE_PRESSURE = not settings.USE_PRESSURE
+
+    def _toggle_smoothing(self):
+        settings.SMOOTHING_ENABLED = not settings.SMOOTHING_ENABLED
 
     def create_toggle_action(self):
         """Create action to open/close the sidebar"""

@@ -129,13 +129,21 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self.title_label.setStyleSheet("color: black;")
 
         # Create "Add below" button
-        btn_below = QtWidgets.QPushButton("Add below")
+        btn_below = QtWidgets.QPushButton("+")
+        btn_below.setFont(QtGui.QFont("Times New Roman", 14, 16))
         btn_below.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
+        btn_below.setFixedWidth(30)
+        btn_below.setStyleSheet("background-color: #515151")
+        btn_below.setToolTip("Add page below")
         # _ = btn_below.clicked.connect(lambda: self.add_below.emit(self))
 
-        change_date_btn = QtWidgets.QPushButton("Change date")
+        change_date_btn = QtWidgets.QPushButton("📅")
+        change_date_btn.setFont(QtGui.QFont("Times New Roman", 12))
         change_date_btn.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
         _ = change_date_btn.clicked.connect(self.change_date)
+        change_date_btn.setFixedWidth(30)
+        change_date_btn.setStyleSheet("background-color: #515151")
+        change_date_btn.setToolTip("Change date")
 
         btn_row = QtWidgets.QHBoxLayout()
         btn_row.addStretch()
@@ -432,12 +440,14 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         return super().keyPressEvent(event)
 
     def change_date(self):
-        new_date_str, _ = QtWidgets.QInputDialog.getText(
+        new_date_str, result = QtWidgets.QInputDialog.getText(
             self.parentWidget(), "New date", "Format: 01/01/2025"
         )
+        if not result:
+            return
         fields = new_date_str.split("/")
         if len(fields) != 3:
-            return show_error_dialog(self, "Error", "Wrong format")
+            return show_error_dialog(self.parentWidget(), "Error", "Wrong format")
 
         try:
             new_date = datetime.strptime(
@@ -447,5 +457,5 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             self.page_modified.emit()
             self.title_label.setText(new_date.strftime("%Y/%m/%d"))
         except ValueError as e:
-            _ = show_error_dialog(self, "Error", "Wrong format")
+            _ = show_error_dialog(self.parentWidget(), "Error", "Wrong format")
             self._logger.error(e)

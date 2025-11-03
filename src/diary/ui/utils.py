@@ -3,6 +3,7 @@
 import logging
 from pathlib import Path
 
+from PyQt6 import QtWidgets
 from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QSize, Qt
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtPdf import QPdfDocument
@@ -312,3 +313,17 @@ def show_progress_dialog(
     dialog.resize(400, dialog.sizeHint().height())
     dialog.show()
     return dialog
+
+
+def confirm_delete(parent: QWidget | None) -> bool:
+    """Show confirmation dialog and emit delete signal if confirmed"""
+    reply = QtWidgets.QMessageBox.question(
+        parent,
+        "Delete Page",
+        "Are you sure you want to delete this page?\n\nThis action cannot be undone.",
+        QtWidgets.QMessageBox.StandardButton.Yes
+        | QtWidgets.QMessageBox.StandardButton.No,
+        QtWidgets.QMessageBox.StandardButton.No,
+    )
+
+    return reply == QtWidgets.QMessageBox.StandardButton.Yes

@@ -34,6 +34,14 @@ class Notebook:
         )
         self.pages.append(page)
 
+    def remove_page(self, page_index: int) -> bool:
+        """Remove a page at the specified index. Returns True if successful."""
+        if 0 <= page_index < len(self.pages):
+            self.pages.pop(page_index)
+            logging.getLogger("Notebook").debug("Removed page at index: %d", page_index)
+            return True
+        return False
+
     def _calculate_streak_level(self, new_page: Page, last_page: Page) -> int:
         """Calculate the streak level for a new page based on the last page"""
         new_date = new_page.get_creation_date()

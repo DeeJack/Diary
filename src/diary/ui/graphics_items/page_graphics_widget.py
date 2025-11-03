@@ -15,6 +15,7 @@ from diary.models.page import Page
 from diary.models.point import Point
 from diary.ui.input import InputAction, InputType
 from diary.ui.utils import (
+    confirm_delete,
     read_image,
     show_error_dialog,
     smooth_stroke_advanced,
@@ -29,6 +30,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
     """Widget for displaying diary pages using QGraphicsItem architecture"""
 
     add_below_dynamic: pyqtSignal = pyqtSignal()
+    delete_page: pyqtSignal = pyqtSignal(int)
     needs_regeneration: pyqtSignal = pyqtSignal(int)
     page_modified: pyqtSignal = pyqtSignal()
 
@@ -129,12 +131,12 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self.title_label.setStyleSheet("color: black;")
 
         # Create "Add below" button
-        btn_below = QtWidgets.QPushButton("+")
-        btn_below.setFont(QtGui.QFont("Times New Roman", 14, 16))
-        btn_below.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
-        btn_below.setFixedWidth(30)
-        btn_below.setStyleSheet("background-color: #515151")
-        btn_below.setToolTip("Add page below")
+        # btn_below = QtWidgets.QPushButton("+")
+        # btn_below.setFont(QtGui.QFont("Times New Roman", 14, 16))
+        # btn_below.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
+        # btn_below.setFixedWidth(30)
+        # btn_below.setStyleSheet("background-color: #515151")
+        # btn_below.setToolTip("Add page below")
         # _ = btn_below.clicked.connect(lambda: self.add_below.emit(self))
 
         change_date_btn = QtWidgets.QPushButton("📅")
@@ -145,10 +147,19 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         change_date_btn.setStyleSheet("background-color: #515151")
         change_date_btn.setToolTip("Change date")
 
+        delete_btn = QtWidgets.QPushButton("🗑️")
+        delete_btn.setFont(QtGui.QFont("Times New Roman", 12))
+        delete_btn.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
+        _ = delete_btn.clicked.connect(self._confirm_delete)
+        delete_btn.setFixedWidth(30)
+        delete_btn.setStyleSheet("background-color: #515151")
+        delete_btn.setToolTip("Delete page")
+
         btn_row = QtWidgets.QHBoxLayout()
         btn_row.addStretch()
-        btn_row.addWidget(btn_below)
+        # btn_row.addWidget(btn_below)
         btn_row.addWidget(change_date_btn)
+        btn_row.addWidget(delete_btn)
         btn_row.addStretch()
 
         # Main layout
@@ -165,8 +176,8 @@ class PageGraphicsWidget(QtWidgets.QWidget):
 
         # Add the overlay layout to the same grid cell (0, 0)
         main_layout.addLayout(overlay_layout, 0, 0)
-        # btn_below.raise_()
         change_date_btn.raise_()
+        delete_btn.raise_()
 
     def handle_drawing_input(
         self,
@@ -459,3 +470,8 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         except ValueError as e:
             _ = show_error_dialog(self.parentWidget(), "Error", "Wrong format")
             self._logger.error(e)
+
+    def _confirm_delete(self):
+        result = confirm_delete(self.parentWidget())
+        if result:
+            self.delete_page.emit(self.page_index)

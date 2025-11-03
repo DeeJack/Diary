@@ -11,6 +11,7 @@ from diary.config import SETTINGS_FILE_PATH, settings
 from diary.models import Notebook, Page
 from diary.ui.graphics_items.page_graphics_widget import PageGraphicsWidget
 from diary.ui.input import InputType
+from diary.ui.utils import show_info_dialog
 from diary.ui.widgets.save_manager import SaveManager
 from diary.ui.widgets.tool_selector import Tool
 from diary.utils.encryption import SecureBuffer
@@ -165,6 +166,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         _ = page_widget.add_below_dynamic.connect(
             lambda idx=page_index: self._add_page_below_dynamic(idx)
         )
+        _ = page_widget.delete_page.connect(self._delete_page)
         _ = page_widget.page_modified.connect(self.save_manager.mark_dirty)
 
         # Add to scene as proxy widget
@@ -277,7 +279,70 @@ class NotebookWidget(QtWidgets.QGraphicsView):
                 self.active_page_widgets[new_page_idx] = proxy_widget
 
             self.save_manager.mark_dirty()
-            self.update_navbar()
+
+    def _delete_page(self, page_idx: int) -> None:
+        """Delete a page at the specified index"""
+        # Prevent deletion if it's the only page
+        if len(self.notebook.pages) <= 1:
+            _ = show_info_dialog(
+                self, "Cannot delete page", "Cannot delete last remaining page"
+            )
+            return
+
+        # Remove page from notebook
+        if not self.notebook.remove_page(page_idx):
+            return
+
+        # Remove page widget from scene
+        if page_idx in self.active_page_widgets:
+            proxy_widget = self.active_page_widgets[page_idx]
+            self.this_scene.removeItem(proxy_widget)
+            del self.active_page_widgets[page_idx]
+
+        # Remove page background
+        if page_idx in self.page_backgrounds:
+            background = self.page_backgrounds[page_idx]
+            self.this_scene.removeItem(background)
+            del self.page_backgrounds[page_idx]
+
+        # Update indices for pages after the deleted one
+        widgets_to_update: dict[int, QtWidgets.QGraphicsProxyWidget] = {}
+        backgrounds_to_update: dict[int, QtWidgets.QGraphicsRectItem] = {}
+
+        for idx in list(self.active_page_widgets.keys()):
+            if idx > page_idx:
+                # Move widget and background up
+                new_idx = idx - 1
+                new_y_offset = new_idx * self.page_height
+
+                # Update widget position and index
+                widget = self.active_page_widgets[idx]
+                widget.setPos(0, new_y_offset)
+                cast(PageGraphicsWidget, widget.widget()).page_index = new_idx
+                widgets_to_update[new_idx] = widget
+
+                # Update background position
+                if idx in self.page_backgrounds:
+                    background = self.page_backgrounds[idx]
+                    background.setPos(0, new_y_offset)
+                    backgrounds_to_update[new_idx] = background
+
+        # Clear old indices and update with new ones
+        for idx in list(self.active_page_widgets.keys()):
+            if idx > page_idx:
+                del self.active_page_widgets[idx]
+                if idx in self.page_backgrounds:
+                    del self.page_backgrounds[idx]
+
+        self.active_page_widgets.update(widgets_to_update)
+        self.page_backgrounds.update(backgrounds_to_update)
+
+        # Update scene rect
+        total_height = len(self.notebook.pages) * self.page_height
+        self.this_scene.setSceneRect(0, 0, settings.PAGE_WIDTH, total_height)
+
+        self.save_manager.mark_dirty()
+        self.update_navbar()
 
     @override
     def closeEvent(self, a0: QtGui.QCloseEvent | None):

@@ -43,6 +43,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self._is_drawing: bool = False
         self._is_erasing: bool = False
         self._logger: logging.Logger = logging.getLogger("PageGraphicsWidget")
+        self._last_cursor: QtGui.QCursor
 
         # Create the graphics scene and view
         self._scene: PageGraphicsScene = PageGraphicsScene(page)
@@ -244,6 +245,8 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         """Handle eraser input"""
         if action == InputAction.PRESS:
             self._is_erasing = True
+            self._last_cursor = self.cursor()
+            QtWidgets.QApplication.setOverrideCursor(Qt.CursorShape.BlankCursor)
         elif action == InputAction.MOVE and self._is_erasing:
             # Find and remove elements at position
             scene_pos = self._graphics_view.mapToScene(position.toPoint())
@@ -255,6 +258,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
                     self._logger.debug("Erased element %s", element.element_id)
         else:
             self._is_erasing = False
+            QtWidgets.QApplication.setOverrideCursor(self._last_cursor)
 
     def _start_new_stroke(self, position: QPointF, pressure: float) -> None:
         """Start a new stroke"""
@@ -281,6 +285,8 @@ class PageGraphicsWidget(QtWidgets.QWidget):
 
         self._is_drawing = True
         self._logger.debug("Started new stroke at %s", scene_pos)
+        self._last_cursor = self.cursor()
+        QtWidgets.QApplication.setOverrideCursor(Qt.CursorShape.BlankCursor)
 
         if point.y > settings.PAGE_HEIGHT / 10 * 8:
             self.add_below_dynamic.emit()
@@ -319,6 +325,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self._current_stroke = None
         self._current_stroke_item = None
         self._is_drawing = False
+        QtWidgets.QApplication.setOverrideCursor(self._last_cursor)
 
     def handle_tablet_event(self, event: QtGui.QTabletEvent, position: QPointF) -> bool:
         """Handle tablet (pen) events"""

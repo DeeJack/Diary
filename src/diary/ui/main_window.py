@@ -108,7 +108,7 @@ class MainWindow(QMainWindow):
         self.toolbar = PageNavigatorToolbar()
         self.bottom_toolbar = BottomToolbar()
 
-        old_notebook = NotebookDAO.load(settings.NOTEBOOK_FILE_PATH, key_buffer)
+        old_notebook = NotebookDAO.loads(settings.NOTEBOOK_FILE_PATH, key_buffer)[0]
         self.logger.debug("Loaded notebook, creating and opening NotebookWidget")
         self.notebook_widget = NotebookWidget(
             key_buffer, salt, self.statusBar() or QStatusBar(), old_notebook

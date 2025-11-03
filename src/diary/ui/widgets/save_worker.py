@@ -3,8 +3,8 @@
 import logging
 from pathlib import Path
 
+from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QStatusBar
-from PyQt6.QtCore import pyqtSignal, QObject
 
 from diary.models import Notebook, NotebookDAO
 from diary.utils.backup import BackupManager
@@ -44,7 +44,9 @@ class SaveWorker(QObject):
 
             self.status_bar.showMessage("Saving...")
             self.logger.debug("Saving notebook (%d pages)...", len(self.notebook.pages))
-            NotebookDAO.save(self.notebook, self.file_path, self.key_buffer, self.salt)
+            NotebookDAO.saves(
+                [self.notebook], self.file_path, self.key_buffer, self.salt
+            )
             self.status_bar.showMessage("Save completed!")
 
             self.logger.debug("Creating backup...")

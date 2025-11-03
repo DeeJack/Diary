@@ -70,8 +70,8 @@ class SaveManager(QObject):
         self.status_bar.showMessage("Saving...")
 
         try:
-            NotebookDAO.save(
-                self.notebook,
+            NotebookDAO.saves(
+                [self.notebook],
                 self.file_path,
                 self.key_buffer,
                 self.salt,

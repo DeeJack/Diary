@@ -8,9 +8,9 @@ import struct
 from pathlib import Path
 from typing import Callable, cast
 
-import nacl.secret
 import nacl
-from argon2.low_level import hash_secret_raw, Type
+import nacl.secret
+from argon2.low_level import Type, hash_secret_raw
 
 
 class SecureBuffer:
@@ -331,17 +331,22 @@ class SecureEncryption:
                 if progress_callback:
                     progress_callback(bytes_processed, file_size)
 
-            # Combine all decrypted chunks
-            full_data = b"".join(decrypted_chunks)
+            return SecureEncryption.combine_decrypted_chunks(decrypted_chunks)
 
-            for chunk in decrypted_chunks:
-                chunk_array = bytearray(chunk)
-                for i, _ in enumerate(chunk_array):
-                    chunk_array[i] = 0
-            try:
-                logging.getLogger("Encryption").debug("Decryption completed")
-                return full_data
-            finally:
-                full_data = bytearray(full_data)
-                for i, _ in enumerate(full_data):
-                    full_data[i] = 0
+    @staticmethod
+    def combine_decrypted_chunks(decrypted_chunks: list[bytes]):
+        """Combine decrypted chunks into the final output"""
+        # Combine all decrypted chunks
+        full_data = b"".join(decrypted_chunks)
+
+        for chunk in decrypted_chunks:
+            chunk_array = bytearray(chunk)
+            for i, _ in enumerate(chunk_array):
+                chunk_array[i] = 0
+        try:
+            logging.getLogger("Encryption").debug("Decryption completed")
+            return full_data
+        finally:
+            full_data = bytearray(full_data)
+            for i, _ in enumerate(full_data):
+                full_data[i] = 0

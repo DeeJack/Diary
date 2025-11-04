@@ -56,8 +56,7 @@ class SaveWorker(QObject):
 
             if not self._is_cancelled:
                 self.finished.emit(True, "Saved successfully")
-
-        except Exception as e:
+        except (IOError, OSError, FileNotFoundError) as e:
             self.error.emit(str(e))
             self.finished.emit(False, f"Save failed: {e}")
 

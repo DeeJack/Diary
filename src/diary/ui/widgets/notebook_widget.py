@@ -412,7 +412,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
                 page.widget(), PageGraphicsWidget
             ):
                 page_widget = cast(PageGraphicsWidget, page.widget())
-                for element in page_widget._scene.items():
+                for element in page_widget.scene.items():
                     element.setFlag(
                         QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable,
                         new_tool == Tool.SELECTION,

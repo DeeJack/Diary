@@ -27,6 +27,9 @@ if __name__ == "__main__":
 
     app = QApplication([])
 
-    main_window = MainWindow()
-    main_window.showMaximized()
-    sys.exit(app.exec())
+    try:
+        main_window = MainWindow()
+        main_window.showMaximized()
+        sys.exit(app.exec())
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logging.getLogger("MainWindow").error("Uncaught exception: %s", e)

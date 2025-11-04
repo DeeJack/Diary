@@ -43,7 +43,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self._is_drawing: bool = False
         self._is_erasing: bool = False
         self._logger: logging.Logger = logging.getLogger("PageGraphicsWidget")
-        self._last_cursor: QtGui.QCursor
+        self._last_cursor: QtGui.QCursor = self.cursor()
 
         # Create the graphics scene and view
         self._scene: PageGraphicsScene = PageGraphicsScene(page)
@@ -458,6 +458,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         return super().keyPressEvent(event)
 
     def change_date(self):
+        """Change date for the page; opens a dialog to ask for it"""
         new_date_str, result = QtWidgets.QInputDialog.getText(
             self.parentWidget(), "New date", "Format: 01/01/2025"
         )
@@ -465,7 +466,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             return
         fields = new_date_str.split("/")
         if len(fields) != 3:
-            return show_error_dialog(self.parentWidget(), "Error", "Wrong format")
+            _ = show_error_dialog(self.parentWidget(), "Error", "Wrong format")
 
         try:
             new_date = datetime.strptime(

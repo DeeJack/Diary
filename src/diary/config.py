@@ -96,7 +96,7 @@ class Settings(BaseSettings):
         try:
             with open(path, "w", encoding="utf-8") as f:
                 _ = f.write(self.model_dump_json(indent=2))
-        except Exception as e:
+        except (FileNotFoundError, OSError, IOError) as e:
             logging.getLogger("Config").error("Error saving settings: %s", e)
 
 

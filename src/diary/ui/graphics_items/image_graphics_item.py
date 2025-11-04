@@ -214,7 +214,6 @@ class ImageGraphicsItem(BaseGraphicsItem):
                         self.image_element.image_path,
                     )
                     self._pixmap = None
-
             else:
                 self._logger.warning("No image data or path provided")
                 self._pixmap = None
@@ -222,8 +221,7 @@ class ImageGraphicsItem(BaseGraphicsItem):
             # Create scaled version for better performance if needed
             if self._pixmap and not self._pixmap.isNull():
                 self._update_scaled_pixmap()
-
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             self._logger.error("Error loading image: %s", e)
             self._pixmap = None
 

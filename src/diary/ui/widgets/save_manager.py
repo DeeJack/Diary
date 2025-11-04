@@ -83,7 +83,7 @@ class SaveManager(QObject):
             self._create_backup()
 
             self.save_completed.emit(True, "Saved successfully")
-        except Exception as e:
+        except (IOError, OSError, FileNotFoundError) as e:
             self.logger.error("Error saving notebook: %s", e)
             self.status_bar.showMessage("Save failed!")
             self.save_error.emit(str(e))
@@ -143,7 +143,7 @@ class SaveManager(QObject):
             self.status_bar.showMessage("Creating backup...")
             self.backup_manager.save_backups()
             self.status_bar.showMessage("Backup completed!")
-        except Exception as e:
+        except (FileNotFoundError, IOError, OSError) as e:
             self.logger.error("Error creating backup: %s", e)
 
     def force_save_on_close(self) -> None:

@@ -173,6 +173,7 @@ class MainWindow(QMainWindow):
             a0.accept()
 
     def pdf_imported(self):
+        """When the PDF has been imported, mark notebook as dirty and reload widget"""
         self.notebook_widget.save_manager.mark_dirty()
         self.notebook_widget.reload()
         self.notebook_widget.save_manager.save_async()

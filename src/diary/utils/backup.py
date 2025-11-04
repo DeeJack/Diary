@@ -1,11 +1,12 @@
 """Backup management system for the Diary"""
 
-from datetime import timedelta, datetime
 import logging
-from pathlib import Path
 import shutil
+from datetime import datetime, timedelta
+from pathlib import Path
 
 from diary.config import settings
+from diary.utils.move import atomic_copy
 
 
 class BackupManager:
@@ -104,14 +105,14 @@ class BackupManager:
 
         if not daily_path.exists():
             self.logger.debug("Promoting %s to daily", backup_file)
-            _ = shutil.copy2(backup_file, daily_path)
+            atomic_copy(backup_file, daily_path)
             return True
 
         last_daily_date = datetime.fromtimestamp(daily_path.stat().st_mtime)
         cutoff_date = last_daily_date + timedelta(minutes=10)
         if now > cutoff_date:
             self.logger.debug("Promoting %s to daily", backup_file)
-            _ = shutil.copy2(backup_file, daily_path)
+            atomic_copy(backup_file, daily_path)
             return True
         return False
 
@@ -123,7 +124,7 @@ class BackupManager:
 
             if not weekly_path.exists():
                 self.logger.debug("Promoting %s to weekly", backup_file)
-                _ = shutil.copy2(backup_file, weekly_path)
+                atomic_copy(backup_file, weekly_path)
                 return True
         return False
 
@@ -135,6 +136,6 @@ class BackupManager:
 
             if not monthly_path.exists():
                 self.logger.debug("Promoting %s to monthly", backup_file)
-                _ = shutil.copy2(backup_file, monthly_path)
+                atomic_copy(backup_file, monthly_path)
                 return True
         return False

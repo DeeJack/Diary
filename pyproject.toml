@@ -28,6 +28,7 @@ build-backend = "poetry.core.masonry.api"
 reportUnknownMemberType=false
 reportUnknownLambdaType=false
 reportUnusedFunction=true
+reportMissingTypeStubs=false
 venvPath=".venv"
 ignore=["**/.venv"]
 exclude=["**/AppData/*", "**/.venv/*"]

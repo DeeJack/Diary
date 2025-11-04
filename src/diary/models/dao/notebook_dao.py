@@ -137,7 +137,8 @@ class NotebookDAO:
             list[dict[str, str]], msgpack.unpackb(uncompressed_notebooks, raw=False)
         )
         logging.getLogger("NotebookDAO").debug(
-            "Decryption completed successfully! %s notebooks found", notebooks_unpacked
+            "Decryption completed successfully! %s notebooks found",
+            len(notebooks_unpacked),
         )
         return [
             Notebook.from_dict(notebook_dict) for notebook_dict in notebooks_unpacked

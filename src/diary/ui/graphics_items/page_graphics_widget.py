@@ -14,7 +14,7 @@ from diary.models.elements.text import Text
 from diary.models.page import Page
 from diary.models.point import Point
 from diary.ui.input import InputAction, InputType
-from diary.ui.utils import (
+from diary.ui.ui_utils import (
     confirm_delete,
     read_image,
     show_error_dialog,

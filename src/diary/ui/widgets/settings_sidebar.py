@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 
 from diary.config import settings
 from diary.models import Notebook
-from diary.ui.utils import import_from_pdf, show_progress_dialog
+from diary.ui.ui_utils import import_from_pdf, show_progress_dialog
 
 
 class SettingsSidebar(QDockWidget):

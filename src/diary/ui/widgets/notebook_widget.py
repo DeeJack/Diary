@@ -11,7 +11,7 @@ from diary.config import SETTINGS_FILE_PATH, settings
 from diary.models import Notebook, Page
 from diary.ui.graphics_items.page_graphics_widget import PageGraphicsWidget
 from diary.ui.input import InputType
-from diary.ui.utils import show_info_dialog
+from diary.ui.ui_utils import show_info_dialog
 from diary.ui.widgets.save_manager import SaveManager
 from diary.ui.widgets.tool_selector import Tool
 from diary.utils.encryption import SecureBuffer

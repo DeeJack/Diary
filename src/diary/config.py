@@ -4,6 +4,7 @@ Contains the configuration options for the Diary application
 
 import json
 import logging
+import os
 from enum import Enum
 from pathlib import Path
 
@@ -12,13 +13,14 @@ from pydantic_settings import BaseSettings
 
 from diary.ui.widgets.tool_selector import Tool
 
-SETTINGS_FILE_PATH = Path("data") / "config.json"
+BASE_FOLDER: Path = (Path(os.getenv("userprofile", "~")) / ".diary").resolve()
+SETTINGS_FILE_PATH: Path = BASE_FOLDER / "config.json"
 
 
 class Settings(BaseSettings):
     """Settings class for the Diary application"""
 
-    DATA_DIR_PATH: Path = Path("data")
+    DATA_DIR_PATH: Path = BASE_FOLDER / "data"
     NOTEBOOK_FILE_PATH: Path = DATA_DIR_PATH / Path("notebook.enc")
     BACKUP_DIR_PATH: Path = DATA_DIR_PATH / Path("backup")
     DAILY_BACKUP_PATH: Path = BACKUP_DIR_PATH / Path("daily")

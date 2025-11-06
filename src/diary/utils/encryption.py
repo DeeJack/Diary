@@ -350,3 +350,24 @@ class SecureEncryption:
             full_data = bytearray(full_data)
             for i, _ in enumerate(full_data):
                 full_data[i] = 0
+
+    @staticmethod
+    def change_password(
+        prev_password: SecureBuffer,
+        salt: bytes,
+        new_password: SecureBuffer,
+        file_path: Path,
+    ):
+        """Changes a file from the old password to the new one"""
+        # Decrypt file with the old pass
+        decrypted_file = SecureEncryption.decrypt_file(file_path, prev_password)
+        # Encrypt file with the new password
+        SecureEncryption.encrypt_bytes_to_file(
+            decrypted_file, file_path, new_password, salt
+        )
+        # Wipe previous password
+        prev_password.wipe()
+
+    @staticmethod
+    def generate_salt() -> bytes:
+        return secrets.token_bytes(SecureEncryption.SALT_SIZE)

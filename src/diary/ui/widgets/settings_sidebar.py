@@ -7,6 +7,8 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QCheckBox,
     QDockWidget,
+    QInputDialog,
+    QLineEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -14,7 +16,8 @@ from PyQt6.QtWidgets import (
 
 from diary.config import settings
 from diary.models import Notebook
-from diary.ui.ui_utils import import_from_pdf, show_progress_dialog
+from diary.ui.ui_utils import import_from_pdf, show_info_dialog, show_progress_dialog
+from diary.utils.encryption import SecureEncryption
 
 
 class SettingsSidebar(QDockWidget):
@@ -22,6 +25,7 @@ class SettingsSidebar(QDockWidget):
 
     last_index: int = 0
     pdf_imported: pyqtSignal = pyqtSignal()
+    pass_changed: pyqtSignal = pyqtSignal(object)  # tuple[new_pass_derived, salt]
 
     def __init__(self, parent: QWidget | None, notebook: Notebook):
         super().__init__("Settings", parent)
@@ -56,6 +60,7 @@ class SettingsSidebar(QDockWidget):
 
         change_pw_btn = QPushButton()
         change_pw_btn.setText("Change Password")
+        _ = change_pw_btn.clicked.connect(self._change_password)
 
         layout.addWidget(mouse_checkbox)
         layout.addWidget(pressure_checkbox)
@@ -98,3 +103,21 @@ class SettingsSidebar(QDockWidget):
             self._notebook.pages.extend(pages)
             self.pdf_imported.emit()
             _ = dialog.close()
+
+    def _change_password(self):
+        new_pass, result = QInputDialog.getText(
+            self.parentWidget(),
+            "Change password",
+            "New password: ",
+            QLineEdit.EchoMode.Password,
+        )
+        if not result:
+            return
+        new_salt = SecureEncryption.generate_salt()
+        new_pass_derived = SecureEncryption.derive_key(new_pass, new_salt)
+        self.pass_changed.emit((new_pass_derived, new_salt))
+        _ = show_info_dialog(
+            self.parentWidget(),
+            "Password changed",
+            "The password was changed successfully!",
+        )

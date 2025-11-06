@@ -1,7 +1,6 @@
 """The main window of the Diary application, containing all other Widgets"""
 
 import logging
-import secrets
 import sys
 from pathlib import Path
 from typing import cast, override
@@ -75,7 +74,7 @@ class MainWindow(QMainWindow):
                     )
 
                     # Generate new salt for new file
-                    salt = secrets.token_bytes(SecureEncryption.SALT_SIZE)
+                    salt = SecureEncryption.generate_salt()
 
                 self.logger.debug("Deriving new key from password and salt")
                 key_buffer = SecureEncryption.derive_key(password, salt)
@@ -162,6 +161,7 @@ class MainWindow(QMainWindow):
         )
 
         _ = self.settings_sidebar.pdf_imported.connect(self.pdf_imported)
+        _ = self.settings_sidebar.pass_changed.connect(self.on_password_changed)
 
     @override
     def closeEvent(self, a0: QCloseEvent | None):
@@ -177,3 +177,10 @@ class MainWindow(QMainWindow):
         self.notebook_widget.save_manager.mark_dirty()
         self.notebook_widget.reload()
         self.notebook_widget.save_manager.save_async()
+
+    def on_password_changed(self, new_data: tuple[SecureBuffer, bytes]):
+        self.notebook_widget.save_manager.key_buffer = new_data[0]
+        self.notebook_widget.save_manager.salt = new_data[1]
+        self.notebook_widget.save_manager.mark_dirty()
+        self.notebook_widget.save_manager.save()
+        self.logger.info("Password changed; saved new encrypted file")

@@ -5,7 +5,7 @@ description = "A simple Diary application for the paranoid"
 authors = [{ name = "Lorenzo", email = "lorenzofumi@gmail.com" }]
 license = { text = "Apache 2.0" }
 readme = "README.md"
-requires-python = ">=3.12.3"
+requires-python = ">=3.12.3,<3.15"
 dependencies = [
   "pyqt6 (>=6.9.1,<7.0.0)",
   "pydantic-settings (>=2.11.0,<3.0.0)",
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pylint (>=4.0.0,<5.0.0)", "mypy (>=1.18.2,<2.0.0)", "basedpyright (<3.12)"]
+dev = ["pylint (>=4.0.0,<5.0.0)", "mypy (>=1.18.2,<2.0.0)", "basedpyright (<3.12)", "pyinstaller (>=6.16.0,<7.0.0)"]
 
 
 [build-system]
@@ -29,10 +29,12 @@ reportUnknownMemberType=false
 reportUnknownLambdaType=false
 reportUnusedFunction=true
 reportMissingTypeStubs=false
-venvPath=".venv"
 ignore=["**/.venv"]
 exclude=["**/AppData/*", "**/.venv/*"]
 
 [[tool.mypy.overrides]]
 module = ["msgpack.*"]
 follow_untyped_imports = true
+
+[tool.poetry.scripts]
+build-executable = "build:main"

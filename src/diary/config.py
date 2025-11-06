@@ -12,7 +12,7 @@ from pydantic_settings import BaseSettings
 
 from diary.ui.widgets.tool_selector import Tool
 
-SETTINGS_FILE_PATH = "data/config.json"
+SETTINGS_FILE_PATH = Path("data") / "config.json"
 
 
 class Settings(BaseSettings):

@@ -1,5 +1,6 @@
 """Sidebar with all the settings"""
 
+from pathlib import Path
 from typing import cast
 
 from PyQt6.QtCore import Qt, pyqtSignal
@@ -7,6 +8,8 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QCheckBox,
     QDockWidget,
+    QFileDialog,
+    QHBoxLayout,
     QInputDialog,
     QLineEdit,
     QPushButton,
@@ -62,11 +65,24 @@ class SettingsSidebar(QDockWidget):
         change_pw_btn.setText("Change Password")
         _ = change_pw_btn.clicked.connect(self._change_password)
 
+        path_container = QWidget()
+        self.notebook_path_txt: QLineEdit = QLineEdit()
+        self.notebook_path_txt.setText(settings.NOTEBOOK_FILE_PATH.as_posix())
+        self.notebook_path_txt.setEnabled(False)
+        save_path_btn = QPushButton()
+        save_path_btn.setText("Change path")
+        _ = save_path_btn.clicked.connect(self._select_notebook_path)
+        path_layout = QHBoxLayout()
+        path_layout.addWidget(self.notebook_path_txt)
+        path_layout.addWidget(save_path_btn)
+        path_container.setLayout(path_layout)
+
         layout.addWidget(mouse_checkbox)
         layout.addWidget(pressure_checkbox)
         layout.addWidget(smoothing_checkbox)
         layout.addWidget(import_btn)
         layout.addWidget(change_pw_btn)
+        layout.addWidget(path_container)
         layout.setSpacing(20)
         layout.addStretch()
         main_container.setLayout(layout)
@@ -121,3 +137,16 @@ class SettingsSidebar(QDockWidget):
             "Password changed",
             "The password was changed successfully!",
         )
+
+    def _select_notebook_path(self):
+        result, _ = QFileDialog.getSaveFileName(
+            self.parentWidget(),
+            "Notebook save destination",
+            directory=settings.NOTEBOOK_FILE_PATH.as_posix(),
+        )
+        if not result:
+            return
+        result_path = Path(result)
+        # TODO: Check if it's a usable location (permissions, already exists...)
+        settings.NOTEBOOK_FILE_PATH = result_path
+        self.notebook_path_txt.setText(result_path.as_posix())

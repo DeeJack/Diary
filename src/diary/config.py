@@ -13,15 +13,20 @@ from pydantic_settings import BaseSettings
 
 from diary.ui.widgets.tool_selector import Tool
 
-BASE_FOLDER: Path = (Path(os.getenv("userprofile", "~")) / ".diary").resolve()
+USERPROFILE: Path = Path(os.getenv("userprofile", "~"))
+DOCUMENTS_FOLDER: Path = (USERPROFILE / "Documents" / "diary").resolve()
+BASE_FOLDER: Path = (USERPROFILE / ".diary").resolve()
 SETTINGS_FILE_PATH: Path = BASE_FOLDER / "config.json"
+
+DOCUMENTS_FOLDER.mkdir(exist_ok=True)
+BASE_FOLDER.mkdir(exist_ok=True)
 
 
 class Settings(BaseSettings):
     """Settings class for the Diary application"""
 
     DATA_DIR_PATH: Path = BASE_FOLDER / "data"
-    NOTEBOOK_FILE_PATH: Path = DATA_DIR_PATH / Path("notebook.enc")
+    NOTEBOOK_FILE_PATH: Path = DOCUMENTS_FOLDER / Path("notebook.enc")
     BACKUP_DIR_PATH: Path = DATA_DIR_PATH / Path("backup")
     DAILY_BACKUP_PATH: Path = BACKUP_DIR_PATH / Path("daily")
     WEEKLY_BACKUP_PATH: Path = BACKUP_DIR_PATH / Path("weekly")

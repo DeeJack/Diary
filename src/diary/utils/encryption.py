@@ -370,4 +370,5 @@ class SecureEncryption:
 
     @staticmethod
     def generate_salt() -> bytes:
+        """Generate the salt randomly, based on SALT_SIZE"""
         return secrets.token_bytes(SecureEncryption.SALT_SIZE)

@@ -179,6 +179,7 @@ class MainWindow(QMainWindow):
         self.notebook_widget.save_manager.save_async()
 
     def on_password_changed(self, new_data: tuple[SecureBuffer, bytes]):
+        """When the password for the notebook has been changed, save new notebook"""
         self.notebook_widget.save_manager.key_buffer = new_data[0]
         self.notebook_widget.save_manager.salt = new_data[1]
         self.notebook_widget.save_manager.mark_dirty()

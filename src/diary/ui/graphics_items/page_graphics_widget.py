@@ -322,6 +322,8 @@ class PageGraphicsWidget(QtWidgets.QWidget):
 
             self._logger.debug("Finished stroke with %s points", len(smoothed_points))
 
+        self._scene.force_background_redraw()
+
         self._current_stroke = None
         self._current_stroke_item = None
         self._is_drawing = False

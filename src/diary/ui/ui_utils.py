@@ -193,7 +193,7 @@ def read_image(file_path: str) -> tuple[bytes, int, int]:
     buffer = QBuffer(byte_array)
     _ = buffer.open(QIODevice.OpenModeFlag.WriteOnly)
     # Save the pixmap to the buffer in JPEG format, quality 80
-    _ = pixmap.save(buffer, "JPG", 80)
+    _ = pixmap.save(buffer, "PNG", 100)
 
     image_bytes = byte_array.data()
     return (image_bytes, pixmap.height(), pixmap.width())
@@ -214,7 +214,7 @@ def import_from_pdf() -> list[Page]:
         image_data = QByteArray()
         buffer = QBuffer(image_data)
         _ = buffer.open(QIODevice.OpenModeFlag.WriteOnly)
-        _ = pixmap.save(buffer, "JPEG", quality=95)
+        _ = pixmap.save(buffer, "PNG", quality=100)
         page_img = Image(
             Point(0, 0), pixmap.width(), pixmap.height(), image_data=image_data.data()
         )
@@ -239,15 +239,15 @@ def _import_from_pdf(pdf_path: Path) -> list[QPixmap]:
         "PDF document read and ready, with %s pages!", doc.pageCount()
     )
 
-    DPI = 250
+    DPI = 1.5
     pages: list[QPixmap] = []
     for page_num in range(doc.pageCount()):
         logging.getLogger("Utils").debug(
             "Rendering page %s/%s", page_num, doc.pageCount()
         )
         page_size = doc.pagePointSize(page_num)
-        width_in_pixels = int(page_size.width() * DPI / 72)
-        height_in_pixels = int(page_size.height() * DPI / 72)
+        width_in_pixels = int(page_size.width() * DPI)
+        height_in_pixels = int(page_size.height() * DPI)
 
         image = doc.render(page_num, QSize(width_in_pixels, height_in_pixels))
         pixmap = QPixmap.fromImage(image)

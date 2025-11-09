@@ -279,24 +279,19 @@ class PageGraphicsScene(QGraphicsScene):
 
     def _draw_notebook_lines(self, painter: QPainter, rect: QRectF) -> None:
         """Draw horizontal lines like a notebook page"""
+        _ = rect
         line_color = QColor(0xDD, 0xCD, 0xC4)
 
         painter.setPen(QPen(line_color, 1.0))
 
-        start_y = max(
-            settings.PAGE_LINES_MARGIN,
-            int(rect.top() // settings.PAGE_LINES_SPACING)
-            * settings.PAGE_LINES_SPACING,
-        )
-        end_y = min(settings.PAGE_HEIGHT - settings.PAGE_LINES_MARGIN, rect.bottom())
+        # Draw horizontal lines
+        y = settings.PAGE_LINES_MARGIN
 
-        y = start_y
-        while y <= end_y:
+        while y < settings.PAGE_HEIGHT:
             if (
                 settings.PAGE_LINES_MARGIN
                 <= y
                 <= settings.PAGE_HEIGHT - settings.PAGE_LINES_MARGIN
-                and rect.top() <= y <= rect.bottom()
             ):
                 painter.drawLine(
                     QLineF(
@@ -311,6 +306,10 @@ class PageGraphicsScene(QGraphicsScene):
     def force_background_redraw(self) -> None:
         """Force a complete redraw of the background"""
         self.invalidate(self.sceneRect(), QGraphicsScene.SceneLayer.BackgroundLayer)
+
+    def force_partial_redraw(self, rect: QRectF):
+        """Force a partial redraw of the background"""
+        self.invalidate(rect, QGraphicsScene.SceneLayer.BackgroundLayer)
 
     def get_scene_statistics(self) -> dict[str, int]:
         """Get statistics about the scene contents"""

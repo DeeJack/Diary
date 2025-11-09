@@ -307,14 +307,12 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         scene_pos = self._graphics_view.mapToScene(position.toPoint())
         point = Point(scene_pos.x(), scene_pos.y(), pressure)
 
-        # Add point to graphics item (which updates the stroke)
-        self._current_stroke_item.add_point(point)
         self._current_points.append(point)
         self._points_since_smooth += 1
         if (
             settings.SMOOTHING_ENABLED
             and self._points_since_smooth >= 4
-            and len(self._current_stroke.points) > 6
+            and len(self._current_points) > 6
         ):
             smoothed_points = smooth_stroke_advanced(self._current_points)
             self._current_stroke_item.set_points(smoothed_points)

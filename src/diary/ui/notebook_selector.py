@@ -4,7 +4,7 @@ from typing import cast
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QInputDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from diary.models import Notebook, Page
 from diary.ui.widgets.save_manager import pyqtSignal
@@ -99,13 +99,36 @@ class NotebookSelector(QWidget):
         self.update()
         return delete_btn
 
+    def _create_rename_btn(
+        self, notebook: Notebook, notebook_btn: QPushButton
+    ) -> QPushButton:
+        rename_btn = QPushButton()
+        rename_btn.setText("📝")
+        rename_btn.setFont(QFont("Ubuntu", 24))
+        rename_btn.setFixedWidth(40)
+        rename_btn.setMinimumHeight(50)
+
+        def _on_rename():
+            result, ok = QInputDialog.getText(self.parentWidget(), "Rename", "New name")
+            if not ok:
+                return
+            notebook.metadata["name"] = result
+            notebook_btn.setText(f"Notebook {result}")
+            # TODO: save after renaming!
+
+        _ = rename_btn.clicked.connect(_on_rename)
+        self.update()
+        return rename_btn
+
     def _create_notebook_objects(self, notebooks: list[Notebook]) -> list[QWidget]:
         notebook_widgets: list[QWidget] = []
         for index, notebook in enumerate(notebooks):
             container = QWidget()
             hlayout = QHBoxLayout(container)
-            hlayout.addWidget(self._create_notebook_obj(notebook, index))
+            notebook_btn = self._create_notebook_obj(notebook, index)
+            hlayout.addWidget(notebook_btn)
             hlayout.addWidget(self._create_delete_btn(notebook, notebooks, container))
+            hlayout.addWidget(self._create_rename_btn(notebook, notebook_btn))
 
             notebook_widgets.append(container)
         return notebook_widgets

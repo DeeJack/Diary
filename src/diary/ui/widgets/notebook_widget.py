@@ -34,7 +34,8 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         key_buffer: SecureBuffer,
         salt: bytes,
         status_bar: QtWidgets.QStatusBar,
-        notebook: Notebook | None = None,
+        notebook: Notebook,
+        all_notebooks: list[Notebook],
     ):
         super().__init__()
         self.notebook: Notebook = notebook or Notebook([Page(), Page()])
@@ -46,7 +47,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
 
         # Initialize save manager
         self.save_manager: SaveManager = SaveManager(
-            self.notebook,
+            all_notebooks,
             settings.NOTEBOOK_FILE_PATH,
             key_buffer,
             salt,

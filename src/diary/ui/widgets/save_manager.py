@@ -22,14 +22,14 @@ class SaveManager(QObject):
 
     def __init__(
         self,
-        notebook: Notebook,
+        all_notebooks: list[Notebook],
         file_path: Path,
         key_buffer: SecureBuffer,
         salt: bytes,
         status_bar: QStatusBar,
     ):
         super().__init__()
-        self.notebook: Notebook = notebook
+        self.all_notebooks: list[Notebook] = all_notebooks
         self.file_path: Path = file_path
         self.key_buffer: SecureBuffer = key_buffer
         self.salt: bytes = salt
@@ -66,12 +66,12 @@ class SaveManager(QObject):
             self.logger.debug("Skipping save due to no changes")
             return
 
-        self.logger.debug("Saving notebook (%d pages)...", len(self.notebook.pages))
+        self.logger.debug("Saving notebooks...")
         self.status_bar.showMessage("Saving...")
 
         try:
             NotebookDAO.saves(
-                [self.notebook],
+                self.all_notebooks,
                 self.file_path,
                 self.key_buffer,
                 self.salt,
@@ -103,7 +103,7 @@ class SaveManager(QObject):
         """Setup the save worker and thread"""
         self.save_thread = QThread()
         self.save_worker = SaveWorker(
-            self.notebook,
+            self.all_notebooks,
             self.file_path,
             self.key_buffer,
             self.salt,

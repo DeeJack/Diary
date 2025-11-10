@@ -20,14 +20,14 @@ class SaveWorker(QObject):
 
     def __init__(
         self,
-        notebook: Notebook,
+        all_notebooks: list[Notebook],
         file_path: Path,
         key_buffer: SecureBuffer,
         salt: bytes,
         status_bar: QStatusBar,
     ):
         super().__init__()
-        self.notebook: Notebook = notebook
+        self.all_notebooks: list[Notebook] = all_notebooks
         self.file_path: Path = file_path
         self.key_buffer: SecureBuffer = key_buffer
         self.salt: bytes = salt
@@ -43,9 +43,9 @@ class SaveWorker(QObject):
                 return
 
             self.status_bar.showMessage("Saving...")
-            self.logger.debug("Saving notebook (%d pages)...", len(self.notebook.pages))
+            self.logger.debug("Saving notebooks...")
             NotebookDAO.saves(
-                [self.notebook], self.file_path, self.key_buffer, self.salt
+                self.all_notebooks, self.file_path, self.key_buffer, self.salt
             )
             self.status_bar.showMessage("Save completed!")
 

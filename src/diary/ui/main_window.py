@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
 )
 
 from diary.config import SETTINGS_FILE_PATH, settings
-from diary.models import NotebookDAO
+from diary.models import Notebook, NotebookDAO
 from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.days_sidebar import DaysSidebar
 from diary.ui.widgets.notebook_widget import NotebookWidget
@@ -28,6 +28,7 @@ from diary.ui.widgets.page_navigator import PageNavigatorToolbar
 from diary.ui.widgets.settings_sidebar import SettingsSidebar
 from diary.ui.widgets.tool_selector import Tool
 from diary.utils.encryption import SecureBuffer, SecureEncryption
+from src.diary.ui.notebook_selector import NotebookSelector
 
 
 class MainWindow(QMainWindow):
@@ -89,7 +90,8 @@ class MainWindow(QMainWindow):
                 if status_bar:
                     status_bar.showMessage("Password accepted. Key derived.", 5000)
                     status_bar.hide()
-                self.open_notebook(key_buffer, salt)
+
+                self._load_widgets(key_buffer, salt)
             except ValueError as e:
                 _ = QMessageBox.critical(self, "Error", str(e))
                 _ = self.close()
@@ -98,7 +100,7 @@ class MainWindow(QMainWindow):
             _ = self.close()
             sys.exit(0)
 
-    def open_notebook(self, key_buffer: SecureBuffer, salt: bytes):
+    def _load_widgets(self, key_buffer: SecureBuffer, salt: bytes):
         """Opens the Notebook with the given password"""
         main_widget = QWidget()
         self.this_layout = QVBoxLayout(main_widget)
@@ -107,33 +109,17 @@ class MainWindow(QMainWindow):
         self.toolbar = PageNavigatorToolbar()
         self.bottom_toolbar = BottomToolbar()
 
-        old_notebook = NotebookDAO.loads(settings.NOTEBOOK_FILE_PATH, key_buffer)[0]
-        self.logger.debug("Loaded notebook, creating and opening NotebookWidget")
-        self.notebook_widget = NotebookWidget(
-            key_buffer, salt, self.statusBar() or QStatusBar(), old_notebook
+        notebooks = NotebookDAO.loads(settings.NOTEBOOK_FILE_PATH, key_buffer)
+        selector = NotebookSelector(notebooks, self)
+
+        def notebook_selected(notebook: Notebook):
+            self.this_layout.removeWidget(selector)
+            self._open_notebook(key_buffer, salt, notebook, notebooks)
+
+        _ = selector.notebook_selected.connect(
+            lambda notebook: notebook_selected(notebook)  # pyright: ignore[reportUnknownArgumentType]
         )
-        self.notebook_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.sidebar = DaysSidebar(self, self.notebook_widget)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar)
-        self.sidebar.hide()
-
-        self.settings_sidebar = SettingsSidebar(self, old_notebook)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.settings_sidebar)
-        self.settings_sidebar.hide()
-
-        menu_bar = cast(QMenuBar, self.menuBar())
-        view_menu = cast(QMenu, menu_bar.addMenu("&"))
-        sidebar_action = self.sidebar.create_toggle_action()
-        settings_action = self.settings_sidebar.create_toggle_action()
-        view_menu.addAction(sidebar_action)
-        view_menu.addAction(settings_action)
-
-        self.connect_signals(sidebar_action, settings_action)
-        self.notebook_widget.update_navbar()
-        self.this_layout.addWidget(self.toolbar)
-        self.this_layout.addWidget(self.notebook_widget)
-        self.this_layout.addWidget(self.bottom_toolbar)
+        self.this_layout.addWidget(selector)
         self.setCentralWidget(main_widget)
 
     def connect_signals(self, sidebar_toggle: QAction, settings_toggle: QAction):
@@ -185,3 +171,40 @@ class MainWindow(QMainWindow):
         self.notebook_widget.save_manager.mark_dirty()
         self.notebook_widget.save_manager.save()
         self.logger.info("Password changed; saved new encrypted file")
+
+    def _open_notebook(
+        self,
+        key_buffer: SecureBuffer,
+        salt: bytes,
+        notebook: Notebook,
+        all_notebooks: list[Notebook],
+    ):
+        self.logger.debug("Loaded notebook, creating and opening NotebookWidget")
+        self.logger.debug(
+            "Called with params: %s %s %s %s", key_buffer, salt, notebook, all_notebooks
+        )
+        self.notebook_widget = NotebookWidget(
+            key_buffer, salt, self.statusBar() or QStatusBar(), notebook, all_notebooks
+        )
+        self.notebook_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.sidebar = DaysSidebar(self, self.notebook_widget)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar)
+        self.sidebar.hide()
+
+        self.settings_sidebar = SettingsSidebar(self, notebook)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.settings_sidebar)
+        self.settings_sidebar.hide()
+
+        menu_bar = cast(QMenuBar, self.menuBar())
+        view_menu = cast(QMenu, menu_bar.addMenu("&"))
+        sidebar_action = self.sidebar.create_toggle_action()
+        settings_action = self.settings_sidebar.create_toggle_action()
+        view_menu.addAction(sidebar_action)
+        view_menu.addAction(settings_action)
+
+        self.connect_signals(sidebar_action, settings_action)
+        self.notebook_widget.update_navbar()
+        self.this_layout.addWidget(self.toolbar)
+        self.this_layout.addWidget(self.notebook_widget)
+        self.this_layout.addWidget(self.bottom_toolbar)

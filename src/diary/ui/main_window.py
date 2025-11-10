@@ -25,6 +25,7 @@ from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.days_sidebar import DaysSidebar
 from diary.ui.widgets.notebook_widget import NotebookWidget
 from diary.ui.widgets.page_navigator import PageNavigatorToolbar
+from diary.ui.widgets.save_manager import SaveManager
 from diary.ui.widgets.settings_sidebar import SettingsSidebar
 from diary.ui.widgets.tool_selector import Tool
 from diary.utils.encryption import SecureBuffer, SecureEncryption
@@ -111,6 +112,19 @@ class MainWindow(QMainWindow):
 
         notebooks = NotebookDAO.loads(settings.NOTEBOOK_FILE_PATH, key_buffer)
         selector = NotebookSelector(notebooks, self)
+        save_manager = SaveManager(
+            notebooks,
+            settings.NOTEBOOK_FILE_PATH,
+            key_buffer,
+            salt,
+            self.statusBar() or QStatusBar(),
+        )
+
+        def list_changed():
+            save_manager.mark_dirty()
+            save_manager.save_async()
+
+        _ = selector.list_changed.connect(list_changed)
 
         def notebook_selected(notebook: Notebook):
             self.this_layout.removeWidget(selector)

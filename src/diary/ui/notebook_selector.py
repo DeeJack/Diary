@@ -15,6 +15,7 @@ class NotebookSelector(QWidget):
     """Select a notebook from the list of available notebooks"""
 
     notebook_selected: pyqtSignal = pyqtSignal(Notebook)
+    list_changed: pyqtSignal = pyqtSignal()
 
     def __init__(self, notebooks: list[Notebook], parent: QWidget | None):
         super().__init__()
@@ -93,7 +94,7 @@ class NotebookSelector(QWidget):
         def _on_delete():
             notebooks.remove(notebook)
             cast(QVBoxLayout, self.layout()).removeWidget(container)
-            # TODO: save after removing!
+            self.list_changed.emit()
 
         _ = delete_btn.clicked.connect(_on_delete)
         self.update()
@@ -114,7 +115,7 @@ class NotebookSelector(QWidget):
                 return
             notebook.metadata["name"] = result
             notebook_btn.setText(f"Notebook {result}")
-            # TODO: save after renaming!
+            self.list_changed.emit()
 
         _ = rename_btn.clicked.connect(_on_rename)
         self.update()

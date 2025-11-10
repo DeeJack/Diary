@@ -3,8 +3,10 @@ Encrypt and decrypt data with Argon2ID and XChaCha20-Poly1305
 """
 
 import logging
+import os
 import secrets
 import struct
+import tempfile
 from pathlib import Path
 from typing import Callable, cast
 
@@ -174,44 +176,80 @@ class SecureEncryption:
         # Create cipher
         box = nacl.secret.Aead(bytes(key_buffer))
 
-        logging.getLogger("Encryption").debug("Opening output file...")
-        with open(output_path, "wb") as outfile:
-            # Write header: magic + version + salt
-            _ = outfile.write(SecureEncryption.MAGIC)
-            _ = outfile.write(struct.pack("<H", SecureEncryption.VERSION))
-            _ = outfile.write(salt)
-
-            # Encrypt and write chunks
-            chunk_number = 0
-            offset = 0
-
+        # Write to temporary file first for atomic operation
+        output_dir = output_path.parent
+        with tempfile.NamedTemporaryFile(
+            suffix=".tmp", dir=output_dir, delete=False
+        ) as temp_file:
+            temp_path = temp_file.name
             logging.getLogger("Encryption").debug(
-                "Starting chunk encryption process..."
+                "Writing to temporary file: %s", temp_path
             )
-            while offset < total_size:
-                # Get next chunk
-                chunk_end = min(offset + SecureEncryption.CHUNK_SIZE, total_size)
-                chunk = data_bytes[offset:chunk_end]
 
-                # Generate unique nonce for this chunk
-                # Using chunk number + random bytes for nonce
-                nonce_base = secrets.token_bytes(SecureEncryption.NONCE_SIZE - 8)
-                nonce = nonce_base + struct.pack("<Q", chunk_number)
+            try:
+                # Write header: magic + version + salt
+                _ = temp_file.write(SecureEncryption.MAGIC)
+                _ = temp_file.write(struct.pack("<H", SecureEncryption.VERSION))
+                _ = temp_file.write(salt)
 
-                # Encrypt chunk (includes MAC tag)
-                encrypted_chunk = box.encrypt(chunk, nonce=nonce)
+                # Encrypt and write chunks
+                chunk_number = 0
+                offset = 0
 
-                # Write chunk size + encrypted data
-                chunk_size = len(encrypted_chunk)
-                _ = outfile.write(struct.pack("<I", chunk_size))
-                _ = outfile.write(encrypted_chunk)
+                logging.getLogger("Encryption").debug(
+                    "Starting chunk encryption process..."
+                )
+                while offset < total_size:
+                    # Get next chunk
+                    chunk_end = min(offset + SecureEncryption.CHUNK_SIZE, total_size)
+                    chunk = data_bytes[offset:chunk_end]
 
-                bytes_processed += len(chunk)
-                offset = chunk_end
-                chunk_number += 1
+                    # Generate unique nonce for this chunk
+                    # Using chunk number + random bytes for nonce
+                    nonce_base = secrets.token_bytes(SecureEncryption.NONCE_SIZE - 8)
+                    nonce = nonce_base + struct.pack("<Q", chunk_number)
 
-                if progress_callback:
-                    progress_callback(bytes_processed, total_size)
+                    # Encrypt chunk (includes MAC tag)
+                    encrypted_chunk = box.encrypt(chunk, nonce=nonce)
+
+                    # Write chunk size + encrypted data
+                    chunk_size = len(encrypted_chunk)
+                    _ = temp_file.write(struct.pack("<I", chunk_size))
+                    _ = temp_file.write(encrypted_chunk)
+
+                    bytes_processed += len(chunk)
+                    offset = chunk_end
+                    chunk_number += 1
+
+                    if progress_callback:
+                        progress_callback(bytes_processed, total_size)
+
+                # Ensure all data is written to disk
+                temp_file.flush()
+                os.fsync(temp_file.fileno())
+            except Exception:
+                # Clean up temp file on error
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
+                raise
+
+        # Atomically move temp file to final destination
+        try:
+            if output_path.exists():
+                os.unlink(output_path)
+            os.rename(temp_path, output_path)
+            logging.getLogger("Encryption").debug("Atomic move completed")
+        except (IOError, OSError) as e:
+            # Clean up temp file if move fails
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+            logging.getLogger("Encryption").error("Atomic move failed: %s", e)
+            raise
+
         # Zero out data bytes
         data_bytes_arr = bytearray(data_bytes)
         for i, _ in enumerate(data_bytes):

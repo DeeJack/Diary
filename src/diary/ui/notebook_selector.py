@@ -1,11 +1,14 @@
 """Select a notebook in the UI"""
 
+from typing import cast
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
 from diary.models import Notebook, Page
 from diary.ui.widgets.save_manager import pyqtSignal
+from diary.ui.widgets.settings_sidebar import QHBoxLayout
 
 
 class NotebookSelector(QWidget):
@@ -24,12 +27,12 @@ class NotebookSelector(QWidget):
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setStyleSheet("color: #e9ecef; margin-bottom: 20px;")
         layout.addWidget(label)
+        self.setLayout(layout)
 
         for widget in self._create_notebook_objects(notebooks):
             layout.addWidget(widget)
         layout.addWidget(self._new_notebook_obj(notebooks))
         layout.addStretch()
-        self.setLayout(layout)
 
     def _create_notebook_obj(self, notebook: Notebook, index: int) -> QPushButton:
         button = QPushButton()
@@ -78,8 +81,31 @@ class NotebookSelector(QWidget):
         _ = new_obj.clicked.connect(lambda: notebooks.append(notebook))
         return new_obj
 
+    def _create_delete_btn(
+        self, notebook: Notebook, notebooks: list[Notebook], container: QWidget
+    ) -> QPushButton:
+        delete_btn = QPushButton()
+        delete_btn.setText("🗑️")
+        delete_btn.setFont(QFont("Ubuntu", 24))
+        delete_btn.setFixedWidth(40)
+        delete_btn.setMinimumHeight(50)
+
+        def _on_delete():
+            notebooks.remove(notebook)
+            cast(QVBoxLayout, self.layout()).removeWidget(container)
+            # TODO: save after removing!
+
+        _ = delete_btn.clicked.connect(_on_delete)
+        self.update()
+        return delete_btn
+
     def _create_notebook_objects(self, notebooks: list[Notebook]) -> list[QWidget]:
         notebook_widgets: list[QWidget] = []
         for index, notebook in enumerate(notebooks):
-            notebook_widgets.append(self._create_notebook_obj(notebook, index))
+            container = QWidget()
+            hlayout = QHBoxLayout(container)
+            hlayout.addWidget(self._create_notebook_obj(notebook, index))
+            hlayout.addWidget(self._create_delete_btn(notebook, notebooks, container))
+
+            notebook_widgets.append(container)
         return notebook_widgets

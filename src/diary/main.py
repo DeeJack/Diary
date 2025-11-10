@@ -23,7 +23,6 @@ if __name__ == "__main__":
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
-    ctypes.windll.shcore.SetProcessDpiAwareness(True)
 
     app = QApplication([])
 

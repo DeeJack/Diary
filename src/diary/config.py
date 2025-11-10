@@ -13,7 +13,7 @@ from pydantic_settings import BaseSettings
 
 from diary.ui.widgets.tool_selector import Tool
 
-USERPROFILE: Path = Path(os.getenv("userprofile", "~"))
+USERPROFILE: Path = Path(os.getenv("userprofile", os.getenv("HOME", "")))
 DOCUMENTS_FOLDER: Path = (USERPROFILE / "Documents" / "diary").resolve()
 BASE_FOLDER: Path = (USERPROFILE / ".diary").resolve()
 SETTINGS_FILE_PATH: Path = BASE_FOLDER / "config.json"

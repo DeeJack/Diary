@@ -59,6 +59,7 @@ class MainWindow(QMainWindow):
         self.notebook_widget: NotebookWidget
         self.settings_sidebar: SettingsSidebar
         self.save_manager: SaveManager
+        self.stored_selector: NotebookSelector | None = None
 
         self.logger.debug("Input dialog result: %s", ok)
 
@@ -121,17 +122,79 @@ class MainWindow(QMainWindow):
             self.statusBar() or QStatusBar(),
         )
 
-        selector = NotebookSelector(notebooks, self)
+        self._show_notebook_selector(key_buffer, salt, notebooks)
+        self.toolbar.set_back_button_visible(False)
+
+        self.setCentralWidget(main_widget)
+
+    def _show_notebook_selector(
+        self, key_buffer: SecureBuffer, salt: bytes, notebooks: list[Notebook]
+    ):
+        """Show the notebook selector widget"""
+        if self.stored_selector:
+            self.stored_selector.show()
+            self.this_layout.addWidget(self.stored_selector)
+            if hasattr(self, "notebook_widget"):
+                self.this_layout.removeWidget(self.notebook_widget)
+            return
+
+        self.stored_selector = NotebookSelector(notebooks, self)
 
         def notebook_selected(notebook: Notebook):
-            self.this_layout.removeWidget(selector)
+            if self.stored_selector:
+                self.stored_selector.hide()
+                self.this_layout.removeWidget(self.stored_selector)
             self._open_notebook(key_buffer, salt, notebook, notebooks)
 
-        _ = selector.notebook_selected.connect(
-            lambda notebook: notebook_selected(notebook)  # pyright: ignore[reportUnknownArgumentType]
+        _ = self.stored_selector.notebook_selected.connect(
+            lambda notebook: notebook_selected(cast(Notebook, notebook))
         )
-        self.this_layout.addWidget(selector)
-        self.setCentralWidget(main_widget)
+        self.this_layout.addWidget(self.stored_selector)
+
+    def _go_back_to_notebook_selector(self):
+        """Go back to the notebook selector from a notebook"""
+        self.logger.debug("Going back to notebook selector")
+        # Already on notebook selector
+        if self.stored_selector and self.stored_selector.isVisible():
+            self.logger.debug("Already on notebook selector, ignoring request")
+            return
+
+        # Save pending changes
+        if hasattr(self, "save_manager"):
+            self.save_manager.mark_dirty()
+            self.save_manager.save()
+
+        # Remove current notebook widgets
+        if hasattr(self, "notebook_widget"):
+            self.this_layout.removeWidget(self.notebook_widget)
+            self.notebook_widget.hide()
+        if hasattr(self, "toolbar"):
+            self.this_layout.removeWidget(self.toolbar)
+            self.toolbar.hide()
+        if hasattr(self, "bottom_toolbar"):
+            self.this_layout.removeWidget(self.bottom_toolbar)
+            self.bottom_toolbar.hide()
+
+        # Hide sidebars
+        if hasattr(self, "sidebar"):
+            self.sidebar.hide()
+        if hasattr(self, "settings_sidebar"):
+            self.settings_sidebar.hide()
+
+        # Clear menu bar
+        menu_bar = self.menuBar()
+        if menu_bar:
+            menu_bar.clear()
+
+        # Show stored notebook selector
+        if self.stored_selector:
+            self.this_layout.addWidget(self.stored_selector)
+            self.stored_selector.show()
+            self.toolbar.set_back_button_visible(False)
+        else:
+            self.logger.warning(
+                "No stored selector available when going back to notebook selection"
+            )
 
     def connect_signals(self, sidebar_toggle: QAction, settings_toggle: QAction):
         """Connects the Page Navigator signals"""
@@ -146,6 +209,9 @@ class MainWindow(QMainWindow):
         )
         _ = self.toolbar.open_navigation.connect(sidebar_toggle.trigger)
         _ = self.toolbar.open_settings.connect(settings_toggle.trigger)
+        _ = self.toolbar.go_to_notebook_selector.connect(
+            self._go_back_to_notebook_selector
+        )
 
         _ = self.bottom_toolbar.tool_changed.connect(
             lambda tool: self.notebook_widget.select_tool(cast(Tool, tool))
@@ -192,9 +258,6 @@ class MainWindow(QMainWindow):
         all_notebooks: list[Notebook],
     ):
         self.logger.debug("Loaded notebook, creating and opening NotebookWidget")
-        self.logger.debug(
-            "Called with params: %s %s %s %s", key_buffer, salt, notebook, all_notebooks
-        )
         self.notebook_widget = NotebookWidget(
             key_buffer, salt, self.statusBar() or QStatusBar(), notebook, all_notebooks
         )
@@ -217,6 +280,10 @@ class MainWindow(QMainWindow):
 
         self.connect_signals(sidebar_action, settings_action)
         self.notebook_widget.update_navbar()
+        self.toolbar.set_back_button_visible(True)
+
         self.this_layout.addWidget(self.toolbar)
         self.this_layout.addWidget(self.notebook_widget)
         self.this_layout.addWidget(self.bottom_toolbar)
+        self.toolbar.show()
+        self.bottom_toolbar.show()

@@ -87,7 +87,9 @@ class NotebookSelector(QWidget):
         """)
 
         def _create_new_notebook():
-            name = self._get_new_notebook_name() or len(notebooks) + 1
+            name = self._get_new_notebook_name()
+            if not name:
+                return
             notebook.metadata["name"] = name
             notebooks.append(notebook)
             self.notebook_selected.emit(notebook)

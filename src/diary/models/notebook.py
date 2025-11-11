@@ -3,6 +3,7 @@ Represents the Notebook model, containing the pages of the Diary
 """
 
 import logging
+import uuid
 from dataclasses import dataclass
 from typing import Any, override
 
@@ -15,10 +16,14 @@ class Notebook:
     """Represents the Notebook with its Pages"""
 
     def __init__(
-        self, pages: list[Page] | None = None, metadata: dict[str, object] | None = None
+        self,
+        pages: list[Page] | None = None,
+        metadata: dict[str, object] | None = None,
+        id: str | None = None,
     ):
         self.pages: list[Page] = pages or []
         self.metadata: dict[str, object] = metadata or {}
+        self.id: str = id or uuid.uuid4().hex
 
     def add_page(self, page: Page | None = None):
         """Adds a new page"""
@@ -37,7 +42,7 @@ class Notebook:
     def remove_page(self, page_index: int) -> bool:
         """Remove a page at the specified index. Returns True if successful."""
         if 0 <= page_index < len(self.pages):
-            self.pages.pop(page_index)
+            _ = self.pages.pop(page_index)
             logging.getLogger("Notebook").debug("Removed page at index: %d", page_index)
             return True
         return False
@@ -70,17 +75,23 @@ class Notebook:
                 page.to_dict() for page in self.pages
             ],
             settings.SERIALIZATION_KEYS.METADATA.value: self.metadata,
+            settings.SERIALIZATION_KEYS.NOTEBOOK_ID.value: self.id,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]):
         """Builds the object from a dictionary"""
+        id = uuid.uuid4().hex
+        if hasattr(data, "id"):
+            id = data["id"]
+
         return cls(
             [
                 Page.from_dict(page)
                 for page in data[settings.SERIALIZATION_KEYS.PAGES.value]
             ],
             data[settings.SERIALIZATION_KEYS.METADATA.value],
+            id,
         )
 
     @override
@@ -90,6 +101,4 @@ class Notebook:
         if not isinstance(value, Notebook):
             return False
 
-        if len(value.pages) != len(self.pages) or value.metadata != self.metadata:
-            return False
-        return value.to_dict() == self.to_dict()
+        return self.id == value.id

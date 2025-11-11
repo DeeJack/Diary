@@ -82,6 +82,7 @@ class Settings(BaseSettings):
         DURATION = "duration"
         TEXT = "text"
         SIZE_PX = "size_px"
+        NOTEBOOK_ID = "id"
 
     @classmethod
     def load_from_file(cls, path: Path) -> "Settings":

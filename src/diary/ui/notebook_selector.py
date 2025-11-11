@@ -108,9 +108,11 @@ class NotebookSelector(QWidget):
         delete_btn.setMinimumHeight(50)
 
         def _on_delete():
-            notebooks.remove(notebook)
-            cast(QVBoxLayout, self.layout()).removeWidget(container)
-            self.list_changed.emit()
+            if notebook in notebooks:
+                notebooks.remove(notebook)
+                layout = cast(QVBoxLayout, self.layout())
+                layout.removeWidget(container)
+                self.list_changed.emit()
 
         _ = delete_btn.clicked.connect(_on_delete)
         self.update()

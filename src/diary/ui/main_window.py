@@ -58,6 +58,7 @@ class MainWindow(QMainWindow):
         self.sidebar: DaysSidebar
         self.notebook_widget: NotebookWidget
         self.settings_sidebar: SettingsSidebar
+        self.save_manager: SaveManager
 
         self.logger.debug("Input dialog result: %s", ok)
 
@@ -111,8 +112,8 @@ class MainWindow(QMainWindow):
         self.bottom_toolbar = BottomToolbar()
 
         notebooks = NotebookDAO.loads(settings.NOTEBOOK_FILE_PATH, key_buffer)
-        selector = NotebookSelector(notebooks, self)
-        save_manager = SaveManager(
+
+        self.save_manager = SaveManager(
             notebooks,
             settings.NOTEBOOK_FILE_PATH,
             key_buffer,
@@ -120,11 +121,7 @@ class MainWindow(QMainWindow):
             self.statusBar() or QStatusBar(),
         )
 
-        def list_changed():
-            save_manager.mark_dirty()
-            save_manager.save_async()
-
-        _ = selector.list_changed.connect(list_changed)
+        selector = NotebookSelector(notebooks, self)
 
         def notebook_selected(notebook: Notebook):
             self.this_layout.removeWidget(selector)
@@ -167,9 +164,10 @@ class MainWindow(QMainWindow):
     def closeEvent(self, a0: QCloseEvent | None):
         """On app close event"""
         self.logger.debug("Close app event!")
-        if a0 and hasattr(self, "notebook") and self.notebook_widget:
+        if a0 and hasattr(self, "save_manager"):
             settings.save_to_file(Path(SETTINGS_FILE_PATH))
-            self.notebook_widget.save_manager.force_save_on_close()
+            self.save_manager.mark_dirty()
+            self.save_manager.force_save_on_close()
             a0.accept()
 
     def pdf_imported(self):

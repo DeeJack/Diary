@@ -1,6 +1,6 @@
 """Select a notebook in the UI"""
 
-from typing import cast
+import logging
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
@@ -19,21 +19,25 @@ class NotebookSelector(QWidget):
 
     def __init__(self, notebooks: list[Notebook], parent: QWidget | None):
         super().__init__()
-        layout = QVBoxLayout()
-        layout.setContentsMargins(200, 50, 200, 50)
-        layout.setSpacing(15)
+        self._layout: QVBoxLayout = QVBoxLayout()
+        self._build_layout(notebooks)
+        self.setLayout(self._layout)
+
+    def _build_layout(self, notebooks: list[Notebook]):
+        logging.getLogger("NotebookSelector").debug("Building layout")
+        self._layout.setContentsMargins(200, 50, 200, 50)
+        self._layout.setSpacing(15)
 
         label = QLabel("Select Notebook:", self)
         label.setFont(QFont("Ubuntu", 18, QFont.Weight.Bold))
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setStyleSheet("color: #e9ecef; margin-bottom: 20px;")
-        layout.addWidget(label)
-        self.setLayout(layout)
+        self._layout.addWidget(label)
 
         for widget in self._create_notebook_objects(notebooks):
-            layout.addWidget(widget)
-        layout.addWidget(self._new_notebook_obj(notebooks))
-        layout.addStretch()
+            self._layout.addWidget(widget)
+        self._layout.addWidget(self._new_notebook_obj(notebooks))
+        self._layout.addStretch()
 
     def _create_notebook_obj(self, notebook: Notebook, index: int) -> QPushButton:
         button = QPushButton()
@@ -92,6 +96,10 @@ class NotebookSelector(QWidget):
                 return
             notebook.metadata["name"] = name
             notebooks.append(notebook)
+            created_notebook_row = self._create_notebook_row(
+                notebook, notebooks, len(notebooks)
+            )
+            self._layout.insertWidget(self._layout.count() - 2, created_notebook_row)
             self.notebook_selected.emit(notebook)
 
         new_obj.clicked.disconnect()
@@ -108,10 +116,12 @@ class NotebookSelector(QWidget):
         delete_btn.setMinimumHeight(50)
 
         def _on_delete():
+            logging.getLogger("Selector").debug(
+                "Removing notebook: %s", notebook.to_dict()
+            )
             if notebook in notebooks:
                 notebooks.remove(notebook)
-                layout = cast(QVBoxLayout, self.layout())
-                layout.removeWidget(container)
+                self._layout.removeWidget(container)
                 self.list_changed.emit()
 
         _ = delete_btn.clicked.connect(_on_delete)
@@ -139,15 +149,20 @@ class NotebookSelector(QWidget):
         self.update()
         return rename_btn
 
+    def _create_notebook_row(
+        self, notebook: Notebook, notebooks: list[Notebook], index: int
+    ) -> QWidget:
+        container = QWidget()
+        hlayout = QHBoxLayout(container)
+        notebook_btn = self._create_notebook_obj(notebook, index)
+        hlayout.addWidget(notebook_btn)
+        hlayout.addWidget(self._create_delete_btn(notebook, notebooks, container))
+        hlayout.addWidget(self._create_rename_btn(notebook, notebook_btn))
+        return container
+
     def _create_notebook_objects(self, notebooks: list[Notebook]) -> list[QWidget]:
         notebook_widgets: list[QWidget] = []
         for index, notebook in enumerate(notebooks):
-            container = QWidget()
-            hlayout = QHBoxLayout(container)
-            notebook_btn = self._create_notebook_obj(notebook, index)
-            hlayout.addWidget(notebook_btn)
-            hlayout.addWidget(self._create_delete_btn(notebook, notebooks, container))
-            hlayout.addWidget(self._create_rename_btn(notebook, notebook_btn))
-
+            container = self._create_notebook_row(notebook, notebooks, index)
             notebook_widgets.append(container)
         return notebook_widgets

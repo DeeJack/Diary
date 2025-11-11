@@ -82,3 +82,14 @@ class Notebook:
             ],
             data[settings.SERIALIZATION_KEYS.METADATA.value],
         )
+
+    @override
+    def __eq__(self, value: object, /) -> bool:
+        """Checks equality"""
+        # Todo: introduce an ID check
+        if not isinstance(value, Notebook):
+            return False
+
+        if len(value.pages) != len(self.pages) or value.metadata != self.metadata:
+            return False
+        return value.to_dict() == self.to_dict()

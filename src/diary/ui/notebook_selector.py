@@ -61,8 +61,14 @@ class NotebookSelector(QWidget):
         _ = button.clicked.connect(lambda: self.notebook_selected.emit(notebook))
         return button
 
+    def _get_new_notebook_name(self) -> str:
+        name, ok = QInputDialog.getText(self.parentWidget(), "New notebook", "Name")
+        if not ok:
+            return ""
+        return name
+
     def _new_notebook_obj(self, notebooks: list[Notebook]) -> QWidget:
-        notebook = Notebook(pages=[Page()], metadata={"name": "+"})
+        notebook = Notebook(pages=[Page()], metadata={"name": ""})
         new_obj = self._create_notebook_obj(notebook, 0)
         new_obj.setText("+ Create New Notebook")
         new_obj.setStyleSheet("""
@@ -79,7 +85,15 @@ class NotebookSelector(QWidget):
                 border-color: #5aa0c8;
             }
         """)
-        _ = new_obj.clicked.connect(lambda: notebooks.append(notebook))
+
+        def _create_new_notebook():
+            name = self._get_new_notebook_name() or len(notebooks) + 1
+            notebook.metadata["name"] = name
+            notebooks.append(notebook)
+            self.notebook_selected.emit(notebook)
+
+        new_obj.clicked.disconnect()
+        _ = new_obj.clicked.connect(_create_new_notebook)
         return new_obj
 
     def _create_delete_btn(

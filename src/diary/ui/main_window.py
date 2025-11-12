@@ -14,7 +14,6 @@ from PyQt6.QtWidgets import (
     QMenu,
     QMenuBar,
     QMessageBox,
-    QStatusBar,
     QVBoxLayout,
     QWidget,
 )
@@ -115,11 +114,7 @@ class MainWindow(QMainWindow):
         notebooks = NotebookDAO.loads(settings.NOTEBOOK_FILE_PATH, key_buffer)
 
         self.save_manager = SaveManager(
-            notebooks,
-            settings.NOTEBOOK_FILE_PATH,
-            key_buffer,
-            salt,
-            self.statusBar() or QStatusBar(),
+            notebooks, settings.NOTEBOOK_FILE_PATH, key_buffer, salt
         )
 
         self._show_notebook_selector(key_buffer, salt, notebooks)
@@ -251,9 +246,7 @@ class MainWindow(QMainWindow):
         all_notebooks: list[Notebook],
     ):
         self.logger.debug("Loaded notebook, creating and opening NotebookWidget")
-        self.notebook_widget = NotebookWidget(
-            key_buffer, salt, self.statusBar() or QStatusBar(), notebook, all_notebooks
-        )
+        self.notebook_widget = NotebookWidget(key_buffer, salt, notebook, all_notebooks)
         self.notebook_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.sidebar = DaysSidebar(self, self.notebook_widget)

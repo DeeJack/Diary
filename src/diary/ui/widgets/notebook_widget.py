@@ -33,7 +33,6 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         self,
         key_buffer: SecureBuffer,
         salt: bytes,
-        status_bar: QtWidgets.QStatusBar,
         notebook: Notebook,
         all_notebooks: list[Notebook],
     ):
@@ -51,7 +50,6 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             settings.NOTEBOOK_FILE_PATH,
             key_buffer,
             salt,
-            status_bar,
         )
         self.this_scene: QtWidgets.QGraphicsScene = QtWidgets.QGraphicsScene()
 

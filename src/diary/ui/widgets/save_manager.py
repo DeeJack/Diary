@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, QThread, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QStatusBar
 
 from diary.config import settings
 from diary.models import Notebook, NotebookDAO
@@ -26,14 +25,12 @@ class SaveManager(QObject):
         file_path: Path,
         key_buffer: SecureBuffer,
         salt: bytes,
-        status_bar: QStatusBar,
     ):
         super().__init__()
         self.all_notebooks: list[Notebook] = all_notebooks
         self.file_path: Path = file_path
         self.key_buffer: SecureBuffer = key_buffer
         self.salt: bytes = salt
-        self.status_bar: QStatusBar = status_bar
 
         self.logger: logging.Logger = logging.getLogger("SaveManager")
         self.backup_manager: BackupManager = BackupManager()
@@ -67,7 +64,6 @@ class SaveManager(QObject):
             return
 
         self.logger.debug("Saving notebooks...")
-        self.status_bar.showMessage("Saving...")
 
         try:
             NotebookDAO.saves(
@@ -76,7 +72,6 @@ class SaveManager(QObject):
                 self.key_buffer,
                 self.salt,
             )
-            self.status_bar.showMessage("Save completed!")
             self.is_notebook_dirty = False
 
             # Create backup after successful save
@@ -85,7 +80,6 @@ class SaveManager(QObject):
             self.save_completed.emit(True, "Saved successfully")
         except (IOError, OSError, FileNotFoundError) as e:
             self.logger.error("Error saving notebook: %s", e)
-            self.status_bar.showMessage("Save failed!")
             self.save_error.emit(str(e))
 
     def save_async(self) -> None:
@@ -107,7 +101,6 @@ class SaveManager(QObject):
             self.file_path,
             self.key_buffer,
             self.salt,
-            self.status_bar,
         )
         self.save_worker.moveToThread(self.save_thread)
 
@@ -140,9 +133,7 @@ class SaveManager(QObject):
         """Create backup after successful save"""
         try:
             self.logger.debug("Creating backup...")
-            self.status_bar.showMessage("Creating backup...")
             self.backup_manager.save_backups()
-            self.status_bar.showMessage("Backup completed!")
         except (FileNotFoundError, IOError, OSError) as e:
             self.logger.error("Error creating backup: %s", e)
 

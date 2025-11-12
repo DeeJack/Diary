@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, pyqtSignal
-from PyQt6.QtWidgets import QStatusBar
 
 from diary.models import Notebook, NotebookDAO
 from diary.utils.backup import BackupManager
@@ -24,7 +23,6 @@ class SaveWorker(QObject):
         file_path: Path,
         key_buffer: SecureBuffer,
         salt: bytes,
-        status_bar: QStatusBar,
     ):
         super().__init__()
         self.all_notebooks: list[Notebook] = all_notebooks
@@ -34,7 +32,6 @@ class SaveWorker(QObject):
         self._is_cancelled: bool = False
         self.logger: logging.Logger = logging.getLogger("SaveWorker")
         self.backup_manager: BackupManager = BackupManager()
-        self.status_bar: QStatusBar = status_bar
 
     def run(self):
         """Main work function"""
@@ -42,17 +39,13 @@ class SaveWorker(QObject):
             if self._is_cancelled:
                 return
 
-            self.status_bar.showMessage("Saving...")
             self.logger.debug("Saving notebooks...")
             NotebookDAO.saves(
                 self.all_notebooks, self.file_path, self.key_buffer, self.salt
             )
-            self.status_bar.showMessage("Save completed!")
 
             self.logger.debug("Creating backup...")
-            self.status_bar.showMessage("Creating backup...")
             self.backup_manager.save_backups()
-            self.status_bar.showMessage("Backup completed!")
 
             if not self._is_cancelled:
                 self.finished.emit(True, "Saved successfully")

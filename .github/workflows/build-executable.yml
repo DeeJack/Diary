@@ -21,7 +21,7 @@ jobs:
           path: diary
       - run: |
           pip install poetry
-          cd cd $GITHUB_WORKSPACE/diary/
+          cd $GITHUB_WORKSPACE/diary/
           poetry install
           poetry run build-executable
   release:

@@ -20,8 +20,8 @@ jobs:
         with:
           path: diary
       - run: |
+          pwd
           pip install poetry
-          cd $GITHUB_WORKSPACE/diary/
           poetry install
           poetry run build-executable
       - name: Save as artifact

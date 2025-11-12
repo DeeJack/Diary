@@ -20,7 +20,7 @@ jobs:
         with:
           path: diary
       - run: |
-          pwd
+          cd diary
           pip install poetry
           poetry install
           poetry run build-executable
@@ -28,5 +28,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: main
-          path: ${{ github.workspace }}/diary/dist/main.exe
+          path: diary/dist/main.exe
           retention-days: 10

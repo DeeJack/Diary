@@ -146,10 +146,10 @@ class SaveManager(QObject):
         except (FileNotFoundError, IOError, OSError) as e:
             self.logger.error("Error creating backup: %s", e)
 
-    def force_save_on_close(self) -> None:
+    def force_save(self) -> None:
         """Force synchronous save when closing application"""
-        if self.is_notebook_dirty:
-            self.save()
+        self.mark_dirty()
+        self.save()
 
     def stop_auto_save(self) -> None:
         """Stop the auto-save timer"""

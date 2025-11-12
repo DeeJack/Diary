@@ -53,7 +53,7 @@ class MainWindow(QMainWindow):
         )
 
         self.this_layout: QVBoxLayout
-        self.toolbar: PageNavigatorToolbar
+        self.navbar: PageNavigatorToolbar
         self.bottom_toolbar: BottomToolbar
         self.sidebar: DaysSidebar
         self.notebook_widget: NotebookWidget
@@ -109,7 +109,7 @@ class MainWindow(QMainWindow):
         self.this_layout = QVBoxLayout(main_widget)
         self.this_layout.setContentsMargins(0, 0, 0, 0)
         self.this_layout.setSpacing(0)
-        self.toolbar = PageNavigatorToolbar()
+        self.navbar = PageNavigatorToolbar()
         self.bottom_toolbar = BottomToolbar()
 
         notebooks = NotebookDAO.loads(settings.NOTEBOOK_FILE_PATH, key_buffer)
@@ -123,7 +123,7 @@ class MainWindow(QMainWindow):
         )
 
         self._show_notebook_selector(key_buffer, salt, notebooks)
-        self.toolbar.set_back_button_visible(False)
+        self.navbar.set_back_button_visible(False)
 
         self.setCentralWidget(main_widget)
 
@@ -169,8 +169,8 @@ class MainWindow(QMainWindow):
             self.this_layout.removeWidget(self.notebook_widget)
             self.notebook_widget.hide()
         if hasattr(self, "toolbar"):
-            self.this_layout.removeWidget(self.toolbar)
-            self.toolbar.hide()
+            self.this_layout.removeWidget(self.navbar)
+            self.navbar.hide()
         if hasattr(self, "bottom_toolbar"):
             self.this_layout.removeWidget(self.bottom_toolbar)
             self.bottom_toolbar.hide()
@@ -190,7 +190,7 @@ class MainWindow(QMainWindow):
         if self.stored_selector:
             self.this_layout.addWidget(self.stored_selector)
             self.stored_selector.show()
-            self.toolbar.set_back_button_visible(False)
+            self.navbar.set_back_button_visible(False)
         else:
             self.logger.warning(
                 "No stored selector available when going back to notebook selection"
@@ -199,19 +199,15 @@ class MainWindow(QMainWindow):
     def connect_signals(self, sidebar_toggle: QAction, settings_toggle: QAction):
         """Connects the Page Navigator signals"""
         _ = self.notebook_widget.current_page_changed.connect(
-            self.toolbar.update_page_display
+            self.navbar.update_page_display
         )
-        _ = self.toolbar.go_to_first_requested.connect(
-            self.notebook_widget.go_to_first_page
-        )
-        _ = self.toolbar.go_to_last_requested.connect(
-            self.notebook_widget.go_to_last_page
-        )
-        _ = self.toolbar.open_navigation.connect(sidebar_toggle.trigger)
-        _ = self.toolbar.open_settings.connect(settings_toggle.trigger)
-        _ = self.toolbar.go_to_notebook_selector.connect(
+
+        _ = self.navbar.open_navigation.connect(sidebar_toggle.trigger)
+        _ = self.navbar.open_settings.connect(settings_toggle.trigger)
+        _ = self.navbar.go_to_notebook_selector.connect(
             self._go_back_to_notebook_selector
         )
+        _ = self.navbar.save_requested.connect(self.save_manager.force_save)
 
         _ = self.bottom_toolbar.tool_changed.connect(
             lambda tool: self.notebook_widget.select_tool(cast(Tool, tool))
@@ -232,22 +228,19 @@ class MainWindow(QMainWindow):
         self.logger.debug("Close app event!")
         if a0 and hasattr(self, "save_manager"):
             settings.save_to_file(Path(SETTINGS_FILE_PATH))
-            self.save_manager.mark_dirty()
-            self.save_manager.force_save_on_close()
+            self.save_manager.force_save()
             a0.accept()
 
     def pdf_imported(self):
         """When the PDF has been imported, mark notebook as dirty and reload widget"""
-        self.notebook_widget.save_manager.mark_dirty()
+        self.save_manager.force_save()
         self.notebook_widget.reload()
-        self.notebook_widget.save_manager.save_async()
 
     def on_password_changed(self, new_data: tuple[SecureBuffer, bytes]):
         """When the password for the notebook has been changed, save new notebook"""
-        self.notebook_widget.save_manager.key_buffer = new_data[0]
-        self.notebook_widget.save_manager.salt = new_data[1]
-        self.notebook_widget.save_manager.mark_dirty()
-        self.notebook_widget.save_manager.save()
+        self.save_manager.key_buffer = new_data[0]
+        self.save_manager.salt = new_data[1]
+        self.save_manager.force_save()
         self.logger.info("Password changed; saved new encrypted file")
 
     def _open_notebook(
@@ -280,10 +273,10 @@ class MainWindow(QMainWindow):
 
         self.connect_signals(sidebar_action, settings_action)
         self.notebook_widget.update_navbar()
-        self.toolbar.set_back_button_visible(True)
+        self.navbar.set_back_button_visible(True)
 
-        self.this_layout.addWidget(self.toolbar)
+        self.this_layout.addWidget(self.navbar)
         self.this_layout.addWidget(self.notebook_widget)
         self.this_layout.addWidget(self.bottom_toolbar)
-        self.toolbar.show()
+        self.navbar.show()
         self.bottom_toolbar.show()

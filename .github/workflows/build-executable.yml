@@ -1,0 +1,33 @@
+name: Build executable
+on:
+  push:
+    tags:
+      - "v*" # v1.0
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - "main"
+    paths:
+      - ".github/workflows/build-executable.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/') # Only run this job if the workflow was triggered by a tag push
+    steps:
+      - name: Checkout main repository
+        uses: actions/checkout@v2
+        with:
+          path: diary
+      - run: |
+          pip install poetry
+          cd $GITHUB_WORKSPACE/diary/
+          poetry install
+          poetry run build-executable
+          ls -la dist/
+      - name: Save as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: main
+          path: ${{ github.workspace }}/diary/dist/main
+          retention-days: 10

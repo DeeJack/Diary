@@ -349,7 +349,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         self._logger.debug("Close app event!")
         if a0 and self.notebook:
             settings.save_to_file(Path(SETTINGS_FILE_PATH))
-            self.save_manager.force_save_on_close()
+            self.save_manager.force_save()
 
     def _get_current_page_index(self):
         """Estimate current page index based on viewport"""

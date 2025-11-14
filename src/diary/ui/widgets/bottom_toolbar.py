@@ -76,6 +76,9 @@ class BottomToolbar(QToolBar):
             lambda: self.color_changed.emit(self.color_dialog.currentColor())
         )
 
+        self.info_label: QLabel = QLabel()
+        self.info_label.setFont(QFont("Times New Roman", 12))
+
         self.buttons: list[QPushButton] = [
             self.pen_btn,
             self.eraser_btn,
@@ -85,6 +88,7 @@ class BottomToolbar(QToolBar):
             self.selection_btn,
         ]
 
+        _ = self.addWidget(self.info_label)
         self._add_filling_spacer()
         for button in self.buttons:
             _ = self.addWidget(button)
@@ -126,6 +130,14 @@ class BottomToolbar(QToolBar):
         spacer = QWidget()
         spacer.setFixedWidth(int(width))
         _ = self.addWidget(spacer)
+
+    def set_info_text(self, text: str):
+        """Set the text for the info label"""
+        self.info_label.setText(text)
+
+    def clear_text(self):
+        """Clear the text from the info label"""
+        self.info_label.setText("")
 
 
 def create_button(text: str) -> QPushButton:

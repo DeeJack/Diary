@@ -30,6 +30,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
     """Widget for displaying diary pages using QGraphicsItem architecture"""
 
     add_below_dynamic: pyqtSignal = pyqtSignal()
+    add_below: pyqtSignal = pyqtSignal(int)
     delete_page: pyqtSignal = pyqtSignal(int)
     needs_regeneration: pyqtSignal = pyqtSignal(int)
     page_modified: pyqtSignal = pyqtSignal()
@@ -134,13 +135,13 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self.title_label.setStyleSheet("color: black;")
 
         # Create "Add below" button
-        # btn_below = QtWidgets.QPushButton("+")
-        # btn_below.setFont(QtGui.QFont("Times New Roman", 14, 16))
-        # btn_below.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
-        # btn_below.setFixedWidth(30)
-        # btn_below.setStyleSheet("background-color: #515151")
-        # btn_below.setToolTip("Add page below")
-        # _ = btn_below.clicked.connect(lambda: self.add_below.emit(self))
+        btn_below = QtWidgets.QPushButton("+")
+        btn_below.setFont(QtGui.QFont("Times New Roman", 14, 16))
+        btn_below.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, True)
+        btn_below.setFixedWidth(30)
+        btn_below.setStyleSheet("background-color: #515151")
+        btn_below.setToolTip("Add page below")
+        _ = btn_below.clicked.connect(lambda: self.add_below.emit(self.page_index))
 
         change_date_btn = QtWidgets.QPushButton("📅")
         change_date_btn.setFont(QtGui.QFont("Times New Roman", 12))
@@ -160,7 +161,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
 
         btn_row = QtWidgets.QHBoxLayout()
         btn_row.addStretch()
-        # btn_row.addWidget(btn_below)
+        btn_row.addWidget(btn_below)
         btn_row.addWidget(change_date_btn)
         btn_row.addWidget(delete_btn)
         btn_row.addStretch()

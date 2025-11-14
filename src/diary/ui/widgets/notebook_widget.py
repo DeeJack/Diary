@@ -167,6 +167,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         )
         _ = page_widget.delete_page.connect(self._delete_page)
         _ = page_widget.page_modified.connect(self.save_manager.mark_dirty)
+        _ = page_widget.add_below.connect(self.add_page_below)
 
         # Add to scene as proxy widget
         try:
@@ -304,6 +305,38 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             self.this_scene.removeItem(background)
             del self.page_backgrounds[page_idx]
 
+        self._update_pages(page_idx)
+
+    def add_page_below(self, page_idx: int):
+        """Adds a page below the provided index"""
+        self._logger.debug("Adding page below %s", page_idx)
+        new_page = Page()
+        self.notebook.add_page(new_page, page_idx + 1)
+        new_page_idx = page_idx + 1
+        y_offset = new_page_idx * self.page_height
+        background = QtWidgets.QGraphicsRectItem(
+            0, y_offset, settings.PAGE_WIDTH, settings.PAGE_HEIGHT
+        )
+        background.setBrush(QtGui.QBrush(QtGui.QColor(settings.PAGE_BACKGROUND_COLOR)))
+        self.this_scene.addItem(background)
+        self.page_backgrounds[new_page_idx] = background
+
+        # Update scene rect to include the new page
+        total_height = len(self.notebook.pages) * self.page_height
+        self.this_scene.setSceneRect(0, 0, settings.PAGE_WIDTH, total_height)
+
+        # Load the new page
+        proxy_widget = self._add_page_to_scene(new_page, new_page_idx)
+        if proxy_widget:
+            # Position the new page
+            proxy_widget.setPos(0, y_offset)
+            self.active_page_widgets[new_page_idx] = proxy_widget
+
+        self.save_manager.mark_dirty()
+
+        self._update_pages(page_idx)
+
+    def _update_pages(self, page_idx: int = 0):
         # Update indices for pages after the deleted one
         widgets_to_update: dict[int, QtWidgets.QGraphicsProxyWidget] = {}
         backgrounds_to_update: dict[int, QtWidgets.QGraphicsRectItem] = {}

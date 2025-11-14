@@ -25,7 +25,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
     )  # current_page_index, total_pages
     current_zoom: float = 1.0
     min_zoom: float = 0.6
-    max_zoom: float = 1.4
+    max_zoom: float = 1.7
     page_height: int = settings.PAGE_HEIGHT + settings.PAGE_BETWEEN_SPACING
     _initial_load_complete: bool = False
 

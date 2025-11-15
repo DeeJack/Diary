@@ -25,7 +25,7 @@ class Notebook:
         self.metadata: dict[str, object] = metadata or {}
         self.id: str = id or uuid.uuid4().hex
 
-    def add_page(self, page: Page | None = None):
+    def add_page(self, page: Page | None = None, page_idx: int = -1):
         """Adds a new page"""
         page = page or Page()
 
@@ -37,7 +37,10 @@ class Notebook:
         logging.getLogger("Notebook").debug(
             "Created new page with streak lvl: %d", page.streak_lvl
         )
-        self.pages.append(page)
+        if page_idx == -1:
+            self.pages.append(page)
+        else:
+            self.pages.insert(page_idx, page)
 
     def remove_page(self, page_index: int) -> bool:
         """Remove a page at the specified index. Returns True if successful."""

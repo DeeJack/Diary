@@ -29,8 +29,12 @@ reportUnknownMemberType=false
 reportUnknownLambdaType=false
 reportUnusedFunction=true
 reportMissingTypeStubs=false
-ignore=["**/.venv"]
-exclude=["**/AppData/*", "**/.venv/*"]
+
+[tool.pyright]
+reportUnknownMemberType=false
+reportUnknownLambdaType=false
+reportUnusedFunction=true
+reportMissingTypeStubs=false
 
 [[tool.mypy.overrides]]
 module = ["msgpack.*"]

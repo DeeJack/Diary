@@ -3,7 +3,7 @@
 import logging
 import sys
 from pathlib import Path
-from typing import cast, override
+from typing import Literal, cast, override
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
@@ -83,23 +83,9 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         self.page_backgrounds.clear()
 
         for i, _ in enumerate(self.notebook.pages):
-            y_offset = i * self.page_height
+            self._create_page_background(i)
 
-            # Create a light background rectangle
-            background = QtWidgets.QGraphicsRectItem(
-                0, y_offset, settings.PAGE_WIDTH, settings.PAGE_HEIGHT
-            )
-            background.setBrush(
-                QtGui.QBrush(QtGui.QColor(settings.PAGE_BACKGROUND_COLOR))
-            )
-            # background.setPen(QColor(settings.PAGE_BACKGROUND_COLOR))
-
-            self.this_scene.addItem(background)
-            self.page_backgrounds[i] = background
-
-        # Set scene rect to contain all pages
-        total_height = len(self.notebook.pages) * self.page_height
-        self.this_scene.setSceneRect(0, 0, settings.PAGE_WIDTH, total_height)
+        self._update_scene_rect()
 
     def _on_scroll(self, value: int = 0) -> None:
         """Handle scroll events to lazy load pages"""
@@ -133,26 +119,13 @@ class NotebookWidget(QtWidgets.QGraphicsView):
                     self.this_scene.removeItem(proxy_widget)
                     self._logger.debug("Unloaded page %s", page_index)
                 except RuntimeError:
-                    pass  # Object has been destoryed (when closing)
+                    pass  # Object has been destroyed (when closing)
 
         # Load new widgets
         for page_index in pages_to_load:
             if page_index not in self.active_page_widgets:
                 page_data = self.notebook.pages[page_index]
-                proxy_widget = self._add_page_to_scene(page_data, page_index)
-                if not proxy_widget:
-                    return
-
-                # Calculate the y_offset for this page
-                y_offset = page_index * self.page_height
-                proxy_widget.setPos(0, y_offset)
-
-                # Store the active widget
-                self.active_page_widgets[page_index] = proxy_widget
-
-                self._logger.debug(
-                    "Loaded page %s at y_offset %s", page_index, y_offset
-                )
+                self._load_and_position_page(page_index, page_data)
         # Update current page indicator
         self.update_navbar()
 
@@ -167,6 +140,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         )
         _ = page_widget.delete_page.connect(self._delete_page)
         _ = page_widget.page_modified.connect(self.save_manager.mark_dirty)
+        _ = page_widget.add_below.connect(self.add_page_below)
 
         # Add to scene as proxy widget
         try:
@@ -250,37 +224,11 @@ class NotebookWidget(QtWidgets.QGraphicsView):
     def _add_page_below_dynamic(self, page_idx: int) -> None:
         """Add a page below if this is the last page"""
         if page_idx == len(self.notebook.pages) - 1:
-            self.notebook.add_page()
-
-            new_page_idx = len(self.notebook.pages) - 1
-            new_page_data = self.notebook.pages[new_page_idx]
-
-            # Add background
-            y_offset = new_page_idx * self.page_height
-            background = QtWidgets.QGraphicsRectItem(
-                0, y_offset, settings.PAGE_WIDTH, settings.PAGE_HEIGHT
-            )
-            background.setBrush(
-                QtGui.QBrush(QtGui.QColor(settings.PAGE_BACKGROUND_COLOR))
-            )
-            self.this_scene.addItem(background)
-            self.page_backgrounds[new_page_idx] = background
-
-            # Update scene rect to include the new page
-            total_height = len(self.notebook.pages) * self.page_height
-            self.this_scene.setSceneRect(0, 0, settings.PAGE_WIDTH, total_height)
-
-            # Load the new page
-            proxy_widget = self._add_page_to_scene(new_page_data, new_page_idx)
-            if proxy_widget:
-                # Position the new page
-                proxy_widget.setPos(0, y_offset)
-                self.active_page_widgets[new_page_idx] = proxy_widget
-
-            self.save_manager.mark_dirty()
+            self.add_page_below(page_idx)
 
     def _delete_page(self, page_idx: int) -> None:
         """Delete a page at the specified index"""
+        self._logger.debug("Deleting page %s", page_idx)
         # Prevent deletion if it's the only page
         if len(self.notebook.pages) <= 1:
             _ = show_info_dialog(
@@ -304,41 +252,33 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             self.this_scene.removeItem(background)
             del self.page_backgrounds[page_idx]
 
-        # Update indices for pages after the deleted one
-        widgets_to_update: dict[int, QtWidgets.QGraphicsProxyWidget] = {}
-        backgrounds_to_update: dict[int, QtWidgets.QGraphicsRectItem] = {}
+        self._update_pages_after_deletion(page_idx)
 
-        for idx in list(self.active_page_widgets.keys()):
-            if idx > page_idx:
-                # Move widget and background up
-                new_idx = idx - 1
-                new_y_offset = new_idx * self.page_height
+    def add_page_below(self, page_idx: int):
+        """Adds a page below the provided index"""
+        self._logger.debug("Adding page below %s", page_idx)
+        new_page = Page()
+        self.notebook.add_page(new_page, page_idx + 1)
+        new_page_idx = page_idx + 1
 
-                # Update widget position and index
-                widget = self.active_page_widgets[idx]
-                widget.setPos(0, new_y_offset)
-                cast(PageGraphicsWidget, widget.widget()).page_index = new_idx
-                widgets_to_update[new_idx] = widget
+        # update all widgets by shifting them down
+        self._reindex_pages(page_idx, direction=1)
 
-                # Update background position
-                if idx in self.page_backgrounds:
-                    background = self.page_backgrounds[idx]
-                    background.setPos(0, new_y_offset)
-                    backgrounds_to_update[new_idx] = background
+        # Now add the new page's background at the correct position
+        self._create_page_background(new_page_idx)
+        self._update_scene_rect()
 
-        # Clear old indices and update with new ones
-        for idx in list(self.active_page_widgets.keys()):
-            if idx > page_idx:
-                del self.active_page_widgets[idx]
-                if idx in self.page_backgrounds:
-                    del self.page_backgrounds[idx]
+        # Load the new page if it's in the visible range
+        self._load_and_position_page(new_page_idx, new_page)
 
-        self.active_page_widgets.update(widgets_to_update)
-        self.page_backgrounds.update(backgrounds_to_update)
+        self.save_manager.mark_dirty()
+        self.update_navbar()
 
-        # Update scene rect
-        total_height = len(self.notebook.pages) * self.page_height
-        self.this_scene.setSceneRect(0, 0, settings.PAGE_WIDTH, total_height)
+    def _update_pages_after_deletion(self, page_idx: int):
+        """Update indices and positions for pages after a deletion."""
+        self._reindex_pages(page_idx, direction=-1)
+
+        self._update_scene_rect()
 
         self.save_manager.mark_dirty()
         self.update_navbar()
@@ -543,3 +483,72 @@ class NotebookWidget(QtWidgets.QGraphicsView):
                 return True
 
         return False
+
+    def _create_page_background(self, page_idx: int):
+        """Create a page background for unloaded pages"""
+        y_offset = page_idx * self.page_height
+
+        # Create a light background rectangle
+        background = QtWidgets.QGraphicsRectItem(
+            0, y_offset, settings.PAGE_WIDTH, settings.PAGE_HEIGHT
+        )
+        background.setBrush(QtGui.QBrush(QtGui.QColor(settings.PAGE_BACKGROUND_COLOR)))
+
+        self.this_scene.addItem(background)
+        self.page_backgrounds[page_idx] = background
+
+    def _update_scene_rect(self):
+        """Update the scene rect to fit all pages"""
+        total_height = len(self.notebook.pages) * self.page_height
+        self.this_scene.setSceneRect(0, 0, settings.PAGE_WIDTH, total_height)
+
+    def _reindex_pages(self, start_idx: int, direction: Literal[1, -1]):
+        """Reindex pages starting from start_idx in the given direction (1 for insertion, -1 for deletion)"""
+        widgets_to_update: dict[int, QtWidgets.QGraphicsProxyWidget] = {}
+        backgrounds_to_update: dict[int, QtWidgets.QGraphicsRectItem] = {}
+
+        # Process in reverse order to avoid key conflicts during updates
+        for idx in sorted(self.active_page_widgets.keys(), reverse=True):
+            if idx > start_idx:
+                # Move widget and background down (increment index)
+                new_idx = idx + direction
+                new_y_offset = new_idx * self.page_height
+
+                # Update widget position and index
+                widget = self.active_page_widgets[idx]
+                widget.setPos(0, new_y_offset)
+                cast(PageGraphicsWidget, widget.widget()).page_index = new_idx
+                widgets_to_update[new_idx] = widget
+
+        # Process backgrounds in reverse order
+        for idx in sorted(self.page_backgrounds.keys(), reverse=True):
+            if idx > start_idx:
+                # Move background down (increment index)
+                new_idx = idx + direction
+                new_y_offset = new_idx * self.page_height
+
+                background = self.page_backgrounds[idx]
+                background.setPos(0, new_y_offset)
+                backgrounds_to_update[new_idx] = background
+
+        # Clear old indices and update with new ones
+        for idx in list(self.active_page_widgets.keys()):
+            if idx > start_idx:
+                del self.active_page_widgets[idx]
+
+        for idx in list(self.page_backgrounds.keys()):
+            if idx > start_idx:
+                del self.page_backgrounds[idx]
+
+        self.active_page_widgets.update(widgets_to_update)
+        self.page_backgrounds.update(backgrounds_to_update)
+
+    def _load_and_position_page(self, new_page_idx: int, new_page_data: Page):
+        """Load and position a page at the given index"""
+        self._logger.debug("Loaded page %s", new_page_idx)
+
+        y_offset = new_page_idx * self.page_height
+        proxy_widget = self._add_page_to_scene(new_page_data, new_page_idx)
+        if proxy_widget:
+            proxy_widget.setPos(0, y_offset)
+            self.active_page_widgets[new_page_idx] = proxy_widget

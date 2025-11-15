@@ -126,6 +126,7 @@ class MainWindow(QMainWindow):
         self, key_buffer: SecureBuffer, salt: bytes, notebooks: list[Notebook]
     ):
         """Show the notebook selector widget"""
+        self.setWindowTitle(settings.WINDOW_TITLE)
         if self.stored_selector:
             self.stored_selector.show()
             self.this_layout.addWidget(self.stored_selector)
@@ -149,6 +150,8 @@ class MainWindow(QMainWindow):
     def _go_back_to_notebook_selector(self):
         """Go back to the notebook selector from a notebook"""
         self.logger.debug("Going back to notebook selector")
+        self.setWindowTitle(settings.WINDOW_TITLE)
+
         # Already on notebook selector
         if self.stored_selector and self.stored_selector.isVisible():
             self.logger.debug("Already on notebook selector, ignoring request")
@@ -273,3 +276,6 @@ class MainWindow(QMainWindow):
         self.this_layout.addWidget(self.bottom_toolbar)
         self.navbar.show()
         self.bottom_toolbar.show()
+        self.setWindowTitle(
+            f"{settings.WINDOW_TITLE} - {notebook.metadata.get('name', 'Unnamed Notebook')}"
+        )

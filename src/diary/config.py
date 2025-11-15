@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     PREFERRED_THICKNESS: float = 1.0
     PAGE_BACKGROUND_COLOR: str = "#E0E0E0"
     PAGE_LINES_COLOR: str = "#DDCDC4"
+    WINDOW_TITLE: str = "Diary Application"
 
     AUTOSAVE_NOTEBOOK_TIMEOUT: int = 120  # in seconds
     MOUSE_TOOL: Tool = Tool.PEN

@@ -4,7 +4,13 @@ import logging
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import QInputDialog, QLabel, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QInputDialog,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from diary.models import Notebook, Page
 from diary.ui.widgets.save_manager import pyqtSignal
@@ -153,11 +159,11 @@ class NotebookSelector(QWidget):
         self, notebook: Notebook, notebooks: list[Notebook], index: int
     ) -> QWidget:
         container = QWidget()
-        hlayout = QHBoxLayout(container)
+        hLayout = QHBoxLayout(container)
         notebook_btn = self._create_notebook_obj(notebook, index)
-        hlayout.addWidget(notebook_btn)
-        hlayout.addWidget(self._create_delete_btn(notebook, notebooks, container))
-        hlayout.addWidget(self._create_rename_btn(notebook, notebook_btn))
+        hLayout.addWidget(notebook_btn)
+        hLayout.addWidget(self._create_delete_btn(notebook, notebooks, container))
+        hLayout.addWidget(self._create_rename_btn(notebook, notebook_btn))
         return container
 
     def _create_notebook_objects(self, notebooks: list[Notebook]) -> list[QWidget]:

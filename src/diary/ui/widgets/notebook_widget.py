@@ -305,7 +305,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             self.this_scene.removeItem(background)
             del self.page_backgrounds[page_idx]
 
-        self._update_pages(page_idx)
+        self._update_pages_after_deletion(page_idx)
 
     def add_page_below(self, page_idx: int):
         """Adds a page below the provided index"""
@@ -313,6 +313,11 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         new_page = Page()
         self.notebook.add_page(new_page, page_idx + 1)
         new_page_idx = page_idx + 1
+
+        # update all widgets by shifting them down
+        self._update_pages_after_insertion(page_idx)
+
+        # Now add the new page's background at the correct position
         y_offset = new_page_idx * self.page_height
         background = QtWidgets.QGraphicsRectItem(
             0, y_offset, settings.PAGE_WIDTH, settings.PAGE_HEIGHT
@@ -325,7 +330,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         total_height = len(self.notebook.pages) * self.page_height
         self.this_scene.setSceneRect(0, 0, settings.PAGE_WIDTH, total_height)
 
-        # Load the new page
+        # Load the new page if it's in the visible range
         proxy_widget = self._add_page_to_scene(new_page, new_page_idx)
         if proxy_widget:
             # Position the new page
@@ -333,17 +338,57 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             self.active_page_widgets[new_page_idx] = proxy_widget
 
         self.save_manager.mark_dirty()
+        self.update_navbar()
 
-        self._update_pages(page_idx)
+    def _update_pages_after_insertion(self, page_idx: int):
+        """Update indices and positions for pages after an insertion."""
+        widgets_to_update: dict[int, QtWidgets.QGraphicsProxyWidget] = {}
+        backgrounds_to_update: dict[int, QtWidgets.QGraphicsRectItem] = {}
 
-    def _update_pages(self, page_idx: int = 0):
-        # Update indices for pages after the deleted one
+        # Process in reverse order to avoid key conflicts during updates
+        for idx in sorted(self.active_page_widgets.keys(), reverse=True):
+            if idx > page_idx:
+                # Move widget and background down (increment index)
+                new_idx = idx + 1
+                new_y_offset = new_idx * self.page_height
+
+                # Update widget position and index
+                widget = self.active_page_widgets[idx]
+                widget.setPos(0, new_y_offset)
+                cast(PageGraphicsWidget, widget.widget()).page_index = new_idx
+                widgets_to_update[new_idx] = widget
+
+        # Process backgrounds in reverse order
+        for idx in sorted(self.page_backgrounds.keys(), reverse=True):
+            if idx > page_idx:
+                # Move background down (increment index)
+                new_idx = idx + 1
+                new_y_offset = new_idx * self.page_height
+
+                background = self.page_backgrounds[idx]
+                background.setPos(0, new_y_offset)
+                backgrounds_to_update[new_idx] = background
+
+        # Clear old indices and update with new ones
+        for idx in list(self.active_page_widgets.keys()):
+            if idx > page_idx:
+                del self.active_page_widgets[idx]
+
+        for idx in list(self.page_backgrounds.keys()):
+            if idx > page_idx:
+                del self.page_backgrounds[idx]
+
+        self.active_page_widgets.update(widgets_to_update)
+        self.page_backgrounds.update(backgrounds_to_update)
+
+    def _update_pages_after_deletion(self, page_idx: int):
+        """Update indices and positions for pages after a deletion."""
         widgets_to_update: dict[int, QtWidgets.QGraphicsProxyWidget] = {}
         backgrounds_to_update: dict[int, QtWidgets.QGraphicsRectItem] = {}
 
         for idx in list(self.active_page_widgets.keys()):
             if idx > page_idx:
-                # Move widget and background up
+                # Move widget and background up (decrement index)
                 new_idx = idx - 1
                 new_y_offset = new_idx * self.page_height
 

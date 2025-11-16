@@ -252,13 +252,17 @@ class MainWindow(QMainWindow):
         self.notebook_widget = NotebookWidget(key_buffer, salt, notebook, all_notebooks)
         self.notebook_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.sidebar = DaysSidebar(self, self.notebook_widget)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar)
-        self.sidebar.hide()
+        if not hasattr(self, "sidebar"):
+            self.sidebar = DaysSidebar(self, self.notebook_widget)
+            self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar)
+            self.sidebar.hide()
 
-        self.settings_sidebar = SettingsSidebar(self, notebook)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.settings_sidebar)
-        self.settings_sidebar.hide()
+        if not hasattr(self, "settings_sidebar"):
+            self.settings_sidebar = SettingsSidebar(self, notebook)
+            self.addDockWidget(
+                Qt.DockWidgetArea.RightDockWidgetArea, self.settings_sidebar
+            )
+            self.settings_sidebar.hide()
 
         menu_bar = cast(QMenuBar, self.menuBar())
         view_menu = cast(QMenu, menu_bar.addMenu("&"))

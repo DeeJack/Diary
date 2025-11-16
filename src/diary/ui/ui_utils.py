@@ -162,12 +162,14 @@ def smooth_stroke_advanced(stroke_points: list[Point]) -> list[Point]:
         return stroke_points
 
     # Decimate points to remove noise and redundancy
-    decimated = decimate_stroke_points(stroke_points, min_distance=1.25)
+    decimated = decimate_stroke_points(
+        stroke_points, min_distance=settings.SMOOTHING_MIN_DISTANCE
+    )
 
     # Apply Catmull-Rom smoothing for natural curves
-    smoothed = smooth_stroke_catmull_rom(decimated, tension=0.15)
+    smoothed = smooth_stroke_catmull_rom(decimated, tension=settings.SMOOTHING_TENSION)
 
-    averaged = smooth_stroke_moving_average(smoothed, 2)
+    averaged = smooth_stroke_moving_average(smoothed, settings.SMOOTHING_WINDOW_SIZE)
 
     return averaged
 

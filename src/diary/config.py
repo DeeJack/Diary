@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     MOUSE_ENABLED: bool = False
     SMOOTHING_ENABLED: bool = True
 
+    # Smoothing parameters
+    SMOOTHING_MIN_DISTANCE: float = 1.25
+    SMOOTHING_TENSION: float = 0.15
+    SMOOTHING_WINDOW_SIZE: int = 2
+
     class SERIALIZATION_KEYS(Enum):
         """Value used as the keys for the serialization"""
 

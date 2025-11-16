@@ -11,8 +11,10 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QInputDialog,
+    QLabel,
     QLineEdit,
     QPushButton,
+    QSlider,
     QVBoxLayout,
     QWidget,
 )
@@ -57,6 +59,42 @@ class SettingsSidebar(QDockWidget):
         smoothing_checkbox.setChecked(settings.SMOOTHING_ENABLED)
         _ = smoothing_checkbox.checkStateChanged.connect(self._toggle_smoothing)
 
+        # Smoothing parameters sliders
+        min_distance_label = QLabel(
+            f"Min Distance: {settings.SMOOTHING_MIN_DISTANCE:.2f}"
+        )
+        min_distance_slider = QSlider(Qt.Orientation.Horizontal)
+        min_distance_slider.setMinimum(10)  # 0.10
+        min_distance_slider.setMaximum(500)  # 5.00
+        min_distance_slider.setValue(int(settings.SMOOTHING_MIN_DISTANCE * 100))
+        min_distance_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        min_distance_slider.setTickInterval(50)
+        _ = min_distance_slider.valueChanged.connect(
+            lambda v: self._update_min_distance(v, min_distance_label)
+        )
+
+        tension_label = QLabel(f"Tension: {settings.SMOOTHING_TENSION:.2f}")
+        tension_slider = QSlider(Qt.Orientation.Horizontal)
+        tension_slider.setMinimum(0)  # 0.00
+        tension_slider.setMaximum(100)  # 1.00
+        tension_slider.setValue(int(settings.SMOOTHING_TENSION * 100))
+        tension_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        tension_slider.setTickInterval(10)
+        _ = tension_slider.valueChanged.connect(
+            lambda v: self._update_tension(v, tension_label)
+        )
+
+        window_size_label = QLabel(f"Window Size: {settings.SMOOTHING_WINDOW_SIZE}")
+        window_size_slider = QSlider(Qt.Orientation.Horizontal)
+        window_size_slider.setMinimum(1)
+        window_size_slider.setMaximum(10)
+        window_size_slider.setValue(settings.SMOOTHING_WINDOW_SIZE)
+        window_size_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        window_size_slider.setTickInterval(1)
+        _ = window_size_slider.valueChanged.connect(
+            lambda v: self._update_window_size(v, window_size_label)
+        )
+
         import_btn = QPushButton()
         import_btn.setText("Import PDF")
         _ = import_btn.clicked.connect(self._import_pdf)
@@ -80,6 +118,12 @@ class SettingsSidebar(QDockWidget):
         layout.addWidget(mouse_checkbox)
         layout.addWidget(pressure_checkbox)
         layout.addWidget(smoothing_checkbox)
+        layout.addWidget(min_distance_label)
+        layout.addWidget(min_distance_slider)
+        layout.addWidget(tension_label)
+        layout.addWidget(tension_slider)
+        layout.addWidget(window_size_label)
+        layout.addWidget(window_size_slider)
         layout.addWidget(import_btn)
         layout.addWidget(change_pw_btn)
         layout.addWidget(path_container)
@@ -102,6 +146,21 @@ class SettingsSidebar(QDockWidget):
 
     def _toggle_smoothing(self):
         settings.SMOOTHING_ENABLED = not settings.SMOOTHING_ENABLED
+
+    def _update_min_distance(self, value: int, label: QLabel):
+        """Update the minimum distance smoothing parameter"""
+        settings.SMOOTHING_MIN_DISTANCE = value / 100.0
+        label.setText(f"Min Distance: {settings.SMOOTHING_MIN_DISTANCE:.2f}")
+
+    def _update_tension(self, value: int, label: QLabel):
+        """Update the tension smoothing parameter"""
+        settings.SMOOTHING_TENSION = value / 100.0
+        label.setText(f"Tension: {settings.SMOOTHING_TENSION:.2f}")
+
+    def _update_window_size(self, value: int, label: QLabel):
+        """Update the window size smoothing parameter"""
+        settings.SMOOTHING_WINDOW_SIZE = value
+        label.setText(f"Window Size: {settings.SMOOTHING_WINDOW_SIZE}")
 
     def create_toggle_action(self):
         """Create action to open/close the sidebar"""

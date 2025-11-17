@@ -71,7 +71,7 @@ class StrokeGraphicsItem(BaseGraphicsItem):
         if self.isSelected():
             self._draw_selection_highlight(painter)
 
-        if len(self.stroke.points) == 1:
+        if len(self.stroke.points) <= 2:
             self._paint_single_point(painter)
         else:
             self._paint_stroke_path(painter)

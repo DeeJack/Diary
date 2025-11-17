@@ -1,6 +1,7 @@
 """Represents a Point for the ink inside a Page"""
 
 from dataclasses import dataclass
+from typing import override
 
 
 @dataclass()
@@ -25,3 +26,7 @@ class Point:
             float(f"{self.y:.1f}"),
             float(f"{self.pressure:.1f}"),
         ]
+
+    @override
+    def __repr__(self) -> str:
+        return f"Point({self.to_dict()})"

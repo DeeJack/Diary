@@ -37,6 +37,12 @@ class TextGraphicsItem(BaseGraphicsItem):
         # Configure item flags for text
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+        self.setPos(self.text_element.position.x, self.text_element.position.y)
+        positioned_box = self._text_positioned_box()
+
+        self.setTransformOriginPoint(
+            positioned_box.width() / 2, positioned_box.height() / 2
+        )
 
     @property
     def text_element(self) -> Text:
@@ -137,11 +143,12 @@ class TextGraphicsItem(BaseGraphicsItem):
     @override
     def _update_element_position(self, new_position: QPointF) -> None:
         """Update the text element's position when the graphics item moves"""
-        self.text_element.position = Point(
-            new_position.x(), new_position.y(), self.text_element.position.pressure
-        )
-        self.invalidate_cache()
-        self.update()
+        if (
+            0 <= new_position.x() <= settings.PAGE_WIDTH
+            and 0 <= new_position.y() <= settings.PAGE_HEIGHT
+        ):
+            self.text_element.position = Point(new_position.x(), new_position.y(), 0)
+            self.invalidate_cache()
 
     def set_text(self, text: str) -> None:
         """Update the text content"""
@@ -166,25 +173,7 @@ class TextGraphicsItem(BaseGraphicsItem):
         if not self.text_element.text:
             return QRectF()
 
-        font = self._get_font()
-        font_metrics = QFontMetrics(font)
-        text_bound_rect = QRect(
-            int(self.text_element.position.x),
-            int(self.text_element.position.y),
-            int(settings.PAGE_WIDTH - self.text_element.position.x),
-            settings.PAGE_HEIGHT,
-        )
-        # Get text dimensions
-        text_rect = font_metrics.boundingRect(
-            text_bound_rect, Qt.TextFlag.TextWordWrap, self.text_element.text
-        )
-
-        return QRectF(
-            self.text_element.position.x,
-            self.text_element.position.y - font_metrics.ascent(),
-            text_rect.width(),
-            text_rect.height(),
-        )
+        return self._text_positioned_box()
 
     def intersects_point(self, point: QPointF, radius: float = 5.0) -> bool:
         """Check if the text intersects with a point within the given radius"""

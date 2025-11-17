@@ -1,13 +1,11 @@
 """The widget for the Notebook containing the PageWidgets"""
 
 import logging
-import sys
-from pathlib import Path
 from typing import Literal, cast, override
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
-from diary.config import SETTINGS_FILE_PATH, settings
+from diary.config import settings
 from diary.models import Notebook, Page
 from diary.ui.graphics_items.page_graphics_widget import PageGraphicsWidget
 from diary.ui.input import InputType
@@ -205,8 +203,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             return super().keyPressEvent(event)
         if event.key() == QtCore.Qt.Key.Key_Q:
             self._logger.debug("Pressed 'Q', closing...")
-            _ = self.close()
-            sys.exit(0)
+            QtWidgets.QApplication.closeAllWindows()
         return super().keyPressEvent(event)
 
     def save(self) -> None:
@@ -282,14 +279,6 @@ class NotebookWidget(QtWidgets.QGraphicsView):
 
         self.save_manager.mark_dirty()
         self.update_navbar()
-
-    @override
-    def closeEvent(self, a0: QtGui.QCloseEvent | None):
-        """Save notebook on close"""
-        self._logger.debug("Close app event!")
-        if a0 and self.notebook:
-            settings.save_to_file(Path(SETTINGS_FILE_PATH))
-            self.save_manager.force_save()
 
     def _get_current_page_index(self):
         """Estimate current page index based on viewport"""
@@ -416,7 +405,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             active_tool = settings.TABLET_TOOL
             device = InputType.TABLET
         else:  # Mouse event
-            active_tool = settings.MOUSE_TOOL
+            active_tool = settings.TABLET_TOOL
             device = InputType.MOUSE
 
         if active_tool in {Tool.DRAG, Tool.SELECTION} or (

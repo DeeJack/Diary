@@ -322,24 +322,15 @@ class PageGraphicsWidget(QtWidgets.QWidget):
     def _finish_current_stroke(self, device: InputType) -> None:
         """Finish the current stroke"""
         _ = device  # Mark parameter as used to avoid warnings
-        if (
-            self._current_stroke
-            and self._current_stroke_item
-            and settings.SMOOTHING_ENABLED
-            and len(self._current_stroke.points) > 2
-        ):
-            # Smooth the stroke points
-            smoothed_points = smooth_stroke_advanced(self._current_points)
+        if self._current_stroke and self._current_stroke_item:
+            self._logger.debug(
+                "Finished stroke with %s points", len(self._current_stroke.points)
+            )
+            self._scene.force_background_redraw()
 
-            self._current_stroke_item.set_points(smoothed_points)
-
-            self._logger.debug("Finished stroke with %s points", len(smoothed_points))
-
-        self._scene.force_background_redraw()
-
-        self._current_stroke = None
-        self._current_stroke_item = None
-        self._is_drawing = False
+            self._current_stroke = None
+            self._current_stroke_item = None
+            self._is_drawing = False
         QtWidgets.QApplication.setOverrideCursor(self._last_cursor)
 
     def handle_tablet_event(self, event: QtGui.QTabletEvent, position: QPointF) -> bool:

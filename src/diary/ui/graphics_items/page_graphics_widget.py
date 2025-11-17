@@ -194,7 +194,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         """Handle drawing input from mouse, tablet, or touch"""
         # Use device-specific tool
         if device == InputType.MOUSE:
-            current_tool = settings.MOUSE_TOOL
+            current_tool = settings.TABLET_TOOL
         else:  # TABLET or TOUCH
             current_tool = settings.TABLET_TOOL
 

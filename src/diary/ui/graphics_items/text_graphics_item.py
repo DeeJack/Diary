@@ -2,7 +2,7 @@
 
 from typing import cast, override
 
-from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtCore import QPointF, QRect, QRectF, Qt
 from PyQt6.QtGui import (
     QColor,
     QFont,
@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from diary.config import settings
 from diary.models.elements.text import Text
 from diary.models.point import Point
 
@@ -50,19 +51,7 @@ class TextGraphicsItem(BaseGraphicsItem):
                 self.text_element.position.x, self.text_element.position.y, 10, 10
             )
 
-        font = self._get_font()
-        font_metrics = QFontMetrics(font)
-
-        # Get text dimensions
-        text_rect = font_metrics.boundingRect(self.text_element.text)
-
-        # Position the rectangle at the text element's position
-        positioned_rect = QRectF(
-            self.text_element.position.x,
-            self.text_element.position.y - font_metrics.ascent(),
-            text_rect.width(),
-            text_rect.height(),
-        )
+        positioned_rect = self._text_positioned_box()
 
         # Add some padding for selection highlighting
         padding = 4.0
@@ -94,8 +83,12 @@ class TextGraphicsItem(BaseGraphicsItem):
         painter.setPen(QPen(text_color))
 
         # Draw the text at the element's position
-        text_point = QPointF(self.text_element.position.x, self.text_element.position.y)
-        painter.drawText(text_point, self.text_element.text)
+        text_rect = self._text_positioned_box()
+        painter.drawText(
+            text_rect,
+            Qt.TextFlag.TextWordWrap,
+            self.text_element.text,
+        )
 
         # Draw cursor if this text is being edited (optional future enhancement)
         if hasattr(self, "_show_cursor") and self._show_cursor:
@@ -104,16 +97,7 @@ class TextGraphicsItem(BaseGraphicsItem):
     def _draw_selection_highlight(self, painter: QPainter) -> None:
         """Draw selection highlight behind the text"""
         # Get text bounds without padding
-        font = self._get_font()
-        font_metrics = QFontMetrics(font)
-        text_rect = font_metrics.boundingRect(self.text_element.text)
-
-        positioned_rect = QRectF(
-            self.text_element.position.x,
-            self.text_element.position.y - font_metrics.ascent(),
-            text_rect.width(),
-            text_rect.height(),
-        )
+        positioned_rect = self._text_positioned_box()
 
         # Draw semi-transparent selection background
         selection_color = QColor(0, 120, 255, 64)  # Semi-transparent blue
@@ -147,7 +131,6 @@ class TextGraphicsItem(BaseGraphicsItem):
         if self._font is None:
             self._font = QFont()
             self._font.setPointSizeF(self.text_element.size_px)
-            # You can add more font properties here (family, weight, style, etc.)
 
         return self._font
 
@@ -185,7 +168,16 @@ class TextGraphicsItem(BaseGraphicsItem):
 
         font = self._get_font()
         font_metrics = QFontMetrics(font)
-        text_rect = font_metrics.boundingRect(self.text_element.text)
+        text_bound_rect = QRect(
+            int(self.text_element.position.x),
+            int(self.text_element.position.y),
+            int(settings.PAGE_WIDTH - self.text_element.position.x),
+            settings.PAGE_HEIGHT,
+        )
+        # Get text dimensions
+        text_rect = font_metrics.boundingRect(
+            text_bound_rect, Qt.TextFlag.TextWordWrap, self.text_element.text
+        )
 
         return QRectF(
             self.text_element.position.x,
@@ -242,3 +234,25 @@ class TextGraphicsItem(BaseGraphicsItem):
         if event and event.button() == Qt.MouseButton.LeftButton:
             pass
         super().mouseDoubleClickEvent(event)
+
+    def _text_positioned_box(self) -> QRectF:
+        font = self._get_font()
+        font_metrics = QFontMetrics(font)
+
+        text_bound_rect = QRect(
+            int(self.text_element.position.x),
+            int(self.text_element.position.y),
+            int(settings.PAGE_WIDTH - self.text_element.position.x),
+            int(settings.PAGE_HEIGHT - self.text_element.position.y),
+        )
+        # Get text dimensions
+        text_rect = font_metrics.boundingRect(
+            text_bound_rect, Qt.TextFlag.TextWordWrap, self.text_element.text
+        )
+        positioned_rect = QRectF(
+            self.text_element.position.x,
+            self.text_element.position.y - font_metrics.ascent(),
+            text_rect.width(),
+            text_rect.height(),
+        )
+        return positioned_rect

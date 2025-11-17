@@ -289,6 +289,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self._is_drawing = True
         self._points_since_smooth = 0
         self._current_points = []
+        self._smoothed_points = []
         self._logger.debug("Started new stroke at %s", scene_pos)
         self._last_cursor = self.cursor()
         QtWidgets.QApplication.setOverrideCursor(Qt.CursorShape.BlankCursor)
@@ -310,14 +311,32 @@ class PageGraphicsWidget(QtWidgets.QWidget):
 
         self._current_points.append(point)
         self._points_since_smooth += 1
+
         if (
             settings.SMOOTHING_ENABLED
             and self._points_since_smooth >= 4
             and len(self._current_points) > 6
         ):
-            smoothed_points = smooth_stroke_advanced(self._current_points)
-            self._current_stroke_item.set_points(smoothed_points)
+            # Get the last 7 points for smoothing
+            window_start = max(0, len(self._smoothed_points) - 3)
+            # Last 3 smoothed points + last 4 current points
+            window_points = (
+                self._smoothed_points[window_start:] + self._current_points[-4:]
+            )
+
+            newly_smoothed = smooth_stroke_advanced(window_points)
+
+            # Only add the new smoothed points
+            if len(self._smoothed_points) > 0:
+                self._smoothed_points = (
+                    self._smoothed_points[:window_start] + newly_smoothed
+                )
+            else:
+                self._smoothed_points = newly_smoothed
+
+            self._current_stroke_item.set_points(self._smoothed_points)
             self._points_since_smooth = 0
+            self._current_points = []
 
     def _finish_current_stroke(self, device: InputType) -> None:
         """Finish the current stroke"""

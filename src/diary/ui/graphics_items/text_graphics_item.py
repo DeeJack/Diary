@@ -254,6 +254,7 @@ class TextGraphicsItem(BaseGraphicsItem):
         # Clean up the edit item
         if scene := self.scene():
             scene.removeItem(self._edit_item)
+        self._edit_item.deleteLater()
         self._edit_item = None
 
         self._show_cursor = False
@@ -262,8 +263,8 @@ class TextGraphicsItem(BaseGraphicsItem):
     @override
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:
         """Handle mouse press events for text editing"""
-        if event and event.button() == Qt.MouseButton.LeftButton:
-            pass
+        # if event and event.button() == Qt.MouseButton.LeftButton:
+        #    pass
         super().mousePressEvent(event)
 
     @override
@@ -284,11 +285,12 @@ class TextGraphicsItem(BaseGraphicsItem):
             self.invalidate_cache()
 
     @override
-    def focusOutEvent(self, event) -> None:
-        """Stop editing when focus is lost"""
-        if self._edit_item is not None:
+    def _handle_selection_change(self, _: bool) -> None:
+        selected = _
+        if self._edit_item is not None and not selected:
             self.stop_editing()
-        super().focusOutEvent(event)
+
+        return super()._handle_selection_change(_)
 
     def _text_positioned_box(self) -> QRectF:
         font = self._get_font()

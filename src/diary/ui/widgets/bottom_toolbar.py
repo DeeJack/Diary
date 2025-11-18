@@ -124,14 +124,15 @@ class BottomToolbar(QToolBar):
             other.setDisabled(False)
             other.setStyleSheet("")  # Reset to default style
         button.setDisabled(True)
-        button.setStyleSheet("""
+        button.setStyleSheet(
+            """
             QPushButton:disabled {
                 background-color: #007acc;
                 color: white;
-                border: 2px solid #005a9e;
                 font-weight: bold;
             }
-        """)
+        """
+        )
         self.tool_changed.emit(tool)
 
     def _add_filling_spacer(self):
@@ -170,7 +171,9 @@ def create_button(text: str) -> QPushButton:
     new_button.setText(text)
     new_button.setFont(QFont("Times New Roman", 14))
     new_button.setFixedWidth(40)
-    new_button.setStyleSheet("""
+    new_button.setFixedHeight(30)
+    new_button.setStyleSheet(
+        """
         QPushButton {
             color: white;
         }
@@ -180,7 +183,8 @@ def create_button(text: str) -> QPushButton:
         QPushButton:pressed {
             background-color: #555;
         }
-    """)
+    """
+    )
     return new_button
 
 

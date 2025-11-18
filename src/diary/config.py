@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     TOUCH_ENABLED: bool = False
     MOUSE_ENABLED: bool = False
     SMOOTHING_ENABLED: bool = True
+    TEXT_SIZE_PX: int = 12
 
     # Smoothing parameters
     SMOOTHING_MIN_DISTANCE: float = 1.25

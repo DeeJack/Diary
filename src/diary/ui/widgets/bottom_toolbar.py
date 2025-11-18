@@ -5,6 +5,7 @@ from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import (
     QColorDialog,
     QLabel,
+    QLineEdit,
     QPushButton,
     QSizePolicy,
     QSlider,
@@ -76,6 +77,16 @@ class BottomToolbar(QToolBar):
             lambda: self.color_changed.emit(self.color_dialog.currentColor())
         )
 
+        text_size_lbl = QLabel()
+        text_size_lbl.setFont(QFont("Times New Roman", 12))
+        text_size_lbl.setText("Text Size (px):")
+        self.text_size_input: QLineEdit = QLineEdit()
+        self.text_size_input.setFixedWidth(60)
+        self.text_size_input.setFont(QFont("Times New Roman", 12))
+        self.text_size_input.setText("12")
+        self.text_size_input.setPlaceholderText("12")
+        _ = self.text_size_input.textChanged.connect(self._on_text_size_changed)
+
         self.info_label: QLabel = QLabel()
         self.info_label.setFont(QFont("Times New Roman", 12))
 
@@ -99,6 +110,10 @@ class BottomToolbar(QToolBar):
         _ = self.addWidget(self.thickness_slider)
         self._add_spacer(30)
         _ = self.addWidget(color_btn)
+        self._add_spacer(30)
+        _ = self.addWidget(text_size_lbl)
+        self._add_spacer(10)
+        _ = self.addWidget(self.text_size_input)
         self._add_filling_spacer()
 
         self._button_clicked(self.pen_btn, Tool.PEN)
@@ -138,6 +153,15 @@ class BottomToolbar(QToolBar):
     def clear_text(self):
         """Clear the text from the info label"""
         self.info_label.setText("")
+
+    def _on_text_size_changed(self, text: str):
+        """Handle text size input changes"""
+        try:
+            size = int(text)
+            if size > 0:
+                settings.TEXT_SIZE_PX = size
+        except ValueError:
+            pass  # Ignore invalid input
 
 
 def create_button(text: str) -> QPushButton:

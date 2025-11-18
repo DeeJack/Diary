@@ -238,7 +238,10 @@ class PageGraphicsWidget(QtWidgets.QWidget):
                 return
 
             text_element = self._scene.create_text(
-                text=text, position=point, color=settings.CURRENT_COLOR, size_px=20.0
+                text=text,
+                position=point,
+                color=settings.CURRENT_COLOR,
+                size_px=settings.TEXT_SIZE_PX,
             )
 
             if text_element:

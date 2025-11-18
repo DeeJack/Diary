@@ -226,6 +226,7 @@ class TextGraphicsItem(BaseGraphicsItem):
 
         # Set width constraint for word wrap
         self._edit_item.setTextWidth(settings.PAGE_WIDTH - self.text_element.position.x)
+        self._edit_item.setToolTip("Edit text here")
 
         # Make it editable and focusable
         self._edit_item.setTextInteractionFlags(
@@ -241,6 +242,8 @@ class TextGraphicsItem(BaseGraphicsItem):
         # Hide the painted text
         self._show_cursor = False
         self.update()
+        self.invalidate_cache()
+        self._edit_item.setFocus()
 
     def stop_editing(self) -> None:
         """Stop text editing mode"""

@@ -10,6 +10,7 @@ from diary.models import Notebook, Page
 from diary.ui.graphics_items.page_graphics_widget import PageGraphicsWidget
 from diary.ui.input import InputType
 from diary.ui.ui_utils import show_info_dialog
+from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.save_manager import SaveManager
 from diary.ui.widgets.tool_selector import Tool
 from diary.utils.encryption import SecureBuffer
@@ -33,6 +34,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         salt: bytes,
         notebook: Notebook,
         all_notebooks: list[Notebook],
+        bottom_toolbar: BottomToolbar,
     ):
         super().__init__()
         self.notebook: Notebook = notebook or Notebook([Page(), Page()])
@@ -41,6 +43,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         self.active_page_widgets: dict[int, QtWidgets.QGraphicsProxyWidget] = {}
         # Dictionary to hold background rectangles for all pages (always visible)
         self.page_backgrounds: dict[int, QtWidgets.QGraphicsRectItem] = {}
+        self.bottom_toolbar: BottomToolbar = bottom_toolbar
 
         # Initialize save manager
         self.save_manager: SaveManager = SaveManager(
@@ -131,7 +134,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         self, page_data: Page, page_index: int
     ) -> QtWidgets.QGraphicsProxyWidget | None:
         # Create the page widget
-        page_widget = PageGraphicsWidget(page_data, page_index)
+        page_widget = PageGraphicsWidget(page_data, page_index, self.bottom_toolbar)
 
         _ = page_widget.add_below_dynamic.connect(
             lambda idx=page_index: self._add_page_below_dynamic(idx)
@@ -201,8 +204,11 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         """Close app with 'Q'"""
         if not event:
             return None
-        if event.key() == QtCore.Qt.Key.Key_Q:
-            self._logger.debug("Pressed 'Q', closing...")
+        if (
+            event.key() == QtCore.Qt.Key.Key_Q
+            and event.modifiers() == QtCore.Qt.KeyboardModifier.ControlModifier
+        ):
+            self._logger.debug("Pressed 'CTRL + Q', closing...")
             QtWidgets.QApplication.closeAllWindows()
             return None
         return super().keyPressEvent(event)

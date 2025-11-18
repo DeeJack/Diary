@@ -20,6 +20,7 @@ from diary.ui.ui_utils import (
     show_error_dialog,
     smooth_stroke_advanced,
 )
+from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.tool_selector import Tool
 
 from .page_graphics_scene import PageGraphicsScene
@@ -35,7 +36,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
     needs_regeneration: pyqtSignal = pyqtSignal(int)
     page_modified: pyqtSignal = pyqtSignal()
 
-    def __init__(self, page: Page, page_index: int):
+    def __init__(self, page: Page, page_index: int, bottom_toolbar: BottomToolbar):
         super().__init__()
 
         self.page_index: int = page_index
@@ -47,6 +48,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self._last_cursor: QtGui.QCursor = self.cursor()
         self._points_since_smooth: int = 0
         self._current_points: list[Point] = []
+        self.bottom_toolbar = bottom_toolbar
 
         # Create the graphics scene and view
         self._scene: PageGraphicsScene = PageGraphicsScene(page)
@@ -228,21 +230,15 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             scene_pos = self._graphics_view.mapToScene(position.toPoint())
             point = Point(scene_pos.x(), scene_pos.y(), 1.0)
 
-            # TODO: Type without opening a dialog
-            text, ok = QtWidgets.QInputDialog.getText(
-                self.parentWidget(),
-                "Insert text",
-                "Text to add",
-            )
-            if not ok:
-                return
-
-            text_element = self._scene.create_text(
-                text=text,
+            text_element = self._scene.create_text_element(
+                text="",
                 position=point,
                 color=settings.CURRENT_COLOR,
                 size_px=settings.TEXT_SIZE_PX,
             )
+            if text_element:
+                self.bottom_toolbar.selection_btn.click()
+                text_element.start_editing()
 
             if text_element:
                 self._logger.debug("Created text element at %s", scene_pos)

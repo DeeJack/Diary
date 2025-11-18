@@ -1,7 +1,7 @@
 """Graphics scene manager for diary page elements using QGraphicsItem architecture"""
 
 import logging
-from typing import override
+from typing import cast, override
 
 from PyQt6.QtCore import QLineF, QObject, QPointF, QRectF, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
@@ -246,6 +246,14 @@ class PageGraphicsScene(QGraphicsScene):
         text_element = Text(text=text, position=position, color=color, size_px=size_px)
         graphics_item = self.add_element(text_element)
         return text_element if graphics_item else None
+
+    def create_text_element(
+        self, text: str, position: Point, color: str = "black", size_px: float = 20.0
+    ) -> TextGraphicsItem | None:
+        """Create a new text element and add it to the scene"""
+        text_element = Text(text=text, position=position, color=color, size_px=size_px)
+        graphics_item = self.add_element(text_element)
+        return cast(TextGraphicsItem, graphics_item)
 
     def create_image(
         self,

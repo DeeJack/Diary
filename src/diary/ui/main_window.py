@@ -249,7 +249,9 @@ class MainWindow(QMainWindow):
         all_notebooks: list[Notebook],
     ):
         self.logger.debug("Loaded notebook, creating and opening NotebookWidget")
-        self.notebook_widget = NotebookWidget(key_buffer, salt, notebook, all_notebooks)
+        self.notebook_widget = NotebookWidget(
+            key_buffer, salt, notebook, all_notebooks, self.bottom_toolbar
+        )
         self.notebook_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         if not hasattr(self, "sidebar"):

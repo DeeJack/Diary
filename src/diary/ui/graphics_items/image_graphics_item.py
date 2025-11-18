@@ -254,9 +254,7 @@ class ImageGraphicsItem(BaseGraphicsItem):
             0 <= new_position.x() <= settings.PAGE_WIDTH
             and 0 <= new_position.y() <= settings.PAGE_HEIGHT
         ):
-            self.image_element.position = Point(
-                new_position.x(), new_position.y(), self.image_element.position.pressure
-            )
+            self.image_element.position = Point(new_position.x(), new_position.y(), 0)
 
     def set_size(self, width: float, height: float) -> None:
         """Update the image size"""

@@ -13,6 +13,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsSceneMouseEvent,
+    QGraphicsTextItem,
     QStyleOptionGraphicsItem,
     QWidget,
 )
@@ -33,15 +34,18 @@ class TextGraphicsItem(BaseGraphicsItem):
         self._font_metrics: QFontMetrics | None = None
         self._text_rect: QRectF | None = None
         self._show_cursor: bool = False
+        self._edit_item: QGraphicsTextItem | None = None
 
         # Configure item flags for text
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
-        self.setPos(self.text_element.position.x, self.text_element.position.y)
-        positioned_box = self._text_positioned_box()
 
+        self.setPos(text_element.position.x, text_element.position.y)
+
+        text_rect = self._text_positioned_box()
+        # Enable transformations (use local coordinates)
         self.setTransformOriginPoint(
-            positioned_box.width() / 2, positioned_box.height() / 2
+            (settings.PAGE_WIDTH - text_element.position.x) / 2, text_rect.height() / 2
         )
 
     @property
@@ -53,9 +57,7 @@ class TextGraphicsItem(BaseGraphicsItem):
     def _calculate_bounding_rect(self) -> QRectF:
         """Calculate the bounding rectangle for the text"""
         if not self.text_element.text:
-            return QRectF(
-                self.text_element.position.x, self.text_element.position.y, 10, 10
-            )
+            return QRectF(0, 0, 10, 10)
 
         positioned_rect = self._text_positioned_box()
 
@@ -71,6 +73,13 @@ class TextGraphicsItem(BaseGraphicsItem):
         widget: QWidget | None = None,
     ) -> None:
         """Paint the text with high-quality font rendering"""
+        # If editing, skip custom painting
+        if self._edit_item is not None:
+            if self.isSelected() and painter:
+                self.configure_painter_quality(painter)
+                self._draw_selection_highlight(painter)
+            return
+
         if not self.text_element.text or not painter:
             return
 
@@ -201,12 +210,52 @@ class TextGraphicsItem(BaseGraphicsItem):
         return TextGraphicsItem(new_text)
 
     def start_editing(self) -> None:
-        """Start text editing mode (future enhancement)"""
-        self._show_cursor = True
+        """Start text editing mode"""
+        if self._edit_item is not None:
+            return
+
+        # Create a QGraphicsTextItem for editing
+        self._edit_item = QGraphicsTextItem(self.text_element.text, self)
+        font = self._get_font()
+        self._edit_item.setFont(font)
+        self._edit_item.setDefaultTextColor(QColor(self.text_element.color))
+        self._edit_item.setPos(
+            0,
+            -QFontMetrics(font).ascent(),
+        )
+
+        # Set width constraint for word wrap
+        self._edit_item.setTextWidth(settings.PAGE_WIDTH - self.text_element.position.x)
+
+        # Make it editable and focusable
+        self._edit_item.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextEditorInteraction
+        )
+
+        # Connect to text changes
+        if document := self._edit_item.document():
+            document.contentsChanged.connect(self._on_text_changed)
+
+        self._edit_item.setFocus()
+
+        # Hide the painted text
+        self._show_cursor = False
         self.update()
 
     def stop_editing(self) -> None:
-        """Stop text editing mode (future enhancement)"""
+        """Stop text editing mode"""
+        if self._edit_item is None:
+            return
+
+        # Get the final text
+        final_text = self._edit_item.toPlainText()
+        self.set_text(final_text)
+
+        # Clean up the edit item
+        if scene := self.scene():
+            scene.removeItem(self._edit_item)
+        self._edit_item = None
+
         self._show_cursor = False
         self.update()
 
@@ -221,16 +270,33 @@ class TextGraphicsItem(BaseGraphicsItem):
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:
         """Handle double-click events for text editing"""
         if event and event.button() == Qt.MouseButton.LeftButton:
-            pass
+            self.start_editing()
+            event.accept()
+            return
         super().mouseDoubleClickEvent(event)
+
+    def _on_text_changed(self) -> None:
+        """Handle live text changes during editing"""
+        if self._edit_item:
+            # Update the underlying text element in real-time
+            new_text = self._edit_item.toPlainText()
+            self.text_element.text = new_text
+            self.invalidate_cache()
+
+    @override
+    def focusOutEvent(self, event) -> None:
+        """Stop editing when focus is lost"""
+        if self._edit_item is not None:
+            self.stop_editing()
+        super().focusOutEvent(event)
 
     def _text_positioned_box(self) -> QRectF:
         font = self._get_font()
         font_metrics = QFontMetrics(font)
 
         text_bound_rect = QRect(
-            int(self.text_element.position.x),
-            int(self.text_element.position.y),
+            0,
+            0,
             int(settings.PAGE_WIDTH - self.text_element.position.x),
             int(settings.PAGE_HEIGHT - self.text_element.position.y),
         )
@@ -239,8 +305,8 @@ class TextGraphicsItem(BaseGraphicsItem):
             text_bound_rect, Qt.TextFlag.TextWordWrap, self.text_element.text
         )
         positioned_rect = QRectF(
-            self.text_element.position.x,
-            self.text_element.position.y - font_metrics.ascent(),
+            0,
+            -font_metrics.ascent(),
             text_rect.width(),
             text_rect.height(),
         )

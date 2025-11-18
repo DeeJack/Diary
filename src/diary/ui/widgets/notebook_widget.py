@@ -200,10 +200,11 @@ class NotebookWidget(QtWidgets.QGraphicsView):
     def keyPressEvent(self, event: QtGui.QKeyEvent | None) -> None:
         """Close app with 'Q'"""
         if not event:
-            return super().keyPressEvent(event)
+            return None
         if event.key() == QtCore.Qt.Key.Key_Q:
             self._logger.debug("Pressed 'Q', closing...")
             QtWidgets.QApplication.closeAllWindows()
+            return None
         return super().keyPressEvent(event)
 
     def save(self) -> None:

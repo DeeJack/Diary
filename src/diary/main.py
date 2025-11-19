@@ -2,7 +2,6 @@
 The main file that starts the Diary PyQt6 application
 """
 
-import ctypes
 import logging
 import os
 import sys

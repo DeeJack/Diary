@@ -30,12 +30,6 @@ reportUnknownLambdaType=false
 reportUnusedFunction=true
 reportMissingTypeStubs=false
 
-[tool.pyright]
-reportUnknownMemberType=false
-reportUnknownLambdaType=false
-reportUnusedFunction=true
-reportMissingTypeStubs=false
-
 [[tool.mypy.overrides]]
 module = ["msgpack.*"]
 follow_untyped_imports = true

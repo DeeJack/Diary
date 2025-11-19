@@ -19,11 +19,11 @@ class Notebook:
         self,
         pages: list[Page] | None = None,
         metadata: dict[str, object] | None = None,
-        id: str | None = None,
+        notebook_id: str | None = None,
     ):
         self.pages: list[Page] = pages or []
         self.metadata: dict[str, object] = metadata or {}
-        self.id: str = id or uuid.uuid4().hex
+        self.notebook_id: str = notebook_id or uuid.uuid4().hex
 
     def add_page(self, page: Page | None = None, page_idx: int = -1):
         """Adds a new page"""
@@ -78,15 +78,15 @@ class Notebook:
                 page.to_dict() for page in self.pages
             ],
             settings.SERIALIZATION_KEYS.METADATA.value: self.metadata,
-            settings.SERIALIZATION_KEYS.NOTEBOOK_ID.value: self.id,
+            settings.SERIALIZATION_KEYS.NOTEBOOK_ID.value: self.notebook_id,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]):
         """Builds the object from a dictionary"""
-        id = uuid.uuid4().hex
+        notebook_id = uuid.uuid4().hex
         if hasattr(data, "id"):
-            id = data["id"]
+            notebook_id = data["id"]
 
         return cls(
             [
@@ -94,14 +94,13 @@ class Notebook:
                 for page in data[settings.SERIALIZATION_KEYS.PAGES.value]
             ],
             data[settings.SERIALIZATION_KEYS.METADATA.value],
-            id,
+            notebook_id,
         )
 
     @override
     def __eq__(self, value: object, /) -> bool:
         """Checks equality"""
-        # Todo: introduce an ID check
         if not isinstance(value, Notebook):
             return False
 
-        return self.id == value.id
+        return self.notebook_id == value.notebook_id

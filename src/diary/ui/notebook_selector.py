@@ -24,7 +24,7 @@ class NotebookSelector(QWidget):
     list_changed: pyqtSignal = pyqtSignal()
 
     def __init__(self, notebooks: list[Notebook], parent: QWidget | None):
-        super().__init__()
+        super().__init__(parent)
         self._layout: QVBoxLayout = QVBoxLayout()
         self._build_layout(notebooks)
         self.setLayout(self._layout)

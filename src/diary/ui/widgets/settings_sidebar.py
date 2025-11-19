@@ -44,6 +44,17 @@ class SettingsSidebar(QDockWidget):
         layout.setContentsMargins(5, 5, 5, 5)
         layout.setSpacing(5)
 
+        for widget in self._create_widgets():
+            layout.addWidget(widget)
+        layout.setSpacing(20)
+        layout.addStretch()
+        main_container.setLayout(layout)
+        main_container.setContentsMargins(10, 10, 10, 10)
+        self.setWidget(main_container)
+
+        self.setFixedWidth(300)
+
+    def _create_widgets(self) -> list[QWidget]:
         mouse_checkbox = QCheckBox()
         mouse_checkbox.setText("Mouse enabled")
         mouse_checkbox.setChecked(settings.MOUSE_ENABLED)
@@ -114,26 +125,20 @@ class SettingsSidebar(QDockWidget):
         path_layout.addWidget(self.notebook_path_txt)
         path_layout.addWidget(save_path_btn)
         path_container.setLayout(path_layout)
-
-        layout.addWidget(mouse_checkbox)
-        layout.addWidget(pressure_checkbox)
-        layout.addWidget(smoothing_checkbox)
-        layout.addWidget(min_distance_label)
-        layout.addWidget(min_distance_slider)
-        layout.addWidget(tension_label)
-        layout.addWidget(tension_slider)
-        layout.addWidget(window_size_label)
-        layout.addWidget(window_size_slider)
-        layout.addWidget(import_btn)
-        layout.addWidget(change_pw_btn)
-        layout.addWidget(path_container)
-        layout.setSpacing(20)
-        layout.addStretch()
-        main_container.setLayout(layout)
-        main_container.setContentsMargins(10, 10, 10, 10)
-        self.setWidget(main_container)
-
-        self.setFixedWidth(300)
+        return [
+            mouse_checkbox,
+            pressure_checkbox,
+            smoothing_checkbox,
+            min_distance_label,
+            min_distance_slider,
+            tension_label,
+            tension_slider,
+            window_size_label,
+            window_size_slider,
+            import_btn,
+            change_pw_btn,
+            path_container,
+        ]
 
     def _toggle_mouse(self):
         settings.MOUSE_ENABLED = not settings.MOUSE_ENABLED

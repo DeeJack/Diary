@@ -49,6 +49,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self._points_since_smooth: int = 0
         self._current_points: list[Point] = []
         self.bottom_toolbar = bottom_toolbar
+        self._smoothed_points: list[Point] = []
 
         # Create the graphics scene and view
         self._scene: PageGraphicsScene = PageGraphicsScene(page)

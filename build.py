@@ -7,13 +7,7 @@ path_to_main = str(HERE / "src" / "diary" / "main.py")
 
 
 def main():
-    PyInstaller.__main__.run(
-        [
-            path_to_main,
-            "--onefile",
-            "--windowed",
-        ]
-    )
+    PyInstaller.__main__.run([path_to_main, "--onefile", "--windowed", "-n", "diary"])
 
 
 if __name__ == "__main__":

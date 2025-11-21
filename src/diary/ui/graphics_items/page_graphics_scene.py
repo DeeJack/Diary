@@ -43,6 +43,23 @@ class PageGraphicsScene(QGraphicsScene):
         self.setSceneRect(0, 0, settings.PAGE_WIDTH, settings.PAGE_HEIGHT)
         self._load_page_elements()
 
+        def _on_selection_changed():
+            selected_elements = self.get_selected_elements()
+            if len(selected_elements) == 1:
+                element = selected_elements[0]
+                if isinstance(element, Image) or isinstance(element, Text):
+                    neighbors = self.get_elements_in_rect(
+                        QRectF(
+                            element.position.x - 5,
+                            element.position.y - 5,
+                            50,
+                            50,
+                        )
+                    )
+                    self._logger.debug("Selected elements: %s", neighbors)
+
+        _ = self.selectionChanged.connect(_on_selection_changed)
+
     @property
     def page(self) -> Page:
         """Get the current page"""

@@ -427,7 +427,8 @@ class NotebookWidget(QtWidgets.QGraphicsView):
 
         # Handle mouse events for drawing
         if isinstance(event, QtGui.QMouseEvent) and settings.MOUSE_ENABLED:
-            return self._handle_mouse_event(event)
+            if not self._handle_mouse_event(event):
+                return super().eventFilter(obj, event)
 
         return super().eventFilter(obj, event)
 
@@ -474,10 +475,10 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             if isinstance(page_widget, PageGraphicsWidget):
                 # Convert to page-local coordinates
                 page_local_pos = scene_pos - proxy_widget.pos()
-                _ = page_widget.handle_mouse_event(event, page_local_pos)
-                self.save_manager.mark_dirty()
-                return True
-
+                handled = page_widget.handle_mouse_event(event, page_local_pos)
+                if handled:
+                    self.save_manager.mark_dirty()
+                return handled
         return False
 
     def _create_page_background(self, page_idx: int):

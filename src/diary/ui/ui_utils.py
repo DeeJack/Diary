@@ -11,6 +11,42 @@ from PyQt6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog, QWidget
 
 from diary.config import settings
 from diary.models import Image, Page, Point
+from diary.ui.stroke_beautifier import StrokeBeautifier
+
+
+# Global beautifier instance
+_beautifier: StrokeBeautifier | None = None
+
+
+def get_beautifier() -> StrokeBeautifier:
+    """Get or create the stroke beautifier singleton."""
+    global _beautifier
+    if _beautifier is None:
+        _beautifier = StrokeBeautifier()
+    return _beautifier
+
+
+def beautify_stroke(stroke_points: list[Point]) -> tuple[list[Point], str | None]:
+    """
+    Attempt to beautify a stroke by recognizing shapes.
+    Falls back to advanced smoothing if no shape is recognized.
+
+    Returns:
+        Tuple of (points, shape_name). If shape_name is None, no shape was recognized.
+    """
+    if len(stroke_points) < 10:
+        return smooth_stroke_advanced(stroke_points), None
+
+    beautifier = get_beautifier()
+    beautified, shape_name = beautifier.beautify_stroke(stroke_points)
+
+    if shape_name:
+        # Shape was recognized, return beautified version
+        print("Recognized shape:", shape_name)
+        return beautified, shape_name
+
+    # No shape recognized, apply regular smoothing
+    return smooth_stroke_advanced(stroke_points), None
 
 
 def smooth_stroke_moving_average(

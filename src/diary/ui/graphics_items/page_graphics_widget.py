@@ -15,6 +15,7 @@ from diary.models.page import Page
 from diary.models.point import Point
 from diary.ui.input import InputAction, InputType
 from diary.ui.ui_utils import (
+    beautify_stroke,
     confirm_delete,
     read_image,
     show_error_dialog,
@@ -225,7 +226,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         """Handle drawing input from mouse, tablet, or touch"""
         # Use device-specific tool
         if device == InputType.MOUSE:
-            current_tool = settings.TABLET_TOOL
+            current_tool = settings.MOUSE_TOOL
         else:  # TABLET or TOUCH
             current_tool = settings.TABLET_TOOL
 
@@ -246,7 +247,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             pressure = 1.0
         match action:
             case InputAction.PRESS:
-                self._start_new_stroke(position, pressure)
+                self._start_new_stroke(position, pressure, device)
             case InputAction.MOVE:
                 self._add_stroke_point(position, pressure)
             case InputAction.RELEASE:
@@ -291,7 +292,9 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             self._is_erasing = False
             QtWidgets.QApplication.setOverrideCursor(self._last_cursor)
 
-    def _start_new_stroke(self, position: QPointF, pressure: float) -> None:
+    def _start_new_stroke(
+        self, position: QPointF, pressure: float, device: InputType
+    ) -> None:
         """Start a new stroke"""
         scene_pos = self._graphics_view.mapToScene(position.toPoint())
         point = Point(scene_pos.x(), scene_pos.y(), pressure)
@@ -319,8 +322,9 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self._current_points = []
         self._smoothed_points = []
         self._logger.debug("Started new stroke at %s", scene_pos)
-        self._last_cursor = self.cursor()
-        QtWidgets.QApplication.setOverrideCursor(Qt.CursorShape.BlankCursor)
+        if device == InputType.TABLET:
+            self._last_cursor = self.cursor()
+            QtWidgets.QApplication.setOverrideCursor(Qt.CursorShape.BlankCursor)
 
         if point.y > settings.PAGE_HEIGHT / 10 * 8:
             self.add_below_dynamic.emit()
@@ -365,11 +369,29 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             self._current_stroke_item.set_points(self._smoothed_points)
             self._points_since_smooth = 0
             self._current_points = []
+        else:
+            # Always show the stroke, even if not smoothing yet
+            # Display smoothed points + current raw points
+            display_points = self._smoothed_points + self._current_points
+            self._current_stroke_item.set_points(display_points)
 
     def _finish_current_stroke(self, device: InputType) -> None:
         """Finish the current stroke"""
         _ = device  # Mark parameter as used to avoid warnings
         if self._current_stroke and self._current_stroke_item:
+            # Get all points (smoothed + remaining current)
+            final_points = self._smoothed_points + self._current_points
+
+            # Apply beautification - try to recognize and beautify shapes
+            if len(final_points) > 0:
+                beautified_points, shape_name = beautify_stroke(final_points)
+
+                if shape_name:
+                    self._logger.info("Recognized shape: %s", shape_name)
+
+                # Update the stroke with beautified points
+                self._current_stroke_item.set_points(beautified_points)
+
             self._logger.debug(
                 "Finished stroke with %s points", len(self._current_stroke.points)
             )

@@ -73,6 +73,7 @@ class Page:
             settings.SERIALIZATION_KEYS.ELEMENT_ID.value: self.page_id,
             settings.SERIALIZATION_KEYS.CREATED_AT.value: self.created_at,
             settings.SERIALIZATION_KEYS.METADATA.value: self.metadata,
+            settings.SERIALIZATION_KEYS.STREAK_LVL.value: self.streak_lvl,
         }
 
     @classmethod
@@ -104,4 +105,5 @@ class Page:
             data[settings.SERIALIZATION_KEYS.CREATED_AT.value],
             data[settings.SERIALIZATION_KEYS.ELEMENT_ID.value],
             data[settings.SERIALIZATION_KEYS.METADATA.value],
+            data.get(settings.SERIALIZATION_KEYS.STREAK_LVL.value, 0),
         )

@@ -90,6 +90,7 @@ class Settings(BaseSettings):
         TEXT = "text"
         SIZE_PX = "size_px"
         NOTEBOOK_ID = "id"
+        STREAK_LVL = "streak_lvl"
 
     @classmethod
     def load_from_file(cls, path: Path) -> "Settings":

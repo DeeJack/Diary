@@ -95,6 +95,33 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         """Get the graphics view"""
         return self._graphics_view
 
+    def cleanup(self) -> None:
+        """Clean up resources before deletion to prevent memory leaks.
+
+        This method disconnects all signals and clears the graphics scene
+        to ensure proper cleanup of Qt objects and prevent segmentation faults.
+        """
+        self._logger.debug(
+            "Cleaning up PageGraphicsWidget for page %s", self.page_index
+        )
+
+        # Disconnect signals to prevent callbacks to deleted objects
+        try:
+            self._scene.page_modified.disconnect()
+            self._scene.element_added.disconnect()
+            self._scene.element_removed.disconnect()
+        except (TypeError, RuntimeError):
+            pass  # Signals may already be disconnected
+
+        # Clean up the scene
+        self._scene.cleanup()
+
+        # Clear references
+        self._current_stroke = None
+        self._current_stroke_item = None
+        self._current_points.clear()
+        self._smoothed_points.clear()
+
     def _setup_graphics_view(self) -> None:
         """Configure the QGraphicsView"""
         # Disable scrollbars since this will be managed by the parent NotebookWidget

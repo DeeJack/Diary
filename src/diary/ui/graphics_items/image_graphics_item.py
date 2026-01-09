@@ -445,3 +445,11 @@ class ImageGraphicsItem(BaseGraphicsItem):
             self.set_size(new_width, new_height)
 
         self.invalidate_cache()
+
+    def cleanup(self) -> None:
+        """Clean up resources to prevent memory leaks.
+
+        Releases the pixmap memory which can be significant for large images.
+        """
+        self._pixmap = None
+        self._scaled_pixmap = None

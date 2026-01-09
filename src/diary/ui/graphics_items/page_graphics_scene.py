@@ -161,6 +161,37 @@ class PageGraphicsScene(QGraphicsScene):
         self.element_modified.emit(element)
         self.page_modified.emit()
 
+    def cleanup(self) -> None:
+        """Clean up resources before deletion to prevent memory leaks.
+
+        This clears all tracking dictionaries and scene items without
+        modifying the underlying page data, and disconnects signals.
+        """
+        self._logger.debug(
+            "Cleaning up PageGraphicsScene with %d items", len(self._element_items)
+        )
+
+        # Disconnect signals to prevent callbacks to deleted objects
+        try:
+            self.element_added.disconnect()
+            self.element_removed.disconnect()
+            self.element_modified.disconnect()
+            self.page_modified.disconnect()
+        except (TypeError, RuntimeError):
+            pass  # Signals may already be disconnected
+
+        # Clean up image graphics items to release pixmap memory
+        for item in self._element_items.values():
+            if isinstance(item, ImageGraphicsItem):
+                item.cleanup()
+
+        # Clear scene items (this removes them from the scene)
+        self.clear()
+
+        # Clear tracking dictionaries
+        self._element_items.clear()
+        self._item_elements.clear()
+
     def clear_all_elements(self) -> None:
         """Clear all elements from the scene"""
         self.clear()

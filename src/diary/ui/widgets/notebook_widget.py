@@ -58,6 +58,43 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         self._layout_page_backgrounds()
         self._on_scroll()  # Initial load
 
+    def cleanup(self) -> None:
+        """Clean up all resources before application close to prevent segfaults.
+        
+        This method should be called from the main window's closeEvent before
+        Qt starts destroying objects, to ensure proper cleanup order.
+        """
+        self._logger.debug("Cleaning up NotebookWidget")
+        
+        # Stop the auto-save timer first
+        self.save_manager.stop_auto_save()
+        
+        # Disconnect scroll handler to prevent callbacks during cleanup
+        scroll_bar = self.verticalScrollBar()
+        if scroll_bar:
+            try:
+                scroll_bar.valueChanged.disconnect(self._on_scroll)
+            except (TypeError, RuntimeError):
+                pass
+        
+        # Clean up all active page widgets
+        for page_index, proxy_widget in list(self.active_page_widgets.items()):
+            self._cleanup_proxy_widget(proxy_widget, page_index)
+        self.active_page_widgets.clear()
+        
+        # Clear page backgrounds
+        for background in self.page_backgrounds.values():
+            try:
+                self.this_scene.removeItem(background)
+            except RuntimeError:
+                pass
+        self.page_backgrounds.clear()
+        
+        # Clear the scene
+        self.this_scene.clear()
+        
+        self._logger.debug("NotebookWidget cleanup complete")
+
     def _setup_notebook_widget(self):
         """Init configurations for the widget"""
         self.setScene(self.this_scene)
@@ -116,11 +153,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         for page_index in pages_to_unload:
             proxy_widget = self.active_page_widgets.pop(page_index, None)
             if proxy_widget:
-                try:
-                    self.this_scene.removeItem(proxy_widget)
-                    self._logger.debug("Unloaded page %s", page_index)
-                except RuntimeError:
-                    pass  # Object has been destroyed (when closing)
+                self._cleanup_proxy_widget(proxy_widget, page_index)
 
         # Load new widgets
         for page_index in pages_to_load:
@@ -150,6 +183,45 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         except RuntimeError:
             return None  # Object has been deleted (when closing)
         return proxy_widget
+
+    def _cleanup_proxy_widget(
+        self, proxy_widget: QtWidgets.QGraphicsProxyWidget, page_index: int
+    ) -> None:
+        """Clean up a proxy widget and its underlying page widget to prevent memory leaks.
+
+        This method properly disconnects signals, clears scene items, and schedules
+        deletion of both the page widget and proxy widget.
+        """
+        try:
+            # Get the underlying page widget
+            page_widget = proxy_widget.widget()
+
+            # Remove from scene first
+            self.this_scene.removeItem(proxy_widget)
+
+            if page_widget and isinstance(page_widget, PageGraphicsWidget):
+                # Disconnect signals from the page widget to prevent callbacks
+                try:
+                    page_widget.add_below_dynamic.disconnect()
+                    page_widget.delete_page.disconnect()
+                    page_widget.page_modified.disconnect()
+                    page_widget.add_below.disconnect()
+                    page_widget.date_changed.disconnect()
+                except (TypeError, RuntimeError):
+                    pass  # Signals may already be disconnected
+
+                # Call cleanup to clear internal resources
+                page_widget.cleanup()
+
+                # Schedule the widget for deletion
+                page_widget.deleteLater()
+
+            # Schedule the proxy widget for deletion
+            proxy_widget.deleteLater()
+
+            self._logger.debug("Unloaded and cleaned up page %s", page_index)
+        except RuntimeError:
+            pass  # Object has been destroyed (when closing)
 
     def _on_page_date_changed(self, page_index: int) -> None:
         """Handle date change on a page by recalculating streak levels"""
@@ -264,11 +336,10 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         if not self.notebook.remove_page(page_idx):
             return
 
-        # Remove page widget from scene
+        # Remove page widget from scene with proper cleanup
         if page_idx in self.active_page_widgets:
-            proxy_widget = self.active_page_widgets[page_idx]
-            self.this_scene.removeItem(proxy_widget)
-            del self.active_page_widgets[page_idx]
+            proxy_widget = self.active_page_widgets.pop(page_idx)
+            self._cleanup_proxy_widget(proxy_widget, page_idx)
 
         # Remove page background
         if page_idx in self.page_backgrounds:
@@ -393,12 +464,9 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         """Reload the notebook from file, refreshing all content"""
         self._logger.debug("Reloading notebook from file")
 
-        # Clear all active widgets
-        for proxy_widget in self.active_page_widgets.values():
-            try:
-                self.this_scene.removeItem(proxy_widget)
-            except RuntimeError:
-                pass  # Object may have been destroyed
+        # Clear all active widgets with proper cleanup
+        for page_index, proxy_widget in list(self.active_page_widgets.items()):
+            self._cleanup_proxy_widget(proxy_widget, page_index)
         self.active_page_widgets.clear()
 
         # Clear page backgrounds

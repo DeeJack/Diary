@@ -281,13 +281,16 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             QtWidgets.QApplication.setOverrideCursor(Qt.CursorShape.BlankCursor)
         elif action == InputAction.MOVE and self._is_erasing:
             # Find and remove elements at position
-            scene_pos = self._graphics_view.mapToScene(position.toPoint())
-            elements = self._scene.get_elements_at_point(scene_pos)
+            try:
+                scene_pos = self._graphics_view.mapToScene(position.toPoint())
+                elements = self._scene.get_elements_at_point(scene_pos)
 
-            for element in elements:
-                if isinstance(element, (Stroke, Text)):
-                    _ = self._scene.remove_element(element.element_id)
-                    self._logger.debug("Erased element %s", element.element_id)
+                for element in elements:
+                    if isinstance(element, (Stroke, Text)):
+                        _ = self._scene.remove_element(element.element_id)
+                        self._logger.debug("Erased element %s", element.element_id)
+            except Exception as e:
+                self._logger.error("Error during eraser operation: %s", e)
         else:
             self._is_erasing = False
             QtWidgets.QApplication.setOverrideCursor(self._last_cursor)

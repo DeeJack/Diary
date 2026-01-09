@@ -103,10 +103,20 @@ class PageGraphicsScene(QGraphicsScene):
             return False
 
         graphics_item = self._element_items[element_id]
-        element = self._item_elements[graphics_item]
+        element = self._item_elements.get(graphics_item)
+        
+        if not element:
+            self._logger.warning("Element data not found for graphics item")
+            return False
 
-        # Remove from scene
-        self.removeItem(graphics_item)
+        try:
+            # Remove from scene
+            self.removeItem(graphics_item)
+        except RuntimeError as e:
+            self._logger.error("RuntimeError removing item from scene: %s", e)
+            # Continue with cleanup even if removeItem failed
+        except Exception as e:
+            self._logger.error("Unexpected error removing item from scene: %s", e)
 
         # Remove from tracking
         del self._element_items[element_id]
@@ -207,10 +217,19 @@ class PageGraphicsScene(QGraphicsScene):
         """Get all elements that intersect with the given point"""
         elements: list[PageElement] = []
 
-        for graphics_item in self.items(point):
-            element = self._item_elements.get(graphics_item)
-            if element:
-                elements.append(element)
+        try:
+            items = self.items(point)
+            for graphics_item in items:
+                # Verify the item is still valid and in our tracking dict
+                if graphics_item is None:
+                    continue
+                element = self._item_elements.get(graphics_item)
+                if element:
+                    elements.append(element)
+        except RuntimeError as e:
+            self._logger.error("RuntimeError accessing items at point: %s", e)
+        except Exception as e:
+            self._logger.error("Unexpected error in get_elements_at_point: %s", e)
 
         return elements
 
@@ -218,10 +237,19 @@ class PageGraphicsScene(QGraphicsScene):
         """Get all elements that intersect with the given rectangle"""
         elements: list[PageElement] = []
 
-        for graphics_item in self.items(rect):
-            element = self._item_elements.get(graphics_item)
-            if element:
-                elements.append(element)
+        try:
+            items = self.items(rect)
+            for graphics_item in items:
+                # Verify the item is still valid and in our tracking dict
+                if graphics_item is None:
+                    continue
+                element = self._item_elements.get(graphics_item)
+                if element:
+                    elements.append(element)
+        except RuntimeError as e:
+            self._logger.error("RuntimeError accessing items in rect: %s", e)
+        except Exception as e:
+            self._logger.error("Unexpected error in get_elements_in_rect: %s", e)
 
         return elements
 
@@ -229,10 +257,18 @@ class PageGraphicsScene(QGraphicsScene):
         """Get all currently selected elements"""
         elements: list[PageElement] = []
 
-        for graphics_item in self.selectedItems():
-            element = self._item_elements.get(graphics_item)
-            if element:
-                elements.append(element)
+        try:
+            selected = self.selectedItems()
+            for graphics_item in selected:
+                if graphics_item is None:
+                    continue
+                element = self._item_elements.get(graphics_item)
+                if element:
+                    elements.append(element)
+        except RuntimeError as e:
+            self._logger.error("RuntimeError accessing selected items: %s", e)
+        except Exception as e:
+            self._logger.error("Unexpected error in get_selected_elements: %s", e)
 
         return elements
 

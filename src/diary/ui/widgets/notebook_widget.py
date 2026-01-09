@@ -65,10 +65,10 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         Qt starts destroying objects, to ensure proper cleanup order.
         """
         self._logger.debug("Cleaning up NotebookWidget")
-        
+
         # Stop the auto-save timer first
         self.save_manager.stop_auto_save()
-        
+
         # Disconnect scroll handler to prevent callbacks during cleanup
         scroll_bar = self.verticalScrollBar()
         if scroll_bar:
@@ -76,12 +76,12 @@ class NotebookWidget(QtWidgets.QGraphicsView):
                 scroll_bar.valueChanged.disconnect(self._on_scroll)
             except (TypeError, RuntimeError):
                 pass
-        
+
         # Clean up all active page widgets
         for page_index, proxy_widget in list(self.active_page_widgets.items()):
             self._cleanup_proxy_widget(proxy_widget, page_index)
         self.active_page_widgets.clear()
-        
+
         # Clear page backgrounds
         for background in self.page_backgrounds.values():
             try:
@@ -89,10 +89,10 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             except RuntimeError:
                 pass
         self.page_backgrounds.clear()
-        
+
         # Clear the scene
         self.this_scene.clear()
-        
+
         self._logger.debug("NotebookWidget cleanup complete")
 
     def _setup_notebook_widget(self):
@@ -319,7 +319,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
 
     def _add_page_below_dynamic(self, page_idx: int) -> None:
         """Add a page below if this is the last page"""
-        if page_idx == len(self.notebook.pages) - 1:
+        if page_idx == len(self.notebook.pages) - 1 and settings.DYNAMIC_ADD_PAGES:
             self.add_page_below(page_idx)
 
     def _delete_page(self, page_idx: int) -> None:

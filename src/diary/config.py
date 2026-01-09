@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     SMOOTHING_TENSION: float = 0.15
     SMOOTHING_WINDOW_SIZE: int = 2
 
+    DYNAMIC_ADD_PAGES: bool = False
+
     class SERIALIZATION_KEYS(Enum):
         """Value used as the keys for the serialization"""
 

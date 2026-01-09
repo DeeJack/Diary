@@ -142,6 +142,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         _ = page_widget.delete_page.connect(self._delete_page)
         _ = page_widget.page_modified.connect(self.save_manager.mark_dirty)
         _ = page_widget.add_below.connect(self.add_page_below)
+        _ = page_widget.date_changed.connect(self._on_page_date_changed)
 
         # Add to scene as proxy widget
         try:
@@ -149,6 +150,25 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         except RuntimeError:
             return None  # Object has been deleted (when closing)
         return proxy_widget
+
+    def _on_page_date_changed(self, page_index: int) -> None:
+        """Handle date change on a page by recalculating streak levels"""
+        self.notebook.update_page_streak(page_index)
+        self._logger.debug(
+            "Updated streak levels after date change on page %d", page_index
+        )
+        # Update title labels for affected pages
+        self._update_page_title_labels(page_index)
+        self.save_manager.mark_dirty()
+
+    def _update_page_title_labels(self, from_index: int) -> None:
+        """Update title labels for pages from the given index onwards"""
+        for idx in range(from_index, len(self.notebook.pages)):
+            if idx in self.active_page_widgets:
+                proxy = self.active_page_widgets[idx]
+                widget = proxy.widget()
+                if widget and isinstance(widget, PageGraphicsWidget):
+                    widget._update_title_label()
 
     @override
     def viewportEvent(self, event: QtCore.QEvent | None):

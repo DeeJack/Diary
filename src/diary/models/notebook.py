@@ -29,10 +29,14 @@ class Notebook:
         """Adds a new page"""
         page = page or Page()
 
-        # Set streak level based on previous page
-        if self.pages:
-            last_page = self.pages[-1]
-            page.streak_lvl = self._calculate_streak_level(page, last_page)
+        # Determine actual insertion position
+        actual_idx = page_idx if page_idx >= 0 else len(self.pages)
+
+        # Set streak level based on the page before the insertion point
+        if actual_idx > 0 and self.pages:
+            # Get the page that will be before this one after insertion
+            prev_page = self.pages[actual_idx - 1]
+            page.streak_lvl = self._calculate_streak_level(page, prev_page)
 
         logging.getLogger("Notebook").debug(
             "Created new page with streak lvl: %d", page.streak_lvl
@@ -41,6 +45,9 @@ class Notebook:
             self.pages.append(page)
         else:
             self.pages.insert(page_idx, page)
+
+        # Recalculate streak levels for all pages after the inserted page
+        self._update_subsequent_streaks(actual_idx + 1)
 
     def remove_page(self, page_index: int) -> bool:
         """Remove a page at the specified index. Returns True if successful."""
@@ -66,6 +73,57 @@ class Notebook:
         if day_diff == 1:  # Next day
             return last_page.streak_lvl + 1
         return 0
+
+    def _update_subsequent_streaks(self, start_idx: int) -> None:
+        """Update streak levels for all pages starting from start_idx"""
+        for i in range(start_idx, len(self.pages)):
+            if i > 0:
+                prev_page = self.pages[i - 1]
+                self.pages[i].streak_lvl = self._calculate_streak_level(
+                    self.pages[i], prev_page
+                )
+
+    def fix_all_streaks(self) -> None:
+        """Recalculate all streak levels for the entire notebook.
+
+        Use this to fix streak levels in an existing notebook where streaks
+        may have become incorrect due to date changes or other modifications.
+        """
+        if not self.pages:
+            return
+
+        # First page always starts at 0
+        self.pages[0].streak_lvl = 0
+
+        # Recalculate all subsequent pages
+        self._update_subsequent_streaks(1)
+
+        logging.getLogger("Notebook").info(
+            "Fixed streak levels for %d pages", len(self.pages)
+        )
+
+    def update_page_streak(self, page_idx: int) -> None:
+        """Update the streak level for a specific page and all subsequent pages.
+
+        Call this after changing a page's date to ensure streak levels are correct.
+
+        Args:
+            page_idx: The index of the page whose date was changed
+        """
+        if page_idx < 0 or page_idx >= len(self.pages):
+            return
+
+        # Recalculate the changed page's streak
+        if page_idx > 0:
+            prev_page = self.pages[page_idx - 1]
+            self.pages[page_idx].streak_lvl = self._calculate_streak_level(
+                self.pages[page_idx], prev_page
+            )
+        else:
+            self.pages[page_idx].streak_lvl = 0
+
+        # Update all subsequent pages
+        self._update_subsequent_streaks(page_idx + 1)
 
     @override
     def __str__(self) -> str:

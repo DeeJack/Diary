@@ -35,6 +35,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
     delete_page: pyqtSignal = pyqtSignal(int)
     needs_regeneration: pyqtSignal = pyqtSignal(int)
     page_modified: pyqtSignal = pyqtSignal()
+    date_changed: pyqtSignal = pyqtSignal(int)  # Emits page_index when date is changed
 
     def __init__(self, page: Page, page_index: int, bottom_toolbar: BottomToolbar):
         super().__init__()
@@ -492,6 +493,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         fields = new_date_str.split("/")
         if len(fields) != 3:
             _ = show_error_dialog(self.parentWidget(), "Error", "Wrong format")
+            return
 
         try:
             new_date = datetime.strptime(
@@ -499,10 +501,21 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             )
             self.page.created_at = new_date.timestamp()
             self.page_modified.emit()
-            self.title_label.setText(new_date.strftime("%Y/%m/%d"))
+            self.date_changed.emit(self.page_index)  # Trigger streak recalculation
+            self._update_title_label()
         except ValueError as e:
             _ = show_error_dialog(self.parentWidget(), "Error", "Wrong format")
             self._logger.error(e)
+
+    def _update_title_label(self) -> None:
+        """Update the title label with current page info"""
+        page_date = datetime.fromtimestamp(
+            self.page.created_at if self.page else 0
+        ).strftime("%Y-%m-%d")
+        streak_info = ""
+        if self.page and self.page.streak_lvl > 0:
+            streak_info = f" (Streak: {self.page.streak_lvl})"
+        self.title_label.setText(f"{page_date}{streak_info}")
 
     def _confirm_delete(self):
         result = confirm_delete(self.parentWidget())

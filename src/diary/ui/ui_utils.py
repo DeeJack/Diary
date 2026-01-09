@@ -1,6 +1,8 @@
 """Utility functions for the UI"""
 
 import logging
+import math
+import time
 from pathlib import Path
 
 from PyQt6 import QtWidgets
@@ -184,9 +186,111 @@ def smooth_stroke_catmull_rom(
     return smoothed
 
 
+class OneEuroFilter:
+    """1€ Filter for adaptive smoothing based on movement speed.
+    
+    Applies heavy filtering when moving slowly (reduces jitter) and
+    light filtering when moving fast (reduces lag).
+    """
+
+    def __init__(self, t0: float, x0: float, min_cutoff: float = 1.0, beta: float = 0.007, d_cutoff: float = 1.0):
+        """
+        Args:
+            t0: Initial timestamp
+            x0: Initial value
+            min_cutoff: Decrease to smooth more (removes jitter). Default: 1.0
+            beta: Increase to reduce lag (makes responsive). Default: 0.007
+            d_cutoff: Cutoff for derivative. Default: 1.0
+        """
+        self.frequency = 0.0
+        self.min_cutoff = min_cutoff
+        self.beta = beta
+        self.d_cutoff = d_cutoff
+        self.x_prev = x0
+        self.dx_prev = 0.0
+        self.t_prev = t0
+
+    def alpha(self, cutoff: float) -> float:
+        """Calculate smoothing factor based on cutoff frequency."""
+        tau = 1.0 / (2 * math.pi * cutoff)
+        return 1.0 / (1.0 + tau * self.frequency)
+
+    def __call__(self, t: float, x: float) -> float:
+        """Apply filter to new value.
+        
+        Args:
+            t: Current timestamp
+            x: Current value
+            
+        Returns:
+            Filtered value
+        """
+        # Calculate time delta
+        dt = t - self.t_prev
+        self.frequency = 1.0 / dt if dt > 0 else 0.0
+
+        # Filter the derivative (speed of change)
+        a_d = self.alpha(self.d_cutoff)
+        dx = (x - self.x_prev) / dt if dt > 0 else 0.0
+        dx_hat = a_d * dx + (1.0 - a_d) * self.dx_prev
+
+        # Calculate dynamic cutoff based on speed
+        # High speed = high cutoff (less filtering, less lag)
+        # Low speed = low cutoff (more filtering, smoother line)
+        cutoff = self.min_cutoff + self.beta * abs(dx_hat)
+
+        # Filter the main value
+        a = self.alpha(cutoff)
+        x_hat = a * x + (1.0 - a) * self.x_prev
+
+        # Update memory
+        self.x_prev = x_hat
+        self.dx_prev = dx_hat
+        self.t_prev = t
+
+        return x_hat
+
+
+def smooth_stroke_one_euro(stroke_points: list[Point], min_cutoff: float = 0.5, beta: float = 0.01) -> list[Point]:
+    """Apply 1€ Filter to smooth stroke points.
+    
+    The 1€ Filter adapts to movement speed:
+    - Moving slowly: Heavy filtering (kills jitter)
+    - Moving fast: Light filtering (reduces lag)
+    
+    Args:
+        stroke_points: Original stroke points
+        min_cutoff: Lower = more smoothing (0.1-1.0). Default: 0.5
+        beta: Higher = more responsive (0.001-0.1). Default: 0.01
+        
+    Returns:
+        Smoothed stroke points
+    """
+    if len(stroke_points) <= 2:
+        return stroke_points
+    
+    # Generate synthetic timestamps (assume uniform spacing)
+    base_time = time.time()
+    dt = 0.01  # 10ms between points (100 Hz)
+    
+    # Initialize filters for x and y
+    filter_x = OneEuroFilter(base_time, stroke_points[0].x, min_cutoff, beta)
+    filter_y = OneEuroFilter(base_time, stroke_points[0].y, min_cutoff, beta)
+    
+    smoothed = [stroke_points[0]]  # Keep first point as-is
+    
+    for i in range(1, len(stroke_points)):
+        t = base_time + i * dt
+        smoothed_x = filter_x(t, stroke_points[i].x)
+        smoothed_y = filter_y(t, stroke_points[i].y)
+        smoothed.append(Point(smoothed_x, smoothed_y, stroke_points[i].pressure))
+    
+    return smoothed
+
+
 def smooth_stroke_advanced(stroke_points: list[Point]) -> list[Point]:
     """
-    Apply advanced smoothing pipeline: decimation + Catmull-Rom spline interpolation.
+    Apply advanced smoothing pipeline with 1€ Filter for professional results.
 
     Args:
         stroke_points: Original stroke points
@@ -197,17 +301,22 @@ def smooth_stroke_advanced(stroke_points: list[Point]) -> list[Point]:
     if len(stroke_points) <= 2:
         return stroke_points
 
-    # Decimate points to remove noise and redundancy
+    # First apply 1€ Filter for adaptive smoothing (kills jitter on slow movements)
+    one_euro_smoothed = smooth_stroke_one_euro(
+        stroke_points, 
+        min_cutoff=0.5,  # Moderate smoothing
+        beta=0.01  # Moderate responsiveness
+    )
+
+    # Then decimate to remove redundant points
     decimated = decimate_stroke_points(
-        stroke_points, min_distance=settings.SMOOTHING_MIN_DISTANCE
+        one_euro_smoothed, min_distance=settings.SMOOTHING_MIN_DISTANCE
     )
 
     # Apply Catmull-Rom smoothing for natural curves
     smoothed = smooth_stroke_catmull_rom(decimated, tension=settings.SMOOTHING_TENSION)
 
-    averaged = smooth_stroke_moving_average(smoothed, settings.SMOOTHING_WINDOW_SIZE)
-
-    return averaged
+    return smoothed
 
 
 def read_image(file_path: str) -> tuple[bytes, int, int]:

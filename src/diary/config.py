@@ -62,6 +62,15 @@ class Settings(BaseSettings):
     SMOOTHING_TENSION: float = 0.15
     SMOOTHING_WINDOW_SIZE: int = 2
 
+    # Stroke beautification (shape recognition)
+    BEAUTIFICATION_ENABLED: bool = True
+    BEAUTIFICATION_THRESHOLD: float = 0.60  # Recognition confidence (0-1)
+
+    # 1€ Filter parameters
+    ONE_EURO_FILTER_ENABLED: bool = True
+    ONE_EURO_MIN_CUTOFF: float = 0.5  # Lower = more smoothing (0.1-1.0)
+    ONE_EURO_BETA: float = 0.01  # Higher = more responsive (0.001-0.1)
+
     DYNAMIC_ADD_PAGES: bool = False
 
     class SERIALIZATION_KEYS(Enum):

@@ -70,6 +70,57 @@ class SettingsSidebar(QDockWidget):
         smoothing_checkbox.setChecked(settings.SMOOTHING_ENABLED)
         _ = smoothing_checkbox.checkStateChanged.connect(self._toggle_smoothing)
 
+        # Beautification (shape recognition)
+        beautification_checkbox = QCheckBox()
+        beautification_checkbox.setText("Shape recognition enabled")
+        beautification_checkbox.setChecked(settings.BEAUTIFICATION_ENABLED)
+        _ = beautification_checkbox.checkStateChanged.connect(self._toggle_beautification)
+
+        beautification_threshold_label = QLabel(
+            f"Recognition Threshold: {settings.BEAUTIFICATION_THRESHOLD:.2f}"
+        )
+        beautification_threshold_slider = QSlider(Qt.Orientation.Horizontal)
+        beautification_threshold_slider.setMinimum(30)  # 0.30
+        beautification_threshold_slider.setMaximum(90)  # 0.90
+        beautification_threshold_slider.setValue(int(settings.BEAUTIFICATION_THRESHOLD * 100))
+        beautification_threshold_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        beautification_threshold_slider.setTickInterval(10)
+        _ = beautification_threshold_slider.valueChanged.connect(
+            lambda v: self._update_beautification_threshold(v, beautification_threshold_label)
+        )
+
+        # 1€ Filter
+        one_euro_checkbox = QCheckBox()
+        one_euro_checkbox.setText("1€ Filter enabled (jitter reduction)")
+        one_euro_checkbox.setChecked(settings.ONE_EURO_FILTER_ENABLED)
+        _ = one_euro_checkbox.checkStateChanged.connect(self._toggle_one_euro_filter)
+
+        one_euro_cutoff_label = QLabel(
+            f"1€ Smoothing: {settings.ONE_EURO_MIN_CUTOFF:.2f}"
+        )
+        one_euro_cutoff_slider = QSlider(Qt.Orientation.Horizontal)
+        one_euro_cutoff_slider.setMinimum(10)  # 0.10
+        one_euro_cutoff_slider.setMaximum(150)  # 1.50
+        one_euro_cutoff_slider.setValue(int(settings.ONE_EURO_MIN_CUTOFF * 100))
+        one_euro_cutoff_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        one_euro_cutoff_slider.setTickInterval(20)
+        _ = one_euro_cutoff_slider.valueChanged.connect(
+            lambda v: self._update_one_euro_cutoff(v, one_euro_cutoff_label)
+        )
+
+        one_euro_beta_label = QLabel(
+            f"1€ Responsiveness: {settings.ONE_EURO_BETA:.3f}"
+        )
+        one_euro_beta_slider = QSlider(Qt.Orientation.Horizontal)
+        one_euro_beta_slider.setMinimum(1)  # 0.001
+        one_euro_beta_slider.setMaximum(100)  # 0.100
+        one_euro_beta_slider.setValue(int(settings.ONE_EURO_BETA * 1000))
+        one_euro_beta_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        one_euro_beta_slider.setTickInterval(10)
+        _ = one_euro_beta_slider.valueChanged.connect(
+            lambda v: self._update_one_euro_beta(v, one_euro_beta_label)
+        )
+
         # Smoothing parameters sliders
         min_distance_label = QLabel(
             f"Min Distance: {settings.SMOOTHING_MIN_DISTANCE:.2f}"
@@ -129,6 +180,14 @@ class SettingsSidebar(QDockWidget):
             mouse_checkbox,
             pressure_checkbox,
             smoothing_checkbox,
+            beautification_checkbox,
+            beautification_threshold_label,
+            beautification_threshold_slider,
+            one_euro_checkbox,
+            one_euro_cutoff_label,
+            one_euro_cutoff_slider,
+            one_euro_beta_label,
+            one_euro_beta_slider,
             min_distance_label,
             min_distance_slider,
             tension_label,
@@ -151,6 +210,27 @@ class SettingsSidebar(QDockWidget):
 
     def _toggle_smoothing(self):
         settings.SMOOTHING_ENABLED = not settings.SMOOTHING_ENABLED
+
+    def _toggle_beautification(self):
+        settings.BEAUTIFICATION_ENABLED = not settings.BEAUTIFICATION_ENABLED
+
+    def _toggle_one_euro_filter(self):
+        settings.ONE_EURO_FILTER_ENABLED = not settings.ONE_EURO_FILTER_ENABLED
+
+    def _update_beautification_threshold(self, value: int, label: QLabel):
+        """Update the beautification recognition threshold"""
+        settings.BEAUTIFICATION_THRESHOLD = value / 100.0
+        label.setText(f"Recognition Threshold: {settings.BEAUTIFICATION_THRESHOLD:.2f}")
+
+    def _update_one_euro_cutoff(self, value: int, label: QLabel):
+        """Update the 1€ filter min cutoff parameter"""
+        settings.ONE_EURO_MIN_CUTOFF = value / 100.0
+        label.setText(f"1€ Smoothing: {settings.ONE_EURO_MIN_CUTOFF:.2f}")
+
+    def _update_one_euro_beta(self, value: int, label: QLabel):
+        """Update the 1€ filter beta parameter"""
+        settings.ONE_EURO_BETA = value / 1000.0
+        label.setText(f"1€ Responsiveness: {settings.ONE_EURO_BETA:.3f}")
 
     def _update_min_distance(self, value: int, label: QLabel):
         """Update the minimum distance smoothing parameter"""

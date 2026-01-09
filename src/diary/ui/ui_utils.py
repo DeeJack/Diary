@@ -39,8 +39,14 @@ def beautify_stroke(stroke_points: list[Point]) -> tuple[list[Point], str | None
     if len(stroke_points) < 10:
         return smooth_stroke_advanced(stroke_points), None
 
+    # Check if beautification is enabled
+    if not settings.BEAUTIFICATION_ENABLED:
+        return smooth_stroke_advanced(stroke_points), None
+
     beautifier = get_beautifier()
-    beautified, shape_name = beautifier.beautify_stroke(stroke_points)
+    beautified, shape_name = beautifier.beautify_stroke(
+        stroke_points, threshold=settings.BEAUTIFICATION_THRESHOLD
+    )
 
     if shape_name:
         # Shape was recognized, return beautified version
@@ -301,12 +307,15 @@ def smooth_stroke_advanced(stroke_points: list[Point]) -> list[Point]:
     if len(stroke_points) <= 2:
         return stroke_points
 
-    # First apply 1€ Filter for adaptive smoothing (kills jitter on slow movements)
-    one_euro_smoothed = smooth_stroke_one_euro(
-        stroke_points, 
-        min_cutoff=0.5,  # Moderate smoothing
-        beta=0.01  # Moderate responsiveness
-    )
+    # Apply 1€ Filter if enabled
+    if settings.ONE_EURO_FILTER_ENABLED:
+        one_euro_smoothed = smooth_stroke_one_euro(
+            stroke_points,
+            min_cutoff=settings.ONE_EURO_MIN_CUTOFF,
+            beta=settings.ONE_EURO_BETA,
+        )
+    else:
+        one_euro_smoothed = stroke_points
 
     # Then decimate to remove redundant points
     decimated = decimate_stroke_points(

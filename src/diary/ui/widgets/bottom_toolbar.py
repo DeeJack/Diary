@@ -1,7 +1,7 @@
 """Represents the toolbar on the bottom of the screen"""
 
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtGui import QColor, QFont, QTabletEvent
 from PyQt6.QtWidgets import (
     QColorDialog,
     QLabel,
@@ -14,13 +14,66 @@ from PyQt6.QtWidgets import (
 )
 
 from diary.config import settings
+from diary.ui.input import InputType
 from diary.ui.widgets.tool_selector import Tool
+
+
+class ToolButton(QPushButton):
+    """Custom button that detects whether it was clicked with pen/tablet or mouse/touch"""
+
+    clicked_with_device = pyqtSignal(str)  # Emits "tablet" or "mouse"
+
+    def __init__(self, text: str = ""):
+        super().__init__(text)
+        self.setFont(QFont("Times New Roman", 14))
+        self.setFixedWidth(40)
+        self.setFixedHeight(30)
+        self.setStyleSheet(
+            """
+            QPushButton {
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: #777;
+            }
+            QPushButton:pressed {
+                background-color: #555;
+            }
+        """
+        )
+        self._tablet_event_active = False
+
+    def tabletEvent(self, event: QTabletEvent | None) -> None:
+        """Handle tablet/pen events"""
+        if event and event.type() in (
+            QTabletEvent.Type.TabletPress,
+            QTabletEvent.Type.TabletMove,
+            QTabletEvent.Type.TabletRelease,
+        ):
+            if event.type() == QTabletEvent.Type.TabletPress:
+                self._tablet_event_active = True
+                self.clicked_with_device.emit("tablet")
+                self.click()
+            event.accept()
+        else:
+            super().tabletEvent(event)
+
+    def mousePressEvent(self, event) -> None:
+        """Handle mouse/touch events"""
+        # Check if this is a synthesized mouse event from a tablet event
+        if not self._tablet_event_active:
+            self.clicked_with_device.emit("mouse")
+        self._tablet_event_active = False
+        super().mousePressEvent(event)
 
 
 class BottomToolbar(QToolBar):
     """The toolbar at the bottom of the page"""
 
     tool_changed: pyqtSignal = pyqtSignal(Tool)
+    tool_changed_with_device: pyqtSignal = pyqtSignal(
+        Tool, str
+    )  # Tool, device ("tablet" or "mouse")
     thickness_changed: pyqtSignal = pyqtSignal(float)
     color_changed: pyqtSignal = pyqtSignal(QColor)
 
@@ -30,34 +83,36 @@ class BottomToolbar(QToolBar):
         self.setAutoFillBackground(False)
         self.setStyleSheet("color: white")
 
-        self.pen_btn: QPushButton = create_button("🖊️")
-        _ = self.pen_btn.clicked.connect(
-            lambda: self._button_clicked(self.pen_btn, Tool.PEN)
+        self.pen_btn: ToolButton = create_tool_button("🖊️")
+        _ = self.pen_btn.clicked_with_device.connect(
+            lambda device: self._button_clicked(self.pen_btn, Tool.PEN, device)
         )
 
-        self.eraser_btn: QPushButton = create_button("⌫")
-        _ = self.eraser_btn.clicked.connect(
-            lambda: self._button_clicked(self.eraser_btn, Tool.ERASER)
+        self.eraser_btn: ToolButton = create_tool_button("⌫")
+        _ = self.eraser_btn.clicked_with_device.connect(
+            lambda device: self._button_clicked(self.eraser_btn, Tool.ERASER, device)
         )
 
-        self.text_btn: QPushButton = create_button("💬")
-        _ = self.text_btn.clicked.connect(
-            lambda: self._button_clicked(self.text_btn, Tool.TEXT)
+        self.text_btn: ToolButton = create_tool_button("💬")
+        _ = self.text_btn.clicked_with_device.connect(
+            lambda device: self._button_clicked(self.text_btn, Tool.TEXT, device)
         )
 
-        self.drag_btn: QPushButton = create_button("🤚")
-        _ = self.drag_btn.clicked.connect(
-            lambda: self._button_clicked(self.drag_btn, Tool.DRAG)
+        self.drag_btn: ToolButton = create_tool_button("🤚")
+        _ = self.drag_btn.clicked_with_device.connect(
+            lambda device: self._button_clicked(self.drag_btn, Tool.DRAG, device)
         )
 
-        self.image_btn: QPushButton = create_button("🖼️")
-        _ = self.image_btn.clicked.connect(
-            lambda: self._button_clicked(self.image_btn, Tool.IMAGE)
+        self.image_btn: ToolButton = create_tool_button("🖼️")
+        _ = self.image_btn.clicked_with_device.connect(
+            lambda device: self._button_clicked(self.image_btn, Tool.IMAGE, device)
         )
 
-        self.selection_btn: QPushButton = create_button("🎯")
-        _ = self.selection_btn.clicked.connect(
-            lambda: self._button_clicked(self.selection_btn, Tool.SELECTION)
+        self.selection_btn: ToolButton = create_tool_button("🎯")
+        _ = self.selection_btn.clicked_with_device.connect(
+            lambda device: self._button_clicked(
+                self.selection_btn, Tool.SELECTION, device
+            )
         )
 
         thickness_lbl = QLabel()
@@ -90,7 +145,7 @@ class BottomToolbar(QToolBar):
         self.info_label: QLabel = QLabel()
         self.info_label.setFont(QFont("Times New Roman", 12))
 
-        self.buttons: list[QPushButton] = [
+        self.buttons: list[ToolButton] = [
             self.pen_btn,
             self.eraser_btn,
             self.text_btn,
@@ -116,9 +171,9 @@ class BottomToolbar(QToolBar):
         _ = self.addWidget(self.text_size_input)
         self._add_filling_spacer()
 
-        self._button_clicked(self.pen_btn, Tool.PEN)
+        self._button_clicked(self.pen_btn, Tool.PEN, "tablet")
 
-    def _button_clicked(self, button: QPushButton, tool: Tool):
+    def _button_clicked(self, button: ToolButton, tool: Tool, device: str = "tablet"):
         """When a button is clicked"""
         for other in self.buttons:
             other.setDisabled(False)
@@ -133,7 +188,8 @@ class BottomToolbar(QToolBar):
             }
         """
         )
-        self.tool_changed.emit(tool)
+        self.tool_changed.emit(tool)  # Keep backward compatibility
+        self.tool_changed_with_device.emit(tool, device)
 
     def _add_filling_spacer(self):
         """Add a spacer that fills the entire space available"""
@@ -166,7 +222,7 @@ class BottomToolbar(QToolBar):
 
 
 def create_button(text: str) -> QPushButton:
-    """Creates a button with custom parameters and styling"""
+    """Creates a button with custom parameters and styling (legacy, use create_tool_button for tool buttons)"""
     new_button: QPushButton = QPushButton()
     new_button.setText(text)
     new_button.setFont(QFont("Times New Roman", 14))
@@ -186,6 +242,11 @@ def create_button(text: str) -> QPushButton:
     """
     )
     return new_button
+
+
+def create_tool_button(text: str) -> ToolButton:
+    """Creates a tool button that can detect tablet vs mouse input"""
+    return ToolButton(text)
 
 
 def create_thickness_slider() -> QSlider:

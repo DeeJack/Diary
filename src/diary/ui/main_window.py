@@ -207,8 +207,10 @@ class MainWindow(QMainWindow):
         )
         _ = self.navbar.save_requested.connect(self.save_manager.force_save)
 
-        _ = self.bottom_toolbar.tool_changed.connect(
-            lambda tool: self.notebook_widget.select_tool(cast(Tool, tool))
+        _ = self.bottom_toolbar.tool_changed_with_device.connect(
+            lambda tool, device: self.notebook_widget.select_tool(
+                cast(Tool, tool), device
+            )
         )
         _ = self.bottom_toolbar.thickness_changed.connect(
             lambda t: self.notebook_widget.change_thickness(cast(float, t))
@@ -228,11 +230,11 @@ class MainWindow(QMainWindow):
             settings.save_to_file(Path(SETTINGS_FILE_PATH))
             self.save_manager.stop_auto_save()
             self.save_manager.force_save()
-            
+
             # Clean up the notebook widget to prevent segfaults during Qt destruction
             if hasattr(self, "notebook_widget"):
                 self.notebook_widget.cleanup()
-            
+
             a0.accept()
 
     def pdf_imported(self):

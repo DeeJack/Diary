@@ -62,17 +62,13 @@ class Notebook:
         new_date = new_page.get_creation_date()
         last_date = last_page.get_creation_date()
 
-        # Only calculate streak if pages are in the same month/year
-        if new_date.year != last_date.year or new_date.month != last_date.month:
-            return 0
-
-        day_diff = new_date.day - last_date.day
+        day_diff = (new_date.date() - last_date.date()).days
 
         if day_diff == 0:  # Same day
             return last_page.streak_lvl
-        if day_diff == 1:  # Next day
+        if day_diff == 1:  # Next day (consecutive)
             return last_page.streak_lvl + 1
-        return 0
+        return 0  # Streak broken
 
     def _update_subsequent_streaks(self, start_idx: int) -> None:
         """Update streak levels for all pages starting from start_idx"""
@@ -142,7 +138,7 @@ class Notebook:
     @classmethod
     def from_dict(cls, data: dict[str, Any]):
         """Builds the object from a dictionary"""
-        notebook_id = uuid.uuid4().hex
+        notebook_id: str = uuid.uuid4().hex
         if hasattr(data, "id"):
             notebook_id = data["id"]
 

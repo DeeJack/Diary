@@ -60,7 +60,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
 
     def cleanup(self) -> None:
         """Clean up all resources before application close to prevent segfaults.
-        
+
         This method should be called from the main window's closeEvent before
         Qt starts destroying objects, to ensure proper cleanup order.
         """

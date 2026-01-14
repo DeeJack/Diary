@@ -86,7 +86,7 @@ def test_broken_streak():
 
 
 def test_different_month_resets_streak():
-    """Test that pages in different months reset streak level"""
+    """Test that pages in different months continue streak if days are consecutive"""
     notebook = Notebook()
 
     # Create a page in December 2023
@@ -100,14 +100,14 @@ def test_different_month_resets_streak():
     notebook.add_page(page2)
 
     assert notebook.pages[0].streak_lvl == 0
-    assert notebook.pages[1].streak_lvl == 0  # Reset because different month/year
+    assert notebook.pages[1].streak_lvl == 1  # Continues because consecutive days
     print(
-        "✓ Different month reset test passed - Different month/year resets streak_lvl"
+        "✓ Different month streak test passed - Consecutive days maintain streak across month/year"
     )
 
 
 def test_different_year_same_month_resets_streak():
-    """Test that pages in different years but same month reset streak level"""
+    """Test that pages in different years reset streak level when not consecutive"""
     notebook = Notebook()
 
     # Create a page in March 2023
@@ -115,14 +115,14 @@ def test_different_year_same_month_resets_streak():
     page1 = Page(created_at=mar_2023_time)
     notebook.add_page(page1)
 
-    # Create a page in March 2024 (same month, different year)
+    # Create a page in March 2024 (same month, different year, but not consecutive days)
     mar_2024_time = datetime(2024, 3, 16, 12, 0, 0).timestamp()
     page2 = Page(created_at=mar_2024_time)
     notebook.add_page(page2)
 
     assert notebook.pages[0].streak_lvl == 0
-    assert notebook.pages[1].streak_lvl == 0  # Reset because different year
-    print("✓ Different year reset test passed - Different year resets streak_lvl")
+    assert notebook.pages[1].streak_lvl == 0  # Reset because days are not consecutive
+    print("✓ Different year reset test passed - Non-consecutive days reset streak_lvl")
 
 
 def test_long_streak():
@@ -346,6 +346,120 @@ def test_fix_streaks_single_page():
     print("✓ Single page fix_all_streaks test passed")
 
 
+def test_year_transition_consecutive_days():
+    """Test that streak continues across year boundary when days are consecutive"""
+    notebook = Notebook()
+
+    # December 30, 2023
+    dec30_time = datetime(2023, 12, 30, 12, 0, 0).timestamp()
+    page1 = Page(created_at=dec30_time)
+    notebook.add_page(page1)
+
+    # December 31, 2023
+    dec31_time = datetime(2023, 12, 31, 12, 0, 0).timestamp()
+    page2 = Page(created_at=dec31_time)
+    notebook.add_page(page2)
+
+    # January 1, 2024 (consecutive day, different year)
+    jan1_time = datetime(2024, 1, 1, 12, 0, 0).timestamp()
+    page3 = Page(created_at=jan1_time)
+    notebook.add_page(page3)
+
+    # January 2, 2024
+    jan2_time = datetime(2024, 1, 2, 12, 0, 0).timestamp()
+    page4 = Page(created_at=jan2_time)
+    notebook.add_page(page4)
+
+    assert notebook.pages[0].streak_lvl == 0  # Dec 30
+    assert notebook.pages[1].streak_lvl == 1  # Dec 31
+    assert notebook.pages[2].streak_lvl == 2  # Jan 1 - streak continues!
+    assert notebook.pages[3].streak_lvl == 3  # Jan 2
+    print(
+        "✓ Year transition test passed - Streak continues across Dec 31 -> Jan 1"
+    )
+
+
+def test_month_transition_consecutive_days():
+    """Test that streak continues across month boundary when days are consecutive"""
+    notebook = Notebook()
+
+    # January 30, 2024
+    jan30_time = datetime(2024, 1, 30, 12, 0, 0).timestamp()
+    page1 = Page(created_at=jan30_time)
+    notebook.add_page(page1)
+
+    # January 31, 2024
+    jan31_time = datetime(2024, 1, 31, 12, 0, 0).timestamp()
+    page2 = Page(created_at=jan31_time)
+    notebook.add_page(page2)
+
+    # February 1, 2024 (consecutive day, different month)
+    feb1_time = datetime(2024, 2, 1, 12, 0, 0).timestamp()
+    page3 = Page(created_at=feb1_time)
+    notebook.add_page(page3)
+
+    # February 2, 2024
+    feb2_time = datetime(2024, 2, 2, 12, 0, 0).timestamp()
+    page4 = Page(created_at=feb2_time)
+    notebook.add_page(page4)
+
+    assert notebook.pages[0].streak_lvl == 0  # Jan 30
+    assert notebook.pages[1].streak_lvl == 1  # Jan 31
+    assert notebook.pages[2].streak_lvl == 2  # Feb 1 - streak continues!
+    assert notebook.pages[3].streak_lvl == 3  # Feb 2
+    print(
+        "✓ Month transition test passed - Streak continues across Jan 31 -> Feb 1"
+    )
+
+
+def test_leap_year_transition():
+    """Test that streak continues correctly across leap year Feb 28/29 -> Mar 1"""
+    notebook = Notebook()
+
+    # February 28, 2024 (leap year)
+    feb28_time = datetime(2024, 2, 28, 12, 0, 0).timestamp()
+    page1 = Page(created_at=feb28_time)
+    notebook.add_page(page1)
+
+    # February 29, 2024 (leap day)
+    feb29_time = datetime(2024, 2, 29, 12, 0, 0).timestamp()
+    page2 = Page(created_at=feb29_time)
+    notebook.add_page(page2)
+
+    # March 1, 2024
+    mar1_time = datetime(2024, 3, 1, 12, 0, 0).timestamp()
+    page3 = Page(created_at=mar1_time)
+    notebook.add_page(page3)
+
+    assert notebook.pages[0].streak_lvl == 0  # Feb 28
+    assert notebook.pages[1].streak_lvl == 1  # Feb 29
+    assert notebook.pages[2].streak_lvl == 2  # Mar 1 - streak continues!
+    print(
+        "✓ Leap year transition test passed - Streak continues through Feb 29 -> Mar 1"
+    )
+
+
+def test_non_leap_year_transition():
+    """Test that streak continues correctly across non-leap year Feb 28 -> Mar 1"""
+    notebook = Notebook()
+
+    # February 28, 2023 (non-leap year)
+    feb28_time = datetime(2023, 2, 28, 12, 0, 0).timestamp()
+    page1 = Page(created_at=feb28_time)
+    notebook.add_page(page1)
+
+    # March 1, 2023
+    mar1_time = datetime(2023, 3, 1, 12, 0, 0).timestamp()
+    page2 = Page(created_at=mar1_time)
+    notebook.add_page(page2)
+
+    assert notebook.pages[0].streak_lvl == 0  # Feb 28
+    assert notebook.pages[1].streak_lvl == 1  # Mar 1 - streak continues!
+    print(
+        "✓ Non-leap year transition test passed - Streak continues across Feb 28 -> Mar 1"
+    )
+
+
 def run_all_streak_tests():
     """Run all streak level tests"""
     print("Running streak level tests...\n")
@@ -366,6 +480,10 @@ def run_all_streak_tests():
     test_insert_page_at_specific_index()
     test_fix_streaks_empty_notebook()
     test_fix_streaks_single_page()
+    test_year_transition_consecutive_days()
+    test_month_transition_consecutive_days()
+    test_leap_year_transition()
+    test_non_leap_year_transition()
 
     print("\n🎉 All streak level tests passed!")
     print("\nStreak level functionality verified:")
@@ -373,7 +491,7 @@ def run_all_streak_tests():
     print("  ✓ Same day pages maintain streak level")
     print("  ✓ Consecutive days increment streak level")
     print("  ✓ Gaps in days reset streak to 0")
-    print("  ✓ Different months/years reset streak")
+    print("  ✓ Consecutive days maintain streak across month/year boundaries")
     print("  ✓ Long streaks work correctly")
     print("  ✓ Multiple pages per day handled properly")
     print("  ✓ Midnight boundaries work correctly")
@@ -384,6 +502,10 @@ def run_all_streak_tests():
     print("  ✓ Inserting page at specific index works correctly")
     print("  ✓ Empty notebook handled correctly")
     print("  ✓ Single page notebook handled correctly")
+    print("  ✓ Year transitions (Dec 31 -> Jan 1) maintain streaks")
+    print("  ✓ Month transitions maintain streaks for consecutive days")
+    print("  ✓ Leap year transitions work correctly")
+    print("  ✓ Non-leap year transitions work correctly")
 
 
 if __name__ == "__main__":

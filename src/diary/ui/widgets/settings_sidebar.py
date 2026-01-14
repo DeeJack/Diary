@@ -100,10 +100,10 @@ class SettingsSidebar(QDockWidget):
         )
         one_euro_cutoff_slider = QSlider(Qt.Orientation.Horizontal)
         one_euro_cutoff_slider.setMinimum(10)  # 0.10
-        one_euro_cutoff_slider.setMaximum(150)  # 1.50
+        one_euro_cutoff_slider.setMaximum(500)  # 5.00
         one_euro_cutoff_slider.setValue(int(settings.ONE_EURO_MIN_CUTOFF * 100))
         one_euro_cutoff_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        one_euro_cutoff_slider.setTickInterval(20)
+        one_euro_cutoff_slider.setTickInterval(50)
         _ = one_euro_cutoff_slider.valueChanged.connect(
             lambda v: self._update_one_euro_cutoff(v, one_euro_cutoff_label)
         )

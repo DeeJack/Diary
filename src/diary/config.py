@@ -68,7 +68,7 @@ class Settings(BaseSettings):
 
     # 1€ Filter parameters
     ONE_EURO_FILTER_ENABLED: bool = True
-    ONE_EURO_MIN_CUTOFF: float = 0.5  # Lower = more smoothing (0.1-1.0)
+    ONE_EURO_MIN_CUTOFF: float = 1.5  # Lower = more smoothing, higher = less (0.1-5.0)
     ONE_EURO_BETA: float = 0.01  # Higher = more responsive (0.001-0.1)
 
     DYNAMIC_ADD_PAGES: bool = False

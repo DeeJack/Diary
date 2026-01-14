@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import cast, override
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread
 from PyQt6.QtGui import QAction, QCloseEvent, QColor
 from PyQt6.QtWidgets import (
     QInputDialog,
@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QMenu,
     QMenuBar,
     QMessageBox,
+    QProgressDialog,
     QVBoxLayout,
     QWidget,
 )
@@ -22,6 +23,7 @@ from diary.config import SETTINGS_FILE_PATH, settings
 from diary.models import Notebook, NotebookDAO
 from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.days_sidebar import DaysSidebar
+from diary.ui.widgets.load_worker import LoadWorker
 from diary.ui.widgets.notebook_widget import NotebookWidget
 from diary.ui.widgets.page_navigator import PageNavigatorToolbar
 from diary.ui.widgets.save_manager import SaveManager
@@ -59,6 +61,9 @@ class MainWindow(QMainWindow):
         self.settings_sidebar: SettingsSidebar
         self.save_manager: SaveManager
         self.stored_selector: NotebookSelector | None = None
+        self._load_thread: QThread | None = None
+        self._load_worker: LoadWorker | None = None
+        self._progress_dialog: QProgressDialog | None = None
 
         self.logger.debug("Input dialog result: %s", ok)
 
@@ -103,15 +108,61 @@ class MainWindow(QMainWindow):
             sys.exit(0)
 
     def _load_widgets(self, key_buffer: SecureBuffer, salt: bytes):
-        """Opens the Notebook with the given password"""
+        """Opens the Notebook with the given password - loads async with progress"""
         main_widget = QWidget()
         self.this_layout = QVBoxLayout(main_widget)
         self.this_layout.setContentsMargins(0, 0, 0, 0)
         self.this_layout.setSpacing(0)
         self.navbar = PageNavigatorToolbar()
         self.bottom_toolbar = BottomToolbar()
+        self.setCentralWidget(main_widget)
 
-        notebooks = NotebookDAO.loads(settings.NOTEBOOK_FILE_PATH, key_buffer)
+        # Store for use in callback
+        self._pending_key_buffer = key_buffer
+        self._pending_salt = salt
+
+        # Show progress dialog
+        self._progress_dialog = QProgressDialog(
+            "Loading notebooks...", None, 0, 0, self
+        )
+        self._progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self._progress_dialog.setMinimumDuration(0)
+        self._progress_dialog.setValue(0)
+        self._progress_dialog.show()
+
+        # Start async loading
+        self._load_thread = QThread()
+        self._load_worker = LoadWorker(settings.NOTEBOOK_FILE_PATH, key_buffer)
+        self._load_worker.moveToThread(self._load_thread)
+
+        # Connect signals
+        _ = self._load_thread.started.connect(self._load_worker.run)
+        _ = self._load_worker.finished.connect(
+            lambda notebooks: self._on_notebooks_loaded(notebooks, key_buffer, salt)
+        )
+        _ = self._load_worker.error.connect(self._on_load_error)
+        _ = self._load_worker.progress.connect(self._on_load_progress)
+
+        # Cleanup connections
+        _ = self._load_worker.finished.connect(self._load_thread.quit)
+        _ = self._load_thread.finished.connect(self._cleanup_load_thread)
+
+        self._load_thread.start()
+
+    def _on_load_progress(self, current: int, total: int) -> None:
+        """Update progress dialog during load"""
+        if self._progress_dialog:
+            if total > 0:
+                self._progress_dialog.setMaximum(total)
+                self._progress_dialog.setValue(current)
+
+    def _on_notebooks_loaded(
+        self, notebooks: list[Notebook], key_buffer: SecureBuffer, salt: bytes
+    ) -> None:
+        """Handle successful notebook load"""
+        if self._progress_dialog:
+            self._progress_dialog.close()
+            self._progress_dialog = None
 
         self.save_manager = SaveManager(
             notebooks, settings.NOTEBOOK_FILE_PATH, key_buffer, salt
@@ -120,7 +171,24 @@ class MainWindow(QMainWindow):
         self._show_notebook_selector(key_buffer, salt, notebooks)
         self.navbar.set_back_button_visible(False)
 
-        self.setCentralWidget(main_widget)
+    def _on_load_error(self, error_msg: str) -> None:
+        """Handle load error"""
+        if self._progress_dialog:
+            self._progress_dialog.close()
+            self._progress_dialog = None
+
+        _ = QMessageBox.critical(self, "Error", f"Failed to load notebooks: {error_msg}")
+        _ = self.close()
+        sys.exit(0)
+
+    def _cleanup_load_thread(self) -> None:
+        """Clean up the load thread"""
+        if self._load_worker:
+            self._load_worker.deleteLater()
+            self._load_worker = None
+        if self._load_thread:
+            self._load_thread.deleteLater()
+            self._load_thread = None
 
     def _show_notebook_selector(
         self, key_buffer: SecureBuffer, salt: bytes, notebooks: list[Notebook]
@@ -224,18 +292,67 @@ class MainWindow(QMainWindow):
 
     @override
     def closeEvent(self, a0: QCloseEvent | None):
-        """On app close event"""
+        """On app close event - saves async with progress dialog"""
         self.logger.debug("Close app event!")
-        if a0 and hasattr(self, "save_manager"):
-            settings.save_to_file(Path(SETTINGS_FILE_PATH))
-            self.save_manager.stop_auto_save()
-            self.save_manager.force_save()
+        if not a0:
+            return
 
+        if not hasattr(self, "save_manager"):
+            a0.accept()
+            return
+
+        # If already closing (after save completed), accept the event
+        if hasattr(self, "_closing") and self._closing:
             # Clean up the notebook widget to prevent segfaults during Qt destruction
             if hasattr(self, "notebook_widget"):
                 self.notebook_widget.cleanup()
-
             a0.accept()
+            return
+
+        # Prevent immediate close - we'll close after save completes
+        a0.ignore()
+
+        # Save settings synchronously (fast)
+        settings.save_to_file(Path(SETTINGS_FILE_PATH))
+        self.save_manager.stop_auto_save()
+
+        # Show saving progress dialog
+        self._save_progress_dialog = QProgressDialog(
+            "Saving notebooks...", None, 0, 0, self
+        )
+        self._save_progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self._save_progress_dialog.setMinimumDuration(0)
+        self._save_progress_dialog.show()
+
+        # Mark as dirty to ensure save happens
+        self.save_manager.mark_dirty()
+
+        # Connect to save completion
+        _ = self.save_manager.save_completed.connect(self._on_close_save_completed)
+        _ = self.save_manager.save_error.connect(self._on_close_save_completed)
+
+        # Start async save
+        self.save_manager.save_async()
+
+    def _on_close_save_completed(self, *args) -> None:
+        """Handle save completion during close"""
+        # Disconnect signals to avoid duplicate calls
+        try:
+            self.save_manager.save_completed.disconnect(self._on_close_save_completed)
+            self.save_manager.save_error.disconnect(self._on_close_save_completed)
+        except (TypeError, RuntimeError):
+            pass
+
+        # Close progress dialog
+        if hasattr(self, "_save_progress_dialog") and self._save_progress_dialog:
+            self._save_progress_dialog.close()
+            self._save_progress_dialog = None
+
+        # Mark that we're ready to close
+        self._closing = True
+
+        # Actually close the window
+        self.close()
 
     def pdf_imported(self):
         """When the PDF has been imported, mark notebook as dirty and reload widget"""

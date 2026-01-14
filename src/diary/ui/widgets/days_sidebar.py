@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, cast
 
 from PyQt6.QtCore import Qt, pyqtSlot
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QShowEvent
 from PyQt6.QtWidgets import QDockWidget, QListWidget, QListWidgetItem, QWidget
 
 from diary.ui.widgets.notebook_widget import NotebookWidget
@@ -13,18 +13,28 @@ from diary.ui.widgets.notebook_widget import NotebookWidget
 class DaysSidebar(QDockWidget):
     """QDockWidget as sidebar for navigation between Diary entries"""
 
+    _populated: bool = False
+
     def __init__(self, parent: QWidget | None, notebook_widget: NotebookWidget):
         super().__init__("", parent)
         self.notebook_widget: NotebookWidget = notebook_widget
+        self._populated = False
 
         self.setAllowedAreas(
             Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
         )
         self.entry_list: QListWidget = QListWidget()
-        self.populate_entry_list()
+        # Don't populate here - defer until sidebar is shown
         self._style_entry_list()
         self.setWidget(self.entry_list)
         _ = self.entry_list.itemClicked.connect(self.on_entry_selected)
+
+    def showEvent(self, event: QShowEvent | None) -> None:
+        """Populate the list lazily when first shown"""
+        if not self._populated:
+            self.populate_entry_list()
+            self._populated = True
+        super().showEvent(event)
 
     def populate_entry_list(self):
         """Fill the list with the diary entries"""

@@ -117,16 +117,12 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             _ = scroll_bar.valueChanged.connect(self._on_scroll)
 
     def _layout_page_backgrounds(self):
-        """Draw page backgrounds for all pages as placeholders"""
+        """Set up scene rect - backgrounds are created lazily on scroll"""
         self.page_backgrounds.clear()
-
-        for i, _ in enumerate(self.notebook.pages):
-            self._create_page_background(i)
-
         self._update_scene_rect()
 
     def _on_scroll(self, value: int = 0) -> None:
-        """Handle scroll events to lazy load pages"""
+        """Handle scroll events to lazy load pages and backgrounds"""
         _ = value
         # Determine which pages should be visible
         viewport = self.viewport()
@@ -155,8 +151,22 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             if proxy_widget:
                 self._cleanup_proxy_widget(proxy_widget, page_index)
 
-        # Load new widgets
+        # Unload backgrounds outside the buffer range
+        backgrounds_to_unload = set(self.page_backgrounds.keys()) - pages_to_load
+        for page_index in backgrounds_to_unload:
+            background = self.page_backgrounds.pop(page_index, None)
+            if background:
+                try:
+                    self.this_scene.removeItem(background)
+                except RuntimeError:
+                    pass
+
+        # Load new backgrounds and widgets
         for page_index in pages_to_load:
+            # Create background if not exists
+            if page_index not in self.page_backgrounds:
+                self._create_page_background(page_index)
+            # Create widget if not exists
             if page_index not in self.active_page_widgets:
                 page_data = self.notebook.pages[page_index]
                 self._load_and_position_page(page_index, page_data)

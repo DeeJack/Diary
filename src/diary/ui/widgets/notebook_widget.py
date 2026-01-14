@@ -53,6 +53,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             salt,
         )
         self.this_scene: QtWidgets.QGraphicsScene = QtWidgets.QGraphicsScene()
+        self._cleaning_up: bool = False
 
         self._setup_notebook_widget()
         self._layout_page_backgrounds()
@@ -64,6 +65,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         This method should be called from the main window's closeEvent before
         Qt starts destroying objects, to ensure proper cleanup order.
         """
+        self._cleaning_up = True
         self._logger.debug("Cleaning up NotebookWidget")
 
         # Stop the auto-save timer first
@@ -124,6 +126,8 @@ class NotebookWidget(QtWidgets.QGraphicsView):
     def _on_scroll(self, value: int = 0) -> None:
         """Handle scroll events to lazy load pages and backgrounds"""
         _ = value
+        if self._cleaning_up:
+            return
         # Determine which pages should be visible
         viewport = self.viewport()
         if not viewport:
@@ -588,7 +592,10 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         )
         background.setBrush(QtGui.QBrush(QtGui.QColor(settings.PAGE_BACKGROUND_COLOR)))
 
-        self.this_scene.addItem(background)
+        try:
+            self.this_scene.addItem(background)
+        except RuntimeError:
+            return  # Scene has been deleted (during close)
         self.page_backgrounds[page_idx] = background
 
     def _update_scene_rect(self):

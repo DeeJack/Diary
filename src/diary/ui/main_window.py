@@ -22,7 +22,6 @@ from PyQt6.QtWidgets import (
 from diary.config import SETTINGS_FILE_PATH, settings
 from diary.models import Notebook, NotebookDAO
 from diary.ui.widgets.bottom_toolbar import BottomToolbar
-from diary.ui.widgets.calendar_sidebar import CalendarSidebar
 from diary.ui.widgets.days_sidebar import DaysSidebar
 from diary.ui.widgets.load_worker import LoadWorker
 from diary.ui.widgets.notebook_widget import NotebookWidget
@@ -58,7 +57,6 @@ class MainWindow(QMainWindow):
         self.navbar: PageNavigatorToolbar
         self.bottom_toolbar: BottomToolbar
         self.sidebar: DaysSidebar
-        self.calendar_sidebar: CalendarSidebar
         self.notebook_widget: NotebookWidget
         self.settings_sidebar: SettingsSidebar
         self.save_manager: SaveManager
@@ -246,8 +244,6 @@ class MainWindow(QMainWindow):
         # Hide sidebars
         if hasattr(self, "sidebar"):
             self.sidebar.hide()
-        if hasattr(self, "calendar_sidebar"):
-            self.calendar_sidebar.hide()
         if hasattr(self, "settings_sidebar"):
             self.settings_sidebar.hide()
 
@@ -388,11 +384,6 @@ class MainWindow(QMainWindow):
             self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar)
             self.sidebar.hide()
 
-        if not hasattr(self, "calendar_sidebar"):
-            self.calendar_sidebar = CalendarSidebar(self, self.notebook_widget)
-            self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.calendar_sidebar)
-            self.calendar_sidebar.hide()
-
         if not hasattr(self, "settings_sidebar"):
             self.settings_sidebar = SettingsSidebar(self, notebook)
             self.addDockWidget(
@@ -403,10 +394,8 @@ class MainWindow(QMainWindow):
         menu_bar = cast(QMenuBar, self.menuBar())
         view_menu = cast(QMenu, menu_bar.addMenu("&"))
         sidebar_action = self.sidebar.create_toggle_action()
-        calendar_action = self.calendar_sidebar.create_toggle_action()
         settings_action = self.settings_sidebar.create_toggle_action()
         view_menu.addAction(sidebar_action)
-        view_menu.addAction(calendar_action)
         view_menu.addAction(settings_action)
 
         self.connect_signals(sidebar_action, settings_action)

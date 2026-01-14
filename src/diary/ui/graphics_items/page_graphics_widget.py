@@ -155,7 +155,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         # Create page title
         page_date = datetime.fromtimestamp(
             self.page.created_at if self.page else 0
-        ).strftime("%Y-%m-%d")
+        ).strftime("%Y-%m-%d %a")
         streak_info = ""
         if self.page and self.page.streak_lvl > 0:
             streak_info = f" (Streak: {self.page.streak_lvl})"
@@ -563,7 +563,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         """Update the title label with current page info"""
         page_date = datetime.fromtimestamp(
             self.page.created_at if self.page else 0
-        ).strftime("%Y-%m-%d")
+        ).strftime("%Y-%m-%d %a")
         streak_info = ""
         if self.page and self.page.streak_lvl > 0:
             streak_info = f" (Streak: {self.page.streak_lvl})"

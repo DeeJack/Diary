@@ -145,6 +145,17 @@ class BottomToolbar(QToolBar):
         self.info_label: QLabel = QLabel()
         self.info_label.setFont(QFont("Times New Roman", 12))
 
+        # Mouse mode toggle button
+        self.mouse_toggle_btn: QPushButton = QPushButton("🖱️")
+        self.mouse_toggle_btn.setFont(QFont("Times New Roman", 14))
+        self.mouse_toggle_btn.setFixedWidth(40)
+        self.mouse_toggle_btn.setFixedHeight(30)
+        self.mouse_toggle_btn.setCheckable(True)
+        self.mouse_toggle_btn.setChecked(settings.MOUSE_ENABLED)
+        self.mouse_toggle_btn.setToolTip("Mouse mode: when disabled, mouse/touch acts as drag hand only")
+        self._update_mouse_toggle_style()
+        _ = self.mouse_toggle_btn.clicked.connect(self._toggle_mouse_mode)
+
         self.buttons: list[ToolButton] = [
             self.pen_btn,
             self.eraser_btn,
@@ -159,6 +170,10 @@ class BottomToolbar(QToolBar):
         for button in self.buttons:
             _ = self.addWidget(button)
             self._add_spacer(10)
+
+        # Add separator and mouse toggle
+        self._add_spacer(10)
+        _ = self.addWidget(self.mouse_toggle_btn)
         self._add_spacer(30)
         _ = self.addWidget(thickness_lbl)
         self._add_spacer(10)
@@ -219,6 +234,39 @@ class BottomToolbar(QToolBar):
                 settings.TEXT_SIZE_PX = size
         except ValueError:
             pass  # Ignore invalid input
+
+    def _toggle_mouse_mode(self):
+        """Toggle mouse mode on/off"""
+        settings.MOUSE_ENABLED = self.mouse_toggle_btn.isChecked()
+        self._update_mouse_toggle_style()
+
+    def _update_mouse_toggle_style(self):
+        """Update the mouse toggle button style based on state"""
+        if settings.MOUSE_ENABLED:
+            self.mouse_toggle_btn.setStyleSheet(
+                """
+                QPushButton {
+                    background-color: #007acc;
+                    color: white;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background-color: #005a9e;
+                }
+            """
+            )
+        else:
+            self.mouse_toggle_btn.setStyleSheet(
+                """
+                QPushButton {
+                    background-color: #444;
+                    color: #888;
+                }
+                QPushButton:hover {
+                    background-color: #555;
+                }
+            """
+            )
 
 
 def create_button(text: str) -> QPushButton:

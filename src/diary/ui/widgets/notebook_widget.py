@@ -514,7 +514,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
             active_tool = settings.TABLET_TOOL
             device = InputType.TABLET
         else:  # Mouse event
-            active_tool = settings.TABLET_TOOL
+            active_tool = settings.MOUSE_TOOL
             device = InputType.MOUSE
 
         if active_tool in {Tool.DRAG, Tool.SELECTION} or (

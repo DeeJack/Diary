@@ -3,7 +3,7 @@
 import logging
 from typing import cast, override
 
-from PyQt6.QtCore import QLineF, QObject, QPointF, QRectF, pyqtSignal
+from PyQt6.QtCore import QLineF, QObject, QPointF, QRectF, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
@@ -37,6 +37,8 @@ class PageGraphicsScene(QGraphicsScene):
         self._element_items: dict[str, QGraphicsItem] = {}
         self._item_elements: dict[QGraphicsItem, PageElement] = {}
         self._logger: logging.Logger = logging.getLogger("PageGraphicsScene")
+        # Keep references to deleted items to prevent premature GC while Qt processes events
+        self._pending_deletion: list[QGraphicsItem] = []
 
         # Configure scene properties
         self.setBackgroundBrush(QBrush(QColor(224, 224, 224)))  # Light gray background
@@ -104,23 +106,26 @@ class PageGraphicsScene(QGraphicsScene):
 
         graphics_item = self._element_items[element_id]
         element = self._item_elements.get(graphics_item)
-        
+
         if not element:
             self._logger.warning("Element data not found for graphics item")
             return False
 
+        # Remove from tracking first (before removeItem to prevent re-access)
+        del self._element_items[element_id]
+        del self._item_elements[graphics_item]
+
         try:
             # Remove from scene
             self.removeItem(graphics_item)
+            # Keep reference to prevent GC while Qt processes pending events
+            self._pending_deletion.append(graphics_item)
+            # Clear the pending list after event loop finishes
+            QTimer.singleShot(0, self._clear_pending_deletions)
         except RuntimeError as e:
             self._logger.error("RuntimeError removing item from scene: %s", e)
-            # Continue with cleanup even if removeItem failed
         except Exception as e:
             self._logger.error("Unexpected error removing item from scene: %s", e)
-
-        # Remove from tracking
-        del self._element_items[element_id]
-        del self._item_elements[graphics_item]
 
         # Remove from page
         if self._page and element in self._page.elements:
@@ -131,6 +136,10 @@ class PageGraphicsScene(QGraphicsScene):
         self.page_modified.emit()
 
         return True
+
+    def _clear_pending_deletions(self) -> None:
+        """Clear the pending deletion list after event processing"""
+        self._pending_deletion.clear()
 
     def remove_element_by_item(self, graphics_item: QGraphicsItem) -> bool:
         """Remove an element by its graphics item"""

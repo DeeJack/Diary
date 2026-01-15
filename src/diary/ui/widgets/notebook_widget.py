@@ -13,6 +13,7 @@ from diary.ui.ui_utils import show_info_dialog
 from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.save_manager import SaveManager
 from diary.ui.widgets.tool_selector import Tool
+from diary.ui.graphics_items.text_graphics_item import TextGraphicsItem
 from diary.utils.encryption import SecureBuffer
 
 
@@ -461,6 +462,10 @@ class NotebookWidget(QtWidgets.QGraphicsView):
                         QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable,
                         new_tool == Tool.SELECTION,
                     )
+                    if new_tool == Tool.SELECTION and isinstance(
+                        element, TextGraphicsItem
+                    ):
+                        element.stop_editing()
 
         self._logger.debug("Setting new tool: %s for device: %s", new_tool, device)
 

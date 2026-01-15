@@ -28,6 +28,8 @@ from .base_graphics_item import BaseGraphicsItem
 class TextGraphicsItem(BaseGraphicsItem):
     """Graphics item for rendering text elements"""
 
+    _HINT_TEXT = "Type here"
+
     def __init__(self, text_element: Text, parent: QGraphicsItem | None = None):
         super().__init__(text_element, parent)
         self._font: QFont | None = None
@@ -42,7 +44,7 @@ class TextGraphicsItem(BaseGraphicsItem):
 
         self.setPos(text_element.position.x, text_element.position.y)
 
-        text_rect = self._text_positioned_box()
+        text_rect = self._text_positioned_box(self._get_display_text())
         # Enable transformations (use local coordinates)
         self.setTransformOriginPoint(
             (settings.PAGE_WIDTH - text_element.position.x) / 2, text_rect.height() / 2
@@ -56,10 +58,8 @@ class TextGraphicsItem(BaseGraphicsItem):
     @override
     def _calculate_bounding_rect(self) -> QRectF:
         """Calculate the bounding rectangle for the text"""
-        if not self.text_element.text:
-            return QRectF(0, 0, 10, 10)
-
-        positioned_rect = self._text_positioned_box()
+        display_text = self._get_display_text()
+        positioned_rect = self._text_positioned_box(display_text)
 
         # Add some padding for selection highlighting
         padding = 4.0
@@ -75,12 +75,15 @@ class TextGraphicsItem(BaseGraphicsItem):
         """Paint the text with high-quality font rendering"""
         # If editing, skip custom painting
         if self._edit_item is not None:
-            if self.isSelected() and painter:
+            if painter:
                 self.configure_painter_quality(painter)
-                self._draw_selection_highlight(painter)
+                if self.isSelected():
+                    self._draw_selection_highlight(painter)
+                if not self.text_element.text:
+                    self._draw_hint_text(painter)
             return
 
-        if not self.text_element.text or not painter:
+        if not painter:
             return
 
         # Configure painter for high-quality text rendering
@@ -93,6 +96,10 @@ class TextGraphicsItem(BaseGraphicsItem):
         # Set up font and color
         font = self._get_font()
         painter.setFont(font)
+
+        if not self.text_element.text:
+            self._draw_hint_text(painter)
+            return
 
         text_color = QColor(self.text_element.color)
         painter.setPen(QPen(text_color))
@@ -112,7 +119,7 @@ class TextGraphicsItem(BaseGraphicsItem):
     def _draw_selection_highlight(self, painter: QPainter) -> None:
         """Draw selection highlight behind the text"""
         # Get text bounds without padding
-        positioned_rect = self._text_positioned_box()
+        positioned_rect = self._text_positioned_box(self._get_display_text())
 
         # Draw semi-transparent selection background
         selection_color = QColor(0, 120, 255, 64)  # Semi-transparent blue
@@ -179,10 +186,7 @@ class TextGraphicsItem(BaseGraphicsItem):
 
     def get_text_rect(self) -> QRectF:
         """Get the actual text rectangle (without padding)"""
-        if not self.text_element.text:
-            return QRectF()
-
-        return self._text_positioned_box()
+        return self._text_positioned_box(self._get_display_text())
 
     def intersects_point(self, point: QPointF, radius: float = 5.0) -> bool:
         """Check if the text intersects with a point within the given radius"""
@@ -295,9 +299,10 @@ class TextGraphicsItem(BaseGraphicsItem):
 
         return super()._handle_selection_change(_)
 
-    def _text_positioned_box(self) -> QRectF:
+    def _text_positioned_box(self, text: str | None = None) -> QRectF:
         font = self._get_font()
         font_metrics = QFontMetrics(font)
+        display_text = text if text is not None else self.text_element.text
 
         text_bound_rect = QRect(
             0,
@@ -307,7 +312,7 @@ class TextGraphicsItem(BaseGraphicsItem):
         )
         # Get text dimensions
         text_rect = font_metrics.boundingRect(
-            text_bound_rect, Qt.TextFlag.TextWordWrap, self.text_element.text
+            text_bound_rect, Qt.TextFlag.TextWordWrap, display_text
         )
         positioned_rect = QRectF(
             0,
@@ -316,3 +321,23 @@ class TextGraphicsItem(BaseGraphicsItem):
             text_rect.height(),
         )
         return positioned_rect
+
+    def _get_display_text(self) -> str:
+        return self.text_element.text or self._HINT_TEXT
+
+    def _draw_hint_text(self, painter: QPainter) -> None:
+        font = self._get_font()
+        hint_font = QFont(font)
+        hint_font.setItalic(True)
+        painter.setFont(hint_font)
+
+        hint_color = QColor(self.text_element.color)
+        hint_color.setAlpha(120)
+        painter.setPen(QPen(hint_color))
+
+        text_rect = self._text_positioned_box(self._HINT_TEXT)
+        painter.drawText(
+            text_rect,
+            Qt.TextFlag.TextWordWrap,
+            self._HINT_TEXT,
+        )

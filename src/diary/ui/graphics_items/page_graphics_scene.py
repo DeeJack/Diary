@@ -227,14 +227,15 @@ class PageGraphicsScene(QGraphicsScene):
         elements: list[PageElement] = []
 
         try:
-            items = self.items(point)
-            for graphics_item in items:
-                # Verify the item is still valid and in our tracking dict
-                if graphics_item is None:
+            for graphics_item, element in list(self._item_elements.items()):
+                if graphics_item is None or graphics_item.scene() is not self:
                     continue
-                element = self._item_elements.get(graphics_item)
-                if element:
-                    elements.append(element)
+                try:
+                    local_point = graphics_item.mapFromScene(point)
+                    if graphics_item.contains(local_point):
+                        elements.append(element)
+                except RuntimeError:
+                    continue
         except RuntimeError as e:
             self._logger.error("RuntimeError accessing items at point: %s", e)
         except Exception as e:
@@ -247,14 +248,17 @@ class PageGraphicsScene(QGraphicsScene):
         elements: list[PageElement] = []
 
         try:
-            items = self.items(rect)
-            for graphics_item in items:
-                # Verify the item is still valid and in our tracking dict
-                if graphics_item is None:
+            for graphics_item, element in list(self._item_elements.items()):
+                if graphics_item is None or graphics_item.scene() is not self:
                     continue
-                element = self._item_elements.get(graphics_item)
-                if element:
-                    elements.append(element)
+                try:
+                    item_rect = graphics_item.mapToScene(
+                        graphics_item.boundingRect()
+                    ).boundingRect()
+                    if item_rect.intersects(rect):
+                        elements.append(element)
+                except RuntimeError:
+                    continue
         except RuntimeError as e:
             self._logger.error("RuntimeError accessing items in rect: %s", e)
         except Exception as e:

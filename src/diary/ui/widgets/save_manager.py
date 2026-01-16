@@ -6,7 +6,9 @@ from pathlib import Path
 from PyQt6.QtCore import QObject, QThread, QTimer, pyqtSignal
 
 from diary.config import settings
-from diary.models import Notebook, NotebookDAO
+from diary.models import Notebook
+from diary.models.dao.archive_dao import ArchiveDAO
+from diary.models.dao.migration import ArchiveMigration
 from diary.ui.widgets.save_worker import SaveWorker
 from diary.utils.backup import BackupManager
 from diary.utils.encryption import SecureBuffer
@@ -66,12 +68,21 @@ class SaveManager(QObject):
         self.logger.debug("Saving notebooks...")
 
         try:
-            NotebookDAO.saves(
-                self.all_notebooks,
-                self.file_path,
-                self.key_buffer,
-                self.salt,
-            )
+            if self.all_notebooks:
+                assets_by_notebook = {
+                    notebook.notebook_id: ArchiveMigration.extract_assets_from_notebook(
+                        notebook
+                    )
+                    for notebook in self.all_notebooks
+                }
+
+                ArchiveDAO.save_all(
+                    self.all_notebooks,
+                    assets_by_notebook,
+                    self.file_path,
+                    self.key_buffer,
+                    self.salt,
+                )
             self.is_notebook_dirty = False
 
             # Create backup after successful save

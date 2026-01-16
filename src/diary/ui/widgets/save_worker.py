@@ -5,7 +5,9 @@ from pathlib import Path
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
-from diary.models import Notebook, NotebookDAO
+from diary.models import Notebook
+from diary.models.dao.archive_dao import ArchiveDAO
+from diary.models.dao.migration import ArchiveMigration
 from diary.utils.backup import BackupManager
 from diary.utils.encryption import SecureBuffer
 
@@ -39,10 +41,23 @@ class SaveWorker(QObject):
             if self._is_cancelled:
                 return
 
-            self.logger.debug("Saving notebooks...")
-            NotebookDAO.saves(
-                self.all_notebooks, self.file_path, self.key_buffer, self.salt
-            )
+            self.logger.debug("Saving notebooks in archive format...")
+
+            if self.all_notebooks:
+                assets_by_notebook = {
+                    notebook.notebook_id: ArchiveMigration.extract_assets_from_notebook(
+                        notebook
+                    )
+                    for notebook in self.all_notebooks
+                }
+
+                ArchiveDAO.save_all(
+                    self.all_notebooks,
+                    assets_by_notebook,
+                    self.file_path,
+                    self.key_buffer,
+                    self.salt,
+                )
 
             self.logger.debug("Creating backup...")
             self.backup_manager.save_backups()

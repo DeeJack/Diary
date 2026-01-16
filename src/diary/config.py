@@ -103,6 +103,13 @@ class Settings(BaseSettings):
         NOTEBOOK_ID = "id"
         STREAK_LVL = "streak_lvl"
 
+        # Archive format keys
+        ASSET_ID = "aid"
+        ASSET_TYPE = "atype"
+        MIME_TYPE = "mime"
+        CHECKSUM = "csum"
+        TYPE_VIDEO = "video"
+
     @classmethod
     def load_from_file(cls, path: Path) -> "Settings":
         """Loads settings from a JSON file."""

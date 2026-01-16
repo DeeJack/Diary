@@ -23,6 +23,7 @@ class Image(PageElement):
         image_data: bytes | None = None,
         rotation: float = 0.0,
         element_id: str | None = None,
+        asset_id: str | None = None,
     ):
         super().__init__("image", element_id)
         self.position: Point = position
@@ -31,11 +32,12 @@ class Image(PageElement):
         self.image_path: str | None = image_path
         self.image_data: bytes | None = image_data
         self.rotation: float = rotation
+        self.asset_id: str | None = asset_id
 
     @override
     def to_dict(self) -> dict[str, Any]:
         """Serialize this image to a dictionary for JSON storage"""
-        return {
+        result: dict[str, Any] = {
             settings.SERIALIZATION_KEYS.ELEMENT_TYPE.value: self.element_type,
             settings.SERIALIZATION_KEYS.ELEMENT_ID.value: self.element_id,
             settings.SERIALIZATION_KEYS.POSITION.value: [
@@ -46,11 +48,16 @@ class Image(PageElement):
             settings.SERIALIZATION_KEYS.WIDTH.value: self.width,
             settings.SERIALIZATION_KEYS.HEIGHT.value: self.height,
             settings.SERIALIZATION_KEYS.PATH.value: self.image_path,
-            settings.SERIALIZATION_KEYS.DATA.value: b64encode(self.image_data)
-            if self.image_data
-            else None,
             settings.SERIALIZATION_KEYS.ROTATION.value: self.rotation,
         }
+
+        # Use asset_id if available, otherwise fall back to inline data
+        if self.asset_id:
+            result[settings.SERIALIZATION_KEYS.ASSET_ID.value] = self.asset_id
+        elif self.image_data:
+            result[settings.SERIALIZATION_KEYS.DATA.value] = b64encode(self.image_data)
+
+        return result
 
     @classmethod
     @override
@@ -65,8 +72,10 @@ class Image(PageElement):
             pressure=position_data[2],
         )
 
+        # Check for asset_id first (new format), then fall back to inline data
+        asset_id = data.get(settings.SERIALIZATION_KEYS.ASSET_ID.value)
         image_data = None
-        if data.get(settings.SERIALIZATION_KEYS.DATA.value):
+        if not asset_id and data.get(settings.SERIALIZATION_KEYS.DATA.value):
             try:
                 image_data = b64decode(data[settings.SERIALIZATION_KEYS.DATA.value])
             except (ValueError, TypeError) as e:
@@ -85,6 +94,7 @@ class Image(PageElement):
                 float, data.get(settings.SERIALIZATION_KEYS.ROTATION.value, 0.0)
             ),
             element_id=data.get(settings.SERIALIZATION_KEYS.ELEMENT_ID.value),
+            asset_id=asset_id,
         )
 
     @override
@@ -106,4 +116,5 @@ class Image(PageElement):
             and self.image_path == other.image_path
             and self.image_data == other.image_data
             and self.rotation == other.rotation
+            and self.asset_id == other.asset_id
         )

@@ -64,6 +64,10 @@ class MainWindow(QMainWindow):
         self._load_thread: QThread | None = None
         self._load_worker: LoadWorker | None = None
         self._progress_dialog: QProgressDialog | None = None
+        self._closing: bool
+        self._pending_salt: bytes
+        self._pending_key_buffer: SecureBuffer
+        self._save_progress_dialog: QProgressDialog
 
         self.logger.debug("Input dialog result: %s", ok)
 
@@ -73,9 +77,7 @@ class MainWindow(QMainWindow):
                     self.logger.debug("Previous notebook exists, reading salt")
 
                     # Read salt from existing file
-                    salt = SecureEncryption.read_salt_from_file(
-                        settings.NOTEBOOK_FILE_PATH
-                    )
+                    salt = NotebookDAO.read_salt(settings.NOTEBOOK_FILE_PATH)
                 else:
                     self.logger.debug(
                         "Previous notebook does not exists, creating new salt"
@@ -132,7 +134,9 @@ class MainWindow(QMainWindow):
 
         # Start async loading
         self._load_thread = QThread()
-        self._load_worker = LoadWorker(settings.NOTEBOOK_FILE_PATH, key_buffer)
+        self._load_worker = LoadWorker(
+            settings.NOTEBOOK_FILE_PATH, key_buffer, salt
+        )
         self._load_worker.moveToThread(self._load_thread)
 
         # Connect signals
@@ -161,7 +165,7 @@ class MainWindow(QMainWindow):
     ) -> None:
         """Handle successful notebook load"""
         if self._progress_dialog:
-            self._progress_dialog.close()
+            _ = self._progress_dialog.close()
             self._progress_dialog = None
 
         self.save_manager = SaveManager(
@@ -174,10 +178,12 @@ class MainWindow(QMainWindow):
     def _on_load_error(self, error_msg: str) -> None:
         """Handle load error"""
         if self._progress_dialog:
-            self._progress_dialog.close()
+            _ = self._progress_dialog.close()
             self._progress_dialog = None
 
-        _ = QMessageBox.critical(self, "Error", f"Failed to load notebooks: {error_msg}")
+        _ = QMessageBox.critical(
+            self, "Error", f"Failed to load notebooks: {error_msg}"
+        )
         _ = self.close()
         sys.exit(0)
 
@@ -345,14 +351,14 @@ class MainWindow(QMainWindow):
 
         # Close progress dialog
         if hasattr(self, "_save_progress_dialog") and self._save_progress_dialog:
-            self._save_progress_dialog.close()
-            self._save_progress_dialog = None
+            _ = self._save_progress_dialog.close()
+            self._save_progress_dialog = None  # pyright: ignore[reportAttributeAccessIssue]
 
         # Mark that we're ready to close
         self._closing = True
 
         # Actually close the window
-        self.close()
+        _ = self.close()
 
     def pdf_imported(self):
         """When the PDF has been imported, mark notebook as dirty and reload widget"""

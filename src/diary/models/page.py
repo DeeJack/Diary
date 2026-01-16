@@ -10,7 +10,7 @@ from typing import Any, cast, override
 
 from diary.config import settings
 
-from .elements import Image, Stroke, Text
+from .elements import Image, Stroke, Text, Video
 from .page_element import PageElement
 
 
@@ -84,21 +84,15 @@ class Page:
         for element in cast(
             list[dict[str, str]], data[settings.SERIALIZATION_KEYS.ELEMENTS.value]
         ):
-            if (
-                element[settings.SERIALIZATION_KEYS.ELEMENT_TYPE.value]
-                == settings.SERIALIZATION_KEYS.TYPE_STROKE.value
-            ):
+            element_type = element[settings.SERIALIZATION_KEYS.ELEMENT_TYPE.value]
+            if element_type == settings.SERIALIZATION_KEYS.TYPE_STROKE.value:
                 elements.append(Stroke.from_dict(element))
-            elif (
-                element[settings.SERIALIZATION_KEYS.ELEMENT_TYPE.value]
-                == settings.SERIALIZATION_KEYS.TYPE_IMAGE.value
-            ):
+            elif element_type == settings.SERIALIZATION_KEYS.TYPE_IMAGE.value:
                 elements.append(Image.from_dict(element))
-            elif (
-                element[settings.SERIALIZATION_KEYS.ELEMENT_TYPE.value]
-                == settings.SERIALIZATION_KEYS.TYPE_TEXT.value
-            ):
+            elif element_type == settings.SERIALIZATION_KEYS.TYPE_TEXT.value:
                 elements.append(Text.from_dict(element))
+            elif element_type == settings.SERIALIZATION_KEYS.TYPE_VIDEO.value:
+                elements.append(Video.from_dict(element))
 
         return cls(
             elements,

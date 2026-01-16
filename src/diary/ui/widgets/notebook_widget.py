@@ -8,12 +8,12 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from diary.config import settings
 from diary.models import Notebook, Page
 from diary.ui.graphics_items.page_graphics_widget import PageGraphicsWidget
+from diary.ui.graphics_items.text_graphics_item import TextGraphicsItem
 from diary.ui.input import InputType
 from diary.ui.ui_utils import show_info_dialog
 from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.save_manager import SaveManager
 from diary.ui.widgets.tool_selector import Tool
-from diary.ui.graphics_items.text_graphics_item import TextGraphicsItem
 from diary.utils.encryption import SecureBuffer
 
 
@@ -255,7 +255,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
                 proxy = self.active_page_widgets[idx]
                 widget = proxy.widget()
                 if widget and isinstance(widget, PageGraphicsWidget):
-                    widget._update_title_label()
+                    widget._update_title_label()  # pyright: ignore[reportPrivateUsage]
 
     @override
     def viewportEvent(self, event: QtCore.QEvent | None):

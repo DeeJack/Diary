@@ -228,7 +228,7 @@ class PageGraphicsScene(QGraphicsScene):
 
         try:
             for graphics_item, element in list(self._item_elements.items()):
-                if graphics_item is None or graphics_item.scene() is not self:
+                if graphics_item.scene() is not self:
                     continue
                 try:
                     local_point = graphics_item.mapFromScene(point)
@@ -249,7 +249,7 @@ class PageGraphicsScene(QGraphicsScene):
 
         try:
             for graphics_item, element in list(self._item_elements.items()):
-                if graphics_item is None or graphics_item.scene() is not self:
+                if graphics_item.scene() is not self:
                     continue
                 try:
                     item_rect = graphics_item.mapToScene(
@@ -273,8 +273,6 @@ class PageGraphicsScene(QGraphicsScene):
         try:
             selected = self.selectedItems()
             for graphics_item in selected:
-                if graphics_item is None:
-                    continue
                 element = self._item_elements.get(graphics_item)
                 if element:
                     elements.append(element)

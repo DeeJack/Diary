@@ -21,10 +21,12 @@ class LoadWorker(QObject):
         self,
         file_path: Path,
         key_buffer: SecureBuffer,
+        salt: bytes | None = None,
     ):
         super().__init__()
         self.file_path: Path = file_path
         self.key_buffer: SecureBuffer = key_buffer
+        self.salt: bytes | None = salt
         self._is_cancelled: bool = False
         self.logger: logging.Logger = logging.getLogger("LoadWorker")
 
@@ -41,7 +43,10 @@ class LoadWorker(QObject):
                     self.progress.emit(current, total)
 
             notebooks = NotebookDAO.loads(
-                self.file_path, self.key_buffer, progress_callback
+                self.file_path,
+                self.key_buffer,
+                progress_callback,
+                salt=self.salt,
             )
 
             if not self._is_cancelled:

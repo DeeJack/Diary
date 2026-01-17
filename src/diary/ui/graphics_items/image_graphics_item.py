@@ -10,21 +10,16 @@ from PyQt6.QtGui import (
     QPen,
     QPixmap,
 )
-from PyQt6.QtWidgets import (
-    QGraphicsItem,
-    QGraphicsSceneMouseEvent,
-    QStyleOptionGraphicsItem,
-    QWidget,
-)
+from PyQt6.QtWidgets import QGraphicsItem, QStyleOptionGraphicsItem, QWidget
 
 from diary.config import settings
 from diary.models.elements.image import Image
 from diary.models.point import Point
 
-from .base_graphics_item import BaseGraphicsItem
+from .resizable_graphics_item import ResizableGraphicsItem
 
 
-class ImageGraphicsItem(BaseGraphicsItem):
+class ImageGraphicsItem(ResizableGraphicsItem):
     """Graphics item for rendering image elements with support for rotation and scaling"""
 
     def __init__(self, image_element: Image, parent: QGraphicsItem | None = None):
@@ -33,10 +28,6 @@ class ImageGraphicsItem(BaseGraphicsItem):
         self._scaled_pixmap: QPixmap | None = None
         self._current_scale: float = 1.0
         self._logger: logging.Logger = logging.getLogger("ImageGraphicsItem")
-        self._resize_handle: str
-        self._resize_start_pos: QPointF
-        self._resize_start_rect: QRectF
-
         # Configure item flags for images
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
@@ -159,36 +150,6 @@ class ImageGraphicsItem(BaseGraphicsItem):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRect(rect)
 
-    def _draw_resize_handles(self, painter: QPainter) -> None:
-        """Draw resize handles at the corners when selected"""
-        handle_size = 8.0
-        handle_color = QColor(0, 120, 255)
-
-        # Calculate handle positions in local coordinates
-        left = 0
-        top = 0
-        right = self.image_element.width
-        bottom = self.image_element.height
-
-        handle_positions = [
-            QPointF(left, top),  # Top-left
-            QPointF(right, top),  # Top-right
-            QPointF(right, bottom),  # Bottom-right
-            QPointF(left, bottom),  # Bottom-left
-        ]
-
-        painter.setPen(QPen(handle_color, 1))
-        painter.setBrush(handle_color)
-
-        for pos in handle_positions:
-            handle_rect = QRectF(
-                pos.x() - handle_size / 2,
-                pos.y() - handle_size / 2,
-                handle_size,
-                handle_size,
-            )
-            painter.drawRect(handle_rect)
-
     def _load_image(self) -> None:
         """Load the image from the element data"""
         try:
@@ -304,44 +265,6 @@ class ImageGraphicsItem(BaseGraphicsItem):
         local_rect = QRectF(0, 0, self.image_element.width, self.image_element.height)
         return local_rect.contains(local_point)
 
-    def get_handle_at_point(self, point: QPointF) -> str | None:
-        """Get the resize handle at the given point, if any"""
-        if not self.isSelected():
-            return None
-
-        handle_size = 16.0
-        left = 0
-        top = 0
-        right = self.image_element.width
-        bottom = self.image_element.height
-
-        handles = {
-            "top-left": QRectF(
-                left - handle_size / 2, top - handle_size / 2, handle_size, handle_size
-            ),
-            "top-right": QRectF(
-                right - handle_size / 2, top - handle_size / 2, handle_size, handle_size
-            ),
-            "bottom-right": QRectF(
-                right - handle_size / 2,
-                bottom - handle_size / 2,
-                handle_size,
-                handle_size,
-            ),
-            "bottom-left": QRectF(
-                left - handle_size / 2,
-                bottom - handle_size / 2,
-                handle_size,
-                handle_size,
-            ),
-        }
-
-        for handle_name, handle_rect in handles.items():
-            if handle_rect.contains(point):
-                return handle_name
-
-        return None
-
     @override
     def type(self) -> int:
         """Return unique type identifier for image items"""
@@ -364,87 +287,24 @@ class ImageGraphicsItem(BaseGraphicsItem):
         return ImageGraphicsItem(new_image)
 
     @override
-    def mousePressEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:
-        """Handle mouse press events for resizing"""
-        if not event:
-            return
-        if event.button() == Qt.MouseButton.LeftButton:
-            handle = self.get_handle_at_point(event.pos())
-            if handle:
-                # Store resize start state
-                self._resize_handle = handle
-                self._resize_start_pos = event.pos()
-                self._resize_start_rect = QRectF(
-                    0, 0, self.image_element.width, self.image_element.height
-                )
-                event.accept()
-                return
-
-        super().mousePressEvent(event)
+    def _get_current_size(self) -> tuple[float, float]:
+        """Return current image size."""
+        return (self.image_element.width, self.image_element.height)
 
     @override
-    def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:
-        """Handle mouse move events for resizing"""
-        if not event:
-            return
-        if hasattr(self, "_resize_handle") and self._resize_handle:
-            self._logger.debug("Resizing: %s", event.pos())
-            self._handle_resize(event.pos())
-            event.accept()
-            return
+    def _apply_resize(
+        self, new_size: tuple[float, float], new_scene_pos: QPointF
+    ) -> None:
+        """Apply resize updates for the image element."""
+        self.set_size(new_size[0], new_size[1])
 
-        super().mouseMoveEvent(event)
-
-    @override
-    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:
-        """Handle mouse release events"""
-        if hasattr(self, "_resize_handle"):
-            delattr(self, "_resize_handle")
-            if hasattr(self, "_resize_start_pos"):
-                delattr(self, "_resize_start_pos")
-            if hasattr(self, "_resize_start_rect"):
-                delattr(self, "_resize_start_rect")
-
-        super().mouseReleaseEvent(event)
-
-    def _handle_resize(self, current_pos: QPointF) -> None:
-        """Handle image resizing based on handle movement"""
-        if not hasattr(self, "_resize_handle") or not hasattr(
-            self, "_resize_start_rect"
-        ):
-            return
-
-        start_rect = self._resize_start_rect
-        handle = self._resize_handle
-
-        # Calculate new dimensions based on handle
-        if handle == "bottom-right":
-            new_width = max(20, current_pos.x())
-            new_height = max(20, current_pos.y())
-            self.set_size(new_width, new_height)
-
-        elif handle == "top-left":
-            new_width = max(20, start_rect.width() - current_pos.x())
-            new_height = max(20, start_rect.height() - current_pos.y())
-
-            # Update position and size for top-left handle
-            # Calculate new scene position based on the offset
-            offset_x = current_pos.x()
-            offset_y = current_pos.y()
-            current_scene_pos = self.pos()
-            new_scene_pos = QPointF(
-                current_scene_pos.x() + offset_x, current_scene_pos.y() + offset_y
-            )
-
+        if new_scene_pos != self.pos():
             self.image_element.position = Point(
                 new_scene_pos.x(),
                 new_scene_pos.y(),
                 self.image_element.position.pressure,
             )
             self.setPos(new_scene_pos)
-            self.set_size(new_width, new_height)
-
-        self.invalidate_cache()
 
     def cleanup(self) -> None:
         """Clean up resources to prevent memory leaks.

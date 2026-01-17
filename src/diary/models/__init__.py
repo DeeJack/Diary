@@ -5,7 +5,6 @@ __all__ = [
     "Point",
     "Page",
     "Notebook",
-    "NotebookDAO",
     "PageElement",
     "Image",
     "VoiceMemo",
@@ -20,5 +19,4 @@ from .elements import Text
 from .point import Point
 from .notebook import Notebook
 from .page import Page
-from .dao.notebook_dao import NotebookDAO
 from .page_element import PageElement

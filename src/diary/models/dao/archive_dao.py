@@ -2,12 +2,16 @@
 
 import io
 import logging
+import os
+import secrets
 import struct
 import tarfile
+import tempfile
 from pathlib import Path
 from typing import Callable, cast
 
 import msgpack
+import nacl.secret
 import zstd
 
 from diary.models.asset import Asset, AssetIndex, AssetType
@@ -36,93 +40,6 @@ class ArchiveDAO:
     MAGIC: bytes = b"DIARYARC02"
     VERSION: int = 2
     HEADER_SIZE: int = 10 + 2 + 32  # magic + version + salt
-
-    @staticmethod
-    def save(
-        notebook: Notebook,
-        assets: AssetIndex,
-        filepath: Path,
-        key_buffer: encryption.SecureBuffer,
-        salt: bytes,
-        previous_asset_bytes: dict[str, bytes] | None = None,
-        progress: Callable[[int, int], None] | None = None,
-    ) -> None:
-        """
-        Save notebook and assets to encrypted archive.
-
-        Args:
-            notebook: The notebook to save
-            assets: Index of binary assets
-            filepath: Output file path
-            key_buffer: Derived encryption key
-            salt: Salt for encryption header
-            previous_asset_bytes: Cached asset bytes to reuse (for incremental saves)
-            progress: Optional progress callback
-        """
-        logger = logging.getLogger("ArchiveDAO")
-        logger.debug("Saving notebook to archive: %s", filepath)
-
-        # Build manifest
-        manifest = ArchiveManifest(
-            notebook_id=notebook.notebook_id,
-            notebook_metadata=dict(notebook.metadata),
-            page_ids=[page.page_id for page in notebook.pages],
-            assets=assets.to_manifest_entries(),
-        )
-        manifest.update_modified()
-
-        # Build TAR archive
-        tar_bytes = ArchiveDAO._build_archive(
-            manifest, notebook.pages, assets, previous_asset_bytes
-        )
-
-        # Compress with ZSTD
-        compressed = zstd.ZSTD_compress(tar_bytes, 3)
-
-        # Build final file with our header
-        output_data = ArchiveDAO._build_file_with_header(compressed, salt)
-
-        # Encrypt using the existing encryption system
-        # We write the unencrypted header ourselves, then encrypt the rest
-        ArchiveDAO._encrypt_and_write(output_data, filepath, key_buffer, salt, progress)
-
-        logger.debug("Archive saved successfully: %d bytes", len(output_data))
-
-    @staticmethod
-    def load(
-        filepath: Path,
-        key_buffer: encryption.SecureBuffer,
-        progress: Callable[[int, int], None] | None = None,
-    ) -> tuple[Notebook, AssetIndex]:
-        """
-        Load notebook and assets from encrypted archive.
-
-        Args:
-            filepath: Path to encrypted archive
-            key_buffer: Derived encryption key
-            progress: Optional progress callback
-
-        Returns:
-            Tuple of (Notebook, AssetIndex)
-        """
-        logger = logging.getLogger("ArchiveDAO")
-        logger.debug("Loading notebook from archive: %s", filepath)
-
-        notebooks, assets_by_notebook = ArchiveDAO.load_all(
-            filepath, key_buffer, progress
-        )
-
-        if not notebooks:
-            return Notebook(pages=[Page()]), AssetIndex()
-
-        if len(notebooks) > 1:
-            logger.warning(
-                "Archive contains %d notebooks; returning the first", len(notebooks)
-            )
-
-        notebook = notebooks[0]
-        assets = assets_by_notebook.get(notebook.notebook_id, AssetIndex())
-        return notebook, assets
 
     @staticmethod
     def save_all(
@@ -524,12 +441,6 @@ class ArchiveDAO:
         payload = data[ArchiveDAO.HEADER_SIZE :]
 
         # Use the existing encryption but write our header first
-        import os
-        import secrets
-        import tempfile
-
-        import nacl.secret
-
         output_path = Path(filepath)
         output_dir = output_path.parent
         total_size = len(payload)

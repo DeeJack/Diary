@@ -6,7 +6,7 @@ from typing import Callable
 
 from diary.models.asset import Asset, AssetIndex, AssetType
 from diary.models.dao.archive_dao import ArchiveDAO
-from diary.models.dao.notebook_dao import NotebookDAO
+from diary.models.dao.legacy_loader import load_legacy_notebook, load_legacy_notebooks
 from diary.models.elements.image import Image
 from diary.models.elements.video import Video
 from diary.models.elements.voice_memo import VoiceMemo
@@ -102,7 +102,7 @@ class ArchiveMigration:
         logger.info("Starting migration from %s to %s", legacy_filepath, new_filepath)
 
         # Load legacy notebook
-        notebook = NotebookDAO.load(legacy_filepath, key_buffer, progress)
+        notebook = load_legacy_notebook(legacy_filepath, key_buffer, progress)
         logger.debug("Loaded notebook with %d pages", len(notebook.pages))
 
         # Extract assets from all pages
@@ -215,8 +215,16 @@ class ArchiveMigration:
 
         logger.info("Extracted %d assets from notebook", total_assets)
 
-        # Save in new archive format
-        ArchiveDAO.save(notebook, assets, new_filepath, key_buffer, salt, None, progress)
+        # Save in new archive format (single notebook archive)
+        ArchiveDAO.save_all(
+            [notebook],
+            {notebook.notebook_id: assets},
+            new_filepath,
+            key_buffer,
+            salt,
+            None,
+            progress,
+        )
         logger.info("Migration completed successfully")
 
         return notebook, assets
@@ -246,13 +254,7 @@ class ArchiveMigration:
         logger.info("Starting multi-notebook migration")
 
         # Load legacy notebooks
-        notebooks = NotebookDAO.loads(
-            legacy_filepath,
-            key_buffer,
-            progress,
-            salt=salt,
-            auto_migrate=False,
-        )
+        notebooks = load_legacy_notebooks(legacy_filepath, key_buffer, progress)
         logger.debug("Loaded %d notebooks", len(notebooks))
 
         if not notebooks:

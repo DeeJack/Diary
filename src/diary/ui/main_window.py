@@ -20,7 +20,8 @@ from PyQt6.QtWidgets import (
 )
 
 from diary.config import SETTINGS_FILE_PATH, settings
-from diary.models import Notebook, NotebookDAO
+from diary.models import Notebook
+from diary.models.dao.archive_dao import ArchiveDAO
 from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.days_sidebar import DaysSidebar
 from diary.ui.widgets.load_worker import LoadWorker
@@ -76,8 +77,15 @@ class MainWindow(QMainWindow):
                 if settings.NOTEBOOK_FILE_PATH.exists():
                     self.logger.debug("Previous notebook exists, reading salt")
 
-                    # Read salt from existing file
-                    salt = NotebookDAO.read_salt(settings.NOTEBOOK_FILE_PATH)
+                    file_format = ArchiveDAO.detect_format(settings.NOTEBOOK_FILE_PATH)
+                    if file_format == "archive_v2":
+                        salt = ArchiveDAO.read_salt_from_file(
+                            settings.NOTEBOOK_FILE_PATH
+                        )
+                    else:
+                        salt = SecureEncryption.read_salt_from_file(
+                            settings.NOTEBOOK_FILE_PATH
+                        )
                 else:
                     self.logger.debug(
                         "Previous notebook does not exists, creating new salt"
@@ -134,9 +142,7 @@ class MainWindow(QMainWindow):
 
         # Start async loading
         self._load_thread = QThread()
-        self._load_worker = LoadWorker(
-            settings.NOTEBOOK_FILE_PATH, key_buffer, salt
-        )
+        self._load_worker = LoadWorker(settings.NOTEBOOK_FILE_PATH, key_buffer, salt)
         self._load_worker.moveToThread(self._load_thread)
 
         # Connect signals

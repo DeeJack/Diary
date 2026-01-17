@@ -13,6 +13,7 @@ class Tool(Enum):
     TEXT = "TEXT"
     DRAG = "DRAG"
     IMAGE = "IMAGE"
+    VIDEO = "VIDEO"
     AUDIO = "AUDIO"
     SELECTION = "SELECTION"
 
@@ -30,6 +31,8 @@ def get_cursor_from_tool(tool: Tool) -> Qt.CursorShape:
         case Tool.DRAG:
             cursor = Qt.CursorShape.OpenHandCursor
         case Tool.IMAGE:
+            cursor = Qt.CursorShape.CrossCursor
+        case Tool.VIDEO:
             cursor = Qt.CursorShape.CrossCursor
         case Tool.AUDIO:
             cursor = Qt.CursorShape.CrossCursor

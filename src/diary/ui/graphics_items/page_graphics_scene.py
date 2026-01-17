@@ -11,6 +11,7 @@ from diary.config import settings
 from diary.models.elements.image import Image
 from diary.models.elements.stroke import Stroke
 from diary.models.elements.text import Text
+from diary.models.elements.video import Video
 from diary.models.page import Page
 from diary.models.page_element import PageElement
 from diary.models.point import Point
@@ -19,6 +20,7 @@ from .graphics_item_factory import GraphicsItemFactory
 from .image_graphics_item import ImageGraphicsItem
 from .stroke_graphics_item import StrokeGraphicsItem
 from .text_graphics_item import TextGraphicsItem
+from .video_graphics_item import VideoGraphicsItem
 
 
 class PageGraphicsScene(QGraphicsScene):
@@ -354,6 +356,27 @@ class PageGraphicsScene(QGraphicsScene):
         graphics_item = self.add_element(image)
         return image if graphics_item else None
 
+    def create_video(
+        self,
+        position: Point,
+        width: float,
+        height: float,
+        rotation: float = 0.0,
+        duration: float = 0.0,
+        asset_id: str | None = None,
+    ) -> Video | None:
+        """Create a new video element and add it to the scene."""
+        video = Video(
+            position=position,
+            width=width,
+            height=height,
+            rotation=rotation,
+            duration=duration,
+            asset_id=asset_id,
+        )
+        graphics_item = self.add_element(video)
+        return video if graphics_item else None
+
     @override
     def drawBackground(self, painter: QPainter | None, rect: QRectF) -> None:
         """Draw the page background with lines"""
@@ -404,6 +427,7 @@ class PageGraphicsScene(QGraphicsScene):
             "strokes": 0,
             "texts": 0,
             "images": 0,
+            "videos": 0,
             "selected": len(self.selectedItems()),
         }
 
@@ -414,6 +438,8 @@ class PageGraphicsScene(QGraphicsScene):
                 stats["texts"] += 1
             elif isinstance(element, Image):
                 stats["images"] += 1
+            elif isinstance(element, Video):
+                stats["videos"] += 1
 
         return stats
 

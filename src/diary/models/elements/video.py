@@ -1,5 +1,6 @@
 """Represents a Video element that can be placed on a page"""
 
+from base64 import b64decode, b64encode
 from dataclasses import dataclass
 from typing import Any, cast, override
 
@@ -18,8 +19,10 @@ class Video(PageElement):
         width: float,
         height: float,
         asset_id: str | None = None,
+        video_data: bytes | None = None,
         rotation: float = 0.0,
         duration: float = 0.0,
+        thumbnail_data: bytes | None = None,
         thumbnail_asset_id: str | None = None,
         element_id: str | None = None,
     ):
@@ -28,8 +31,10 @@ class Video(PageElement):
         self.width: float = width
         self.height: float = height
         self.asset_id: str | None = asset_id
+        self.video_data: bytes | None = video_data
         self.rotation: float = rotation
         self.duration: float = duration  # Duration in seconds
+        self.thumbnail_data: bytes | None = thumbnail_data
         self.thumbnail_asset_id: str | None = thumbnail_asset_id
 
     @override
@@ -51,9 +56,13 @@ class Video(PageElement):
 
         if self.asset_id:
             result[settings.SERIALIZATION_KEYS.ASSET_ID.value] = self.asset_id
+        elif self.video_data:
+            result[settings.SERIALIZATION_KEYS.DATA.value] = b64encode(self.video_data)
 
         if self.thumbnail_asset_id:
             result["thumb"] = self.thumbnail_asset_id
+        elif self.thumbnail_data:
+            result["thumb_data"] = b64encode(self.thumbnail_data)
 
         return result
 
@@ -70,16 +79,34 @@ class Video(PageElement):
             pressure=position_data[2] if len(position_data) > 2 else 1.0,
         )
 
-        return cls(
+        asset_id = data.get(settings.SERIALIZATION_KEYS.ASSET_ID.value)
+        video_data = None
+        if not asset_id and data.get(settings.SERIALIZATION_KEYS.DATA.value):
+            try:
+                video_data = b64decode(data[settings.SERIALIZATION_KEYS.DATA.value])
+            except (ValueError, TypeError):
+                video_data = None
+
+        thumbnail_data = None
+        if not data.get("thumb") and data.get("thumb_data"):
+            try:
+                thumbnail_data = b64decode(data["thumb_data"])
+            except (ValueError, TypeError):
+                thumbnail_data = None
+
+        video = cls(
             position=position,
             width=cast(float, data.get(settings.SERIALIZATION_KEYS.WIDTH.value, 320.0)),
             height=cast(float, data.get(settings.SERIALIZATION_KEYS.HEIGHT.value, 240.0)),
-            asset_id=data.get(settings.SERIALIZATION_KEYS.ASSET_ID.value),
+            asset_id=asset_id,
             rotation=cast(float, data.get(settings.SERIALIZATION_KEYS.ROTATION.value, 0.0)),
             duration=cast(float, data.get(settings.SERIALIZATION_KEYS.DURATION.value, 0.0)),
+            thumbnail_data=thumbnail_data,
             thumbnail_asset_id=data.get("thumb"),
             element_id=data.get(settings.SERIALIZATION_KEYS.ELEMENT_ID.value),
         )
+        video.video_data = video_data
+        return video
 
     @override
     def __eq__(self, other: object, /) -> bool:
@@ -98,7 +125,9 @@ class Video(PageElement):
             and self.width == other.width
             and self.height == other.height
             and self.asset_id == other.asset_id
+            and self.video_data == other.video_data
             and self.rotation == other.rotation
             and self.duration == other.duration
+            and self.thumbnail_data == other.thumbnail_data
             and self.thumbnail_asset_id == other.thumbnail_asset_id
         )

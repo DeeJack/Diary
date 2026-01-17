@@ -8,6 +8,7 @@ from diary.models.asset import Asset, AssetIndex, AssetType
 from diary.models.dao.archive_dao import ArchiveDAO
 from diary.models.dao.notebook_dao import NotebookDAO
 from diary.models.elements.image import Image
+from diary.models.elements.video import Video
 from diary.models.elements.voice_memo import VoiceMemo
 from diary.models.notebook import Notebook
 from diary.utils import encryption
@@ -151,6 +152,66 @@ class ArchiveMigration:
                         asset.asset_id,
                         mime_type,
                     )
+                elif isinstance(element, Video) and element.video_data:
+                    # Extract video data to asset
+                    mime_type = detect_video_mime_type(element.video_data)
+                    asset = Asset.create(
+                        AssetType.VIDEO,
+                        mime_type,
+                        element.video_data,
+                    )
+                    assets.add(asset)
+
+                    # Update element to reference asset
+                    element.asset_id = asset.asset_id
+                    element.video_data = None  # Clear inline data
+
+                    total_assets += 1
+                    logger.debug(
+                        "Extracted video asset: %s (%s)",
+                        asset.asset_id,
+                        mime_type,
+                    )
+
+                if isinstance(element, Video) and element.thumbnail_data:
+                    # Extract thumbnail to asset
+                    mime_type = detect_image_mime_type(element.thumbnail_data)
+                    asset = Asset.create(
+                        AssetType.IMAGE,
+                        mime_type,
+                        element.thumbnail_data,
+                    )
+                    assets.add(asset)
+
+                    element.thumbnail_asset_id = asset.asset_id
+                    element.thumbnail_data = None
+
+                    total_assets += 1
+                    logger.debug(
+                        "Extracted video thumbnail asset: %s (%s)",
+                        asset.asset_id,
+                        mime_type,
+                    )
+                elif isinstance(element, Video) and element.video_data:
+                    # Extract video data to asset
+                    mime_type = detect_video_mime_type(element.video_data)
+                    asset = Asset.create(
+                        AssetType.VIDEO,
+                        mime_type,
+                        element.video_data,
+                    )
+                    assets.add(asset)
+
+                    # Update element to reference asset
+                    element.asset_id = asset.asset_id
+                    element.video_data = None  # Clear inline data
+
+                    total_assets += 1
+                    logger.debug(
+                        "Extracted video asset: %s (%s)",
+                        asset.asset_id,
+                        mime_type,
+                    )
 
         logger.info("Extracted %d assets from notebook", total_assets)
 
@@ -237,6 +298,14 @@ class ArchiveMigration:
                     asset = assets.get(element.asset_id)
                     if asset and asset.data:
                         element.audio_data = asset.data
+                elif isinstance(element, Video) and element.asset_id:
+                    asset = assets.get(element.asset_id)
+                    if asset and asset.data:
+                        element.video_data = asset.data
+                if isinstance(element, Video) and element.thumbnail_asset_id:
+                    asset = assets.get(element.thumbnail_asset_id)
+                    if asset and asset.data:
+                        element.thumbnail_data = asset.data
 
     @staticmethod
     def extract_assets_from_notebook(notebook: Notebook) -> AssetIndex:
@@ -295,6 +364,43 @@ class ArchiveMigration:
                             asset_type=AssetType.AUDIO,
                             mime_type=mime_type,
                             data=element.audio_data,
+                        )
+                        assets.add(asset)
+                elif isinstance(element, Video):
+                    if element.video_data and not element.asset_id:
+                        mime_type = detect_video_mime_type(element.video_data)
+                        asset = Asset.create(
+                            AssetType.VIDEO,
+                            mime_type,
+                            element.video_data,
+                        )
+                        assets.add(asset)
+                        element.asset_id = asset.asset_id
+                    elif element.asset_id and element.video_data:
+                        mime_type = detect_video_mime_type(element.video_data)
+                        asset = Asset(
+                            asset_id=element.asset_id,
+                            asset_type=AssetType.VIDEO,
+                            mime_type=mime_type,
+                            data=element.video_data,
+                        )
+                        assets.add(asset)
+                    if element.thumbnail_data and not element.thumbnail_asset_id:
+                        mime_type = detect_image_mime_type(element.thumbnail_data)
+                        asset = Asset.create(
+                            AssetType.IMAGE,
+                            mime_type,
+                            element.thumbnail_data,
+                        )
+                        assets.add(asset)
+                        element.thumbnail_asset_id = asset.asset_id
+                    elif element.thumbnail_asset_id and element.thumbnail_data:
+                        mime_type = detect_image_mime_type(element.thumbnail_data)
+                        asset = Asset(
+                            asset_id=element.thumbnail_asset_id,
+                            asset_type=AssetType.IMAGE,
+                            mime_type=mime_type,
+                            data=element.thumbnail_data,
                         )
                         assets.add(asset)
 

@@ -108,6 +108,11 @@ class BottomToolbar(QToolBar):
             lambda device: self._button_clicked(self.image_btn, Tool.IMAGE, device)
         )
 
+        self.video_btn: ToolButton = create_tool_button("🎬")
+        _ = self.video_btn.clicked_with_device.connect(
+            lambda device: self._button_clicked(self.video_btn, Tool.VIDEO, device)
+        )
+
         self.selection_btn: ToolButton = create_tool_button("🎯")
         _ = self.selection_btn.clicked_with_device.connect(
             lambda device: self._button_clicked(
@@ -162,6 +167,7 @@ class BottomToolbar(QToolBar):
             self.text_btn,
             self.drag_btn,
             self.image_btn,
+            self.video_btn,
             self.selection_btn,
         ]
 

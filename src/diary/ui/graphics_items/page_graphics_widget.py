@@ -11,12 +11,14 @@ from diary.config import settings
 from diary.models import PageElement
 from diary.models.elements.stroke import Stroke
 from diary.models.elements.text import Text
+from diary.models.elements.video import Video
 from diary.models.page import Page
 from diary.models.point import Point
 from diary.ui.input import InputAction, InputType
 from diary.ui.ui_utils import (
     beautify_stroke,
     confirm_delete,
+    generate_video_thumbnail,
     read_image,
     show_error_dialog,
     smooth_stroke_advanced,
@@ -238,6 +240,8 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             self._handle_eraser_input(position, action)
         elif current_tool == Tool.IMAGE:
             self._handle_image_input(position, action)
+        elif current_tool == Tool.VIDEO:
+            self._handle_video_input(position, action)
 
     def _handle_pen_input(
         self, position: QPointF, pressure: float, action: InputAction, device: InputType
@@ -467,6 +471,46 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             _ = self._scene.create_image(
                 point, width / 4, height / 4, image_data=image_bytes
             )
+
+    def _handle_video_input(self, position: QPointF, action: InputAction) -> None:
+        """Handle input with Video tool"""
+        if action != InputAction.PRESS:
+            return
+
+        scene_pos = self._graphics_view.mapToScene(position.toPoint())
+        point = Point(scene_pos.x(), scene_pos.y(), 1.0)
+
+        video_file, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self.parentWidget(),
+            "Select video",
+            filter=("Videos (*.mp4 *.mov *.webm *.mkv *.avi)"),
+        )
+        self._logger.debug("Selected video: %s", video_file)
+        if not video_file:
+            return
+
+        try:
+            with open(video_file, "rb") as handle:
+                video_bytes = handle.read()
+        except (OSError, IOError) as exc:
+            show_error_dialog(self, "Failed to load video", str(exc))
+            return
+
+        # Default to a smaller on-canvas size to keep videos manageable.
+        default_width = 320.0
+        default_height = 180.0
+
+        thumbnail_bytes = generate_video_thumbnail(video_file)
+
+        video = Video(
+            position=point,
+            width=default_width,
+            height=default_height,
+            rotation=0.0,
+            video_data=video_bytes,
+            thumbnail_data=thumbnail_bytes,
+        )
+        _ = self._scene.add_element(video)
 
     def get_selected_elements(self) -> list[PageElement]:
         """Get currently selected elements"""

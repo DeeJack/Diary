@@ -6,8 +6,18 @@ import time
 from pathlib import Path
 
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QSize, Qt
+from PyQt6.QtCore import (
+    QBuffer,
+    QByteArray,
+    QEventLoop,
+    QIODevice,
+    QSize,
+    Qt,
+    QTimer,
+    QUrl,
+)
 from PyQt6.QtGui import QPixmap
+from PyQt6.QtMultimedia import QMediaPlayer, QVideoSink
 from PyQt6.QtPdf import QPdfDocument
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog, QWidget
 
@@ -190,6 +200,58 @@ def smooth_stroke_catmull_rom(
     smoothed.append(stroke_points[-1])
 
     return smoothed
+
+
+def generate_video_thumbnail(
+    video_path: str, max_size: QSize | None = None, timeout_ms: int = 2000
+) -> bytes | None:
+    """Generate a thumbnail for a video file as PNG bytes."""
+    max_size = max_size or QSize(320, 180)
+    sink = QVideoSink()
+    player = QMediaPlayer()
+    player.setVideoSink(sink)
+    player.setSource(QUrl.fromLocalFile(video_path))
+
+    loop = QEventLoop()
+    result: bytes | None = None
+
+    def on_frame_changed(frame) -> None:
+        nonlocal result
+        image = frame.toImage()
+        if image.isNull():
+            return
+        if (
+            image.size().width() > max_size.width()
+            or image.size().height() > max_size.height()
+        ):
+            image = image.scaled(
+                max_size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        buffer = QBuffer()
+        buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+        image.save(buffer, "PNG")
+        result = bytes(buffer.data())
+        player.stop()
+        loop.quit()
+
+    _ = sink.videoFrameChanged.connect(on_frame_changed)
+
+    def on_timeout() -> None:
+        player.stop()
+        loop.quit()
+
+    timer = QTimer()
+    timer.setSingleShot(True)
+    _ = timer.timeout.connect(on_timeout)
+
+    player.play()
+    timer.start(timeout_ms)
+    loop.exec()
+
+    _ = sink.videoFrameChanged.disconnect(on_frame_changed)
+    return result
 
 
 class OneEuroFilter:

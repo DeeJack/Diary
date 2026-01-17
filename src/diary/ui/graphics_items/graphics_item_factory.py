@@ -5,11 +5,13 @@ from PyQt6.QtWidgets import QGraphicsItem
 from diary.models.elements.image import Image
 from diary.models.elements.stroke import Stroke
 from diary.models.elements.text import Text
+from diary.models.elements.video import Video
 from diary.models.page_element import PageElement
 
 from .image_graphics_item import ImageGraphicsItem
 from .stroke_graphics_item import StrokeGraphicsItem
 from .text_graphics_item import TextGraphicsItem
+from .video_graphics_item import VideoGraphicsItem
 
 
 class GraphicsItemFactory:
@@ -26,6 +28,8 @@ class GraphicsItemFactory:
             return TextGraphicsItem(element, parent)
         if isinstance(element, Image):
             return ImageGraphicsItem(element, parent)
+        if isinstance(element, Video):
+            return VideoGraphicsItem(element, parent)
         return None
 
     @staticmethod
@@ -52,20 +56,25 @@ class GraphicsItemFactory:
     @staticmethod
     def get_supported_element_types() -> list[type]:
         """Get the list of supported page element types"""
-        return [Stroke, Text, Image]
+        return [Stroke, Text, Image, Video]
 
     @staticmethod
     def is_supported_element(element: PageElement) -> bool:
         """Check if the element type is supported by the factory"""
-        return isinstance(element, (Stroke, Text, Image))
+        return isinstance(element, (Stroke, Text, Image, Video))
 
     @staticmethod
     def clone_graphics_item(
-        item: StrokeGraphicsItem | TextGraphicsItem | ImageGraphicsItem,
+        item: StrokeGraphicsItem
+        | TextGraphicsItem
+        | ImageGraphicsItem
+        | VideoGraphicsItem,
     ) -> QGraphicsItem | None:
         """Clone an existing graphics item"""
         if isinstance(item, StrokeGraphicsItem):
             return item.clone()
         if isinstance(item, TextGraphicsItem):
+            return item.clone()
+        if isinstance(item, VideoGraphicsItem):
             return item.clone()
         return item.clone()

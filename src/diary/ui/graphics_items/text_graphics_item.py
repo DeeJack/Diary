@@ -22,10 +22,10 @@ from diary.config import settings
 from diary.models.elements.text import Text
 from diary.models.point import Point
 
-from .base_graphics_item import BaseGraphicsItem
+from .resizable_graphics_item import ResizableGraphicsItem
 
 
-class TextGraphicsItem(BaseGraphicsItem):
+class TextGraphicsItem(ResizableGraphicsItem):
     """Graphics item for rendering text elements"""
 
     _HINT_TEXT = "Type here"
@@ -37,6 +37,7 @@ class TextGraphicsItem(BaseGraphicsItem):
         self._text_rect: QRectF | None = None
         self._show_cursor: bool = False
         self._edit_item: QGraphicsTextItem | None = None
+        self._resize_start_font_size: float | None = None
 
         # Configure item flags for text
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
@@ -79,6 +80,7 @@ class TextGraphicsItem(BaseGraphicsItem):
                 self.configure_painter_quality(painter)
                 if self.isSelected():
                     self._draw_selection_highlight(painter)
+                    self._draw_resize_handles(painter)
                 if not self.text_element.text:
                     self._draw_hint_text(painter)
             return
@@ -92,6 +94,7 @@ class TextGraphicsItem(BaseGraphicsItem):
         # Draw selection highlight if selected
         if self.isSelected():
             self._draw_selection_highlight(painter)
+            self._draw_resize_handles(painter)
 
         # Set up font and color
         font = self._get_font()
@@ -165,6 +168,72 @@ class TextGraphicsItem(BaseGraphicsItem):
         ):
             self.text_element.position = Point(new_position.x(), new_position.y(), 0)
             self.invalidate_cache()
+
+    @override
+    def _resize_rect(self) -> QRectF:
+        """Return the text bounds used for resizing handles."""
+        return self._text_positioned_box(self._get_display_text())
+
+    @override
+    def _get_current_size(self) -> tuple[float, float]:
+        """Return the current text bounds size."""
+        text_rect = self._text_positioned_box(self._get_display_text())
+        return (text_rect.width(), text_rect.height())
+
+    @override
+    def _resize_min_size(self) -> float:
+        """Minimum size for text resizing."""
+        return 8.0
+
+    @override
+    def mousePressEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:
+        """Handle mouse press events for text editing."""
+        if event and event.button() == Qt.MouseButton.LeftButton:
+            handle = self._get_handle_at_point(event.pos())
+            if handle:
+                self._resize_start_font_size = self.text_element.size_px
+        super().mousePressEvent(event)
+
+    @override
+    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:
+        """Handle mouse release events."""
+        if self._resize_start_font_size is not None:
+            self._resize_start_font_size = None
+        super().mouseReleaseEvent(event)
+
+    @override
+    def _apply_resize(
+        self, new_size: tuple[float, float], new_scene_pos: QPointF
+    ) -> None:
+        """Resize text by adjusting font size and position."""
+        start_rect = self._resize_start_rect or self._text_positioned_box(
+            self._get_display_text()
+        )
+        start_font_size = self._resize_start_font_size or self.text_element.size_px
+
+        if start_rect.width() > 0 and start_rect.height() > 0:
+            width_scale = new_size[0] / start_rect.width()
+            height_scale = new_size[1] / start_rect.height()
+            scale = max(width_scale, height_scale)
+        else:
+            scale = 1.0
+
+        new_font_size = max(6.0, start_font_size * scale)
+        self.set_font_size(new_font_size)
+
+        if new_scene_pos != self.pos():
+            self.text_element.position = Point(
+                new_scene_pos.x(),
+                new_scene_pos.y(),
+                self.text_element.position.pressure,
+            )
+            self.setPos(new_scene_pos)
+
+        text_rect = self._text_positioned_box(self._get_display_text())
+        self.setTransformOriginPoint(
+            (settings.PAGE_WIDTH - self.text_element.position.x) / 2,
+            text_rect.height() / 2,
+        )
 
     def set_text(self, text: str) -> None:
         """Update the text content"""
@@ -266,13 +335,6 @@ class TextGraphicsItem(BaseGraphicsItem):
 
         self._show_cursor = False
         self.update()
-
-    @override
-    def mousePressEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:
-        """Handle mouse press events for text editing"""
-        # if event and event.button() == Qt.MouseButton.LeftButton:
-        #    pass
-        super().mousePressEvent(event)
 
     @override
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:

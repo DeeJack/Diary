@@ -142,20 +142,20 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
         delta_y = 0.0
 
         if self._resize_handle == "bottom-right":
-            new_width = max(min_size, current_pos.x())
-            new_height = max(min_size, current_pos.y())
+            new_width = max(min_size, current_pos.x() - start_rect.left())
+            new_height = max(min_size, current_pos.y() - start_rect.top())
         elif self._resize_handle == "top-left":
-            new_width = max(min_size, start_rect.width() - current_pos.x())
-            new_height = max(min_size, start_rect.height() - current_pos.y())
+            new_width = max(min_size, start_rect.right() - current_pos.x())
+            new_height = max(min_size, start_rect.bottom() - current_pos.y())
             delta_x = start_rect.width() - new_width
             delta_y = start_rect.height() - new_height
         elif self._resize_handle == "top-right":
-            new_width = max(min_size, current_pos.x())
-            new_height = max(min_size, start_rect.height() - current_pos.y())
+            new_width = max(min_size, current_pos.x() - start_rect.left())
+            new_height = max(min_size, start_rect.bottom() - current_pos.y())
             delta_y = start_rect.height() - new_height
         elif self._resize_handle == "bottom-left":
-            new_width = max(min_size, start_rect.width() - current_pos.x())
-            new_height = max(min_size, current_pos.y())
+            new_width = max(min_size, start_rect.right() - current_pos.x())
+            new_height = max(min_size, current_pos.y() - start_rect.top())
             delta_x = start_rect.width() - new_width
 
         new_scene_pos = QPointF(

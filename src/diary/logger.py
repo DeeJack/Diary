@@ -19,7 +19,7 @@ def configure_logging():
     )
 
     file_handler = logging.FileHandler(FILE_NAME, encoding="UTF-8")
-    file_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(logging.WARNING)
     file_handler.setFormatter(formatter)
 
     console_handler = logging.StreamHandler()
@@ -27,7 +27,7 @@ def configure_logging():
     console_handler.setFormatter(CustomFormatter())
 
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)
+    root_logger.setLevel(logging.WARNING)
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
 

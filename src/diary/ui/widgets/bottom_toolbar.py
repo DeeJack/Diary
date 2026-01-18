@@ -195,8 +195,8 @@ class BottomToolbar(QToolBar):
 
         self._button_clicked(self.pen_btn, Tool.PEN, "tablet")
 
-    def _button_clicked(self, button: ToolButton, tool: Tool, device: str = "tablet"):
-        """When a button is clicked"""
+    def _set_active_button(self, button: ToolButton) -> None:
+        """Update button styles to reflect the active tool."""
         for other in self.buttons:
             other.setDisabled(False)
             other.setStyleSheet("")  # Reset to default style
@@ -210,6 +210,10 @@ class BottomToolbar(QToolBar):
             }
         """
         )
+
+    def _button_clicked(self, button: ToolButton, tool: Tool, device: str = "tablet"):
+        """When a button is clicked"""
+        self._set_active_button(button)
         self.tool_changed.emit(tool)  # Keep backward compatibility
         self.tool_changed_with_device.emit(tool, device)
 
@@ -274,6 +278,31 @@ class BottomToolbar(QToolBar):
                 }
             """
             )
+
+    def set_active_tool(self, tool: Tool) -> None:
+        """Update the active tool button without emitting tool signals."""
+        button_map: dict[Tool, ToolButton] = {
+            Tool.PEN: self.pen_btn,
+            Tool.ERASER: self.eraser_btn,
+            Tool.TEXT: self.text_btn,
+            Tool.DRAG: self.drag_btn,
+            Tool.IMAGE: self.image_btn,
+            Tool.VIDEO: self.video_btn,
+            Tool.SELECTION: self.selection_btn,
+        }
+        button = button_map.get(tool)
+        if button:
+            self._set_active_button(button)
+
+    def update_pen_controls(self, color: QColor, thickness: float) -> None:
+        """Update pen-related controls without emitting signals."""
+        slider_value = int(round(thickness))
+        slider_value = max(self.thickness_slider.minimum(), slider_value)
+        slider_value = min(self.thickness_slider.maximum(), slider_value)
+        self.thickness_slider.blockSignals(True)
+        self.thickness_slider.setValue(slider_value)
+        self.thickness_slider.blockSignals(False)
+        self.color_dialog.setCurrentColor(color)
 
 
 def create_button(text: str) -> QPushButton:

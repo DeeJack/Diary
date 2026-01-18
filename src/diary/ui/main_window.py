@@ -27,6 +27,7 @@ from diary.ui.widgets.days_sidebar import DaysSidebar
 from diary.ui.widgets.load_worker import LoadWorker
 from diary.ui.widgets.notebook_widget import NotebookWidget
 from diary.ui.widgets.page_navigator import PageNavigatorToolbar
+from diary.ui.widgets.pen_preset_toolbar import PenPreset, PenPresetToolbar
 from diary.ui.widgets.save_manager import SaveManager
 from diary.ui.widgets.settings_sidebar import SettingsSidebar
 from diary.ui.widgets.tool_selector import Tool
@@ -57,6 +58,7 @@ class MainWindow(QMainWindow):
         self.this_layout: QVBoxLayout
         self.navbar: PageNavigatorToolbar
         self.bottom_toolbar: BottomToolbar
+        self.pen_presets_toolbar: PenPresetToolbar
         self.sidebar: DaysSidebar
         self.notebook_widget: NotebookWidget
         self.settings_sidebar: SettingsSidebar
@@ -125,6 +127,9 @@ class MainWindow(QMainWindow):
         self.this_layout.setSpacing(0)
         self.navbar = PageNavigatorToolbar()
         self.bottom_toolbar = BottomToolbar()
+        self.pen_presets_toolbar = PenPresetToolbar()
+        self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, self.pen_presets_toolbar)
+        self.pen_presets_toolbar.hide()
         self.setCentralWidget(main_widget)
 
         # Store for use in callback
@@ -252,6 +257,8 @@ class MainWindow(QMainWindow):
         if hasattr(self, "bottom_toolbar"):
             self.this_layout.removeWidget(self.bottom_toolbar)
             self.bottom_toolbar.hide()
+        if hasattr(self, "pen_presets_toolbar"):
+            self.pen_presets_toolbar.hide()
 
         # Hide sidebars
         if hasattr(self, "sidebar"):
@@ -298,6 +305,7 @@ class MainWindow(QMainWindow):
         _ = self.bottom_toolbar.color_changed.connect(
             lambda c: self.notebook_widget.change_color(cast(QColor, c))
         )
+        _ = self.pen_presets_toolbar.preset_selected.connect(self._apply_pen_preset)
 
         _ = self.settings_sidebar.pdf_imported.connect(self.pdf_imported)
         _ = self.settings_sidebar.pass_changed.connect(self.on_password_changed)
@@ -419,6 +427,18 @@ class MainWindow(QMainWindow):
         self.this_layout.addWidget(self.bottom_toolbar)
         self.navbar.show()
         self.bottom_toolbar.show()
+        self.pen_presets_toolbar.show()
         self.setWindowTitle(
             f"{settings.WINDOW_TITLE} - {notebook.metadata.get('name', 'Unnamed Notebook')}"
         )
+
+    def _apply_pen_preset(self, preset: PenPreset) -> None:
+        """Apply a pen preset to current drawing settings."""
+        if not hasattr(self, "notebook_widget"):
+            return
+        self.notebook_widget.change_color(preset.color)
+        self.notebook_widget.change_thickness(preset.width)
+        self.notebook_widget.select_tool(Tool.PEN, "tablet")
+        self.notebook_widget.select_tool(Tool.PEN, "mouse")
+        self.bottom_toolbar.set_active_tool(Tool.PEN)
+        self.bottom_toolbar.update_pen_controls(preset.color, preset.width)

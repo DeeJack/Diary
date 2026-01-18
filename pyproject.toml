@@ -14,6 +14,11 @@ dependencies = [
   "pynacl (>=1.6.0,<2.0.0)",
   "msgpack (>=1.1.2,<2.0.0)",
   "zstd (>=1.5.7.2,<2.0.0.0)",
+  "paddleocr (>=2.7.0,<3.0.0)",
+  "pytesseract (>=0.3.10,<0.4.0)",
+  "pillow (>=10.0.0,<11.0.0)",
+  "numpy (>=1.26.0,<2.0.0)",
+  "paddlepaddle (>=3.3.0,<4.0.0)",
 ]
 
 [dependency-groups]
@@ -29,10 +34,18 @@ reportUnknownMemberType=false
 reportUnknownLambdaType=false
 reportUnusedFunction=true
 reportMissingTypeStubs=false
+reportExplicitAny=false
+reportAny=false
+exclude = ["tests/"]
+ignore = ["tests/"]
 
 [[tool.mypy.overrides]]
 module = ["msgpack.*"]
 follow_untyped_imports = true
+
+[[tool.mypy.overrides]]
+module = ["paddleocr.*", "paddle.*", "pytesseract.*", "numpy.*", "PIL.*"]
+ignore_missing_imports = true
 
 [tool.poetry.scripts]
 build-executable = "build:main"

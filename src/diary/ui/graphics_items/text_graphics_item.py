@@ -28,7 +28,7 @@ from .resizable_graphics_item import ResizableGraphicsItem
 class TextGraphicsItem(ResizableGraphicsItem):
     """Graphics item for rendering text elements"""
 
-    _HINT_TEXT = "Type here"
+    _HINT_TEXT: str = "Type here"
 
     def __init__(self, text_element: Text, parent: QGraphicsItem | None = None):
         super().__init__(text_element, parent)
@@ -109,7 +109,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
 
         # Draw the text at the element's position
         text_rect = self._text_positioned_box()
-        painter.drawText(
+        _ = painter.drawText(
             text_rect,
             Qt.TextFlag.TextWordWrap,
             self.text_element.text,
@@ -308,7 +308,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
 
         # Connect to text changes
         if document := self._edit_item.document():
-            document.contentsChanged.connect(self._on_text_changed)
+            _ = document.contentsChanged.connect(self._on_text_changed)
 
         self._edit_item.setFocus()
 
@@ -398,7 +398,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
         painter.setPen(QPen(hint_color))
 
         text_rect = self._text_positioned_box(self._HINT_TEXT)
-        painter.drawText(
+        _ = painter.drawText(
             text_rect,
             Qt.TextFlag.TextWordWrap,
             self._HINT_TEXT,

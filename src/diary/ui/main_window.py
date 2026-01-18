@@ -6,8 +6,9 @@ from pathlib import Path
 from typing import cast, override
 
 from PyQt6.QtCore import Qt, QThread
-from PyQt6.QtGui import QAction, QCloseEvent, QColor
+from PyQt6.QtGui import QAction, QCloseEvent, QColor, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
+    QApplication,
     QInputDialog,
     QLineEdit,
     QMainWindow,
@@ -22,6 +23,7 @@ from PyQt6.QtWidgets import (
 from diary.config import SETTINGS_FILE_PATH, settings
 from diary.models import Notebook
 from diary.models.dao.archive_dao import ArchiveDAO
+from diary.search.index_manager import IndexManager
 from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.days_sidebar import DaysSidebar
 from diary.ui.widgets.load_worker import LoadWorker
@@ -61,6 +63,7 @@ class MainWindow(QMainWindow):
         self.notebook_widget: NotebookWidget
         self.settings_sidebar: SettingsSidebar
         self.save_manager: SaveManager
+        self.index_manager: IndexManager
         self.stored_selector: NotebookSelector | None = None
         self._load_thread: QThread | None = None
         self._load_worker: LoadWorker | None = None
@@ -177,6 +180,19 @@ class MainWindow(QMainWindow):
         self.save_manager = SaveManager(
             notebooks, settings.NOTEBOOK_FILE_PATH, key_buffer, salt
         )
+
+        if settings.SEARCH_ENABLED:
+            # Initialize index manager for search
+            self.index_manager = IndexManager(key_buffer, salt)
+            self.index_manager.open_index()
+
+            # Connect save completion to indexing
+            _ = self.save_manager.save_completed.connect(
+                lambda success, _: self._trigger_background_indexing(success, notebooks)
+            )
+
+            # Start initial background indexing
+            self.index_manager.index_notebooks(notebooks)
 
         self._show_notebook_selector(key_buffer, salt, notebooks)
         self.navbar.set_back_button_visible(False)
@@ -360,6 +376,18 @@ class MainWindow(QMainWindow):
             _ = self._save_progress_dialog.close()
             self._save_progress_dialog = None  # pyright: ignore[reportAttributeAccessIssue]
 
+        # Close search components - index_manager first (has workers), then sidebar
+        if hasattr(self, "index_manager"):
+            self.index_manager.close_index()
+        if hasattr(self, "sidebar"):
+            self.sidebar.close_search_index()
+
+        # Process pending events to allow deleteLater() to complete
+
+        app = QApplication.instance()
+        if app:
+            app.processEvents()
+
         # Mark that we're ready to close
         self._closing = True
 
@@ -378,6 +406,18 @@ class MainWindow(QMainWindow):
         self.save_manager.force_save()
         self.logger.info("Password changed; saved new encrypted file")
 
+    def _focus_search(self) -> None:
+        """Focus the search input in the sidebar."""
+        if hasattr(self, "sidebar"):
+            self.sidebar.focus_search()
+
+    def _trigger_background_indexing(
+        self, save_success: bool, notebooks: list[Notebook]
+    ) -> None:
+        """Trigger background indexing after a successful save."""
+        if settings.SEARCH_ENABLED and save_success and hasattr(self, "index_manager"):
+            self.index_manager.index_notebooks(notebooks)
+
     def _open_notebook(
         self,
         key_buffer: SecureBuffer,
@@ -392,9 +432,28 @@ class MainWindow(QMainWindow):
         self.notebook_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         if not hasattr(self, "sidebar"):
-            self.sidebar = DaysSidebar(self, self.notebook_widget)
+            self.sidebar = DaysSidebar(self, self.notebook_widget, key_buffer, salt)
             self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar)
             self.sidebar.hide()
+
+            if (
+                settings.SEARCH_ENABLED
+                and hasattr(self, "index_manager")
+                and self.sidebar.search_widget is not None
+            ):
+                _ = self.index_manager.indexing_progress.connect(
+                    self.sidebar.search_widget.set_indexing_progress
+                )
+                _ = self.index_manager.indexing_complete.connect(
+                    self.sidebar.search_widget.set_indexing_complete
+                )
+                _ = self.index_manager.indexing_complete.connect(
+                    self.sidebar.search_widget.reload_index
+                )
+
+            # Add Ctrl+F shortcut for search
+            search_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
+            _ = search_shortcut.activated.connect(self._focus_search)
 
         if not hasattr(self, "settings_sidebar"):
             self.settings_sidebar = SettingsSidebar(self, notebook)

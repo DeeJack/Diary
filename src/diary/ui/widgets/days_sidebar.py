@@ -4,18 +4,23 @@ from collections import defaultdict
 from datetime import date, datetime
 from typing import Any, cast
 
-from PyQt6.QtCore import QDate, QRect, Qt, pyqtSlot
+from PyQt6.QtCore import QDate, QRect, Qt, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QAction, QBrush, QColor, QPainter, QShowEvent
 from PyQt6.QtWidgets import (
     QCalendarWidget,
     QDockWidget,
+    QLabel,
     QListWidget,
     QListWidgetItem,
     QSplitter,
+    QVBoxLayout,
     QWidget,
 )
 
+from diary.config import settings
 from diary.ui.widgets.notebook_widget import NotebookWidget
+from diary.ui.widgets.search_widget import SearchWidget
+from diary.utils.encryption import SecureBuffer
 
 
 class DiaryCalendarWidget(QCalendarWidget):
@@ -67,7 +72,18 @@ class DaysSidebar(QDockWidget):
 
     _populated: bool = False
 
-    def __init__(self, parent: QWidget | None, notebook_widget: NotebookWidget):
+    # Signal to navigate to a search result
+    navigate_to_element: pyqtSignal = pyqtSignal(
+        str, str, str
+    )  # notebook_id, page_id, element_id
+
+    def __init__(
+        self,
+        parent: QWidget | None,
+        notebook_widget: NotebookWidget,
+        key_buffer: SecureBuffer,
+        salt: bytes,
+    ):
         super().__init__("Navigation", parent)
         self.notebook_widget = notebook_widget
         self._populated = False
@@ -76,7 +92,28 @@ class DaysSidebar(QDockWidget):
             Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
         )
 
-        # Create splitter for entry list (top) and calendar (bottom)
+        # Main container widget
+        container = QWidget()
+        main_layout = QVBoxLayout(container)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # Search widget (top)
+        self.search_widget: SearchWidget | None = None
+        if settings.SEARCH_ENABLED:
+            self.search_widget = SearchWidget(
+                key_buffer, salt, self.notebook_widget.notebook.notebook_id, self
+            )
+            _ = self.search_widget.result_selected.connect(
+                self._on_search_result_selected
+            )
+            main_layout.addWidget(self.search_widget)
+        else:
+            search_disabled_label = QLabel("Search disabled in settings")
+            search_disabled_label.setStyleSheet("color: #888888; font-size: 11px;")
+            main_layout.addWidget(search_disabled_label)
+
+        # Create splitter for entry list and calendar
         self.splitter = QSplitter(Qt.Orientation.Vertical)
 
         # Entry list (top)
@@ -94,19 +131,21 @@ class DaysSidebar(QDockWidget):
         self.splitter.addWidget(self.calendar)
 
         # Set initial sizes (entry list gets more space)
-        self.splitter.setSizes([400, 250])
+        self.splitter.setSizes([300, 200])
 
-        self.setWidget(self.splitter)
-        self.setMinimumWidth(280)
+        main_layout.addWidget(self.splitter, stretch=1)
 
-    def showEvent(self, event: QShowEvent | None) -> None:
+        self.setWidget(container)
+        self.setMinimumWidth(300)
+
+    def showEvent(self, a0: QShowEvent | None) -> None:
         """Populate the list lazily when first shown"""
         if not self._populated:
             self.populate_entry_list()
             self.calendar.refresh_entries()
             self._select_current_page_date()
             self._populated = True
-        super().showEvent(event)
+        super().showEvent(a0)
 
     def populate_entry_list(self):
         """Fill the list with the diary entries"""
@@ -229,3 +268,28 @@ class DaysSidebar(QDockWidget):
             }
         """
         self.calendar.setStyleSheet(style_sheet)
+
+    def _on_search_result_selected(
+        self, notebook_id: str, page_id: str, element_id: str
+    ) -> None:
+        """Handle search result selection - navigate to the page."""
+        # Find the page index by page_id
+        for i, page in enumerate(self.notebook_widget.notebook.pages):
+            if page.page_id == page_id:
+                self.notebook_widget.scroll_to_page(i)
+                # Emit signal for element highlighting
+                self.navigate_to_element.emit(notebook_id, page_id, element_id)
+                break
+
+    def focus_search(self) -> None:
+        """Focus the search input."""
+        if self.search_widget is None:
+            return
+        self.show()
+        self.search_widget.focus_search()
+
+    def close_search_index(self) -> None:
+        """Close the search index when closing the sidebar."""
+        if self.search_widget is None:
+            return
+        self.search_widget.close_index()

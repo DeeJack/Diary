@@ -112,6 +112,7 @@ class ArchiveDAO:
             notebook_order,
         ) = ArchiveDAO._extract_archive_entries(tar_bytes)
 
+        pages: list[Page] = []
         if multi_manifests:
             notebooks: list[Notebook] = []
             assets_by_notebook: dict[str, AssetIndex] = {}
@@ -127,7 +128,7 @@ class ArchiveDAO:
                 asset_bytes = multi_asset_bytes.get(notebook_id, {})
                 assets = AssetIndex.from_manifest_entries(manifest.assets, asset_bytes)
 
-                pages: list[Page] = []
+                pages = []
                 for page_id in manifest.page_ids:
                     if page_id in pages_data:
                         page_dict = msgpack.unpackb(pages_data[page_id], raw=False)
@@ -150,7 +151,7 @@ class ArchiveDAO:
         assets = AssetIndex.from_manifest_entries(
             single_manifest.assets, single_asset_bytes
         )
-        pages: list[Page] = []
+        pages = []
         for page_id in single_manifest.page_ids:
             if page_id in single_pages_data:
                 page_dict = msgpack.unpackb(single_pages_data[page_id], raw=False)

@@ -73,6 +73,30 @@ class Settings(BaseSettings):
 
     DYNAMIC_ADD_PAGES: bool = False
 
+    # Search and OCR settings
+    SEARCH_INDEX_PATH: Path = DATA_DIR_PATH / "search_index.db.enc"
+    OCR_LANGUAGES: list[str] = ["it", "en"]
+    OCR_PADDLE_LANG: str = "latin"
+    OCR_ENGINE: str = "paddle"  # "paddle" or "tesseract"
+    OCR_TESSERACT_LANG: str = "eng"
+    OCR_USE_GPU: bool = False
+    OCR_STROKE_GROUPING_GAP: float = 250.0
+    OCR_STROKE_SCALE_FACTOR: float = 1.0
+    OCR_STROKE_PADDING: float = 30.0
+    OCR_MIN_IMAGE_SIZE: int = 32
+    OCR_DEBUG_SAVE_IMAGES: bool = True
+    OCR_DEBUG_IMAGE_DIR: Path = DATA_DIR_PATH / "ocr_debug"
+    OCR_USE_ANGLE_CLS: bool = False
+    OCR_DET_DB_THRESH: float = 0.3
+    OCR_DET_DB_BOX_THRESH: float = 0.5
+    OCR_DET_DB_UNCLIP_RATIO: float = 1.8
+    OCR_REC_MIN_SCORE: float = 0.3
+    SEARCH_DEBOUNCE_MS: int = 300
+    SEARCH_PREFIX_MIN_LENGTH: int = 2
+    SEARCH_SNIPPET_LENGTH: int = 120
+    SEARCH_MAX_RESULTS: int = 50
+    SEARCH_ENABLED: bool = True
+
     class SERIALIZATION_KEYS(Enum):
         """Value used as the keys for the serialization"""
 

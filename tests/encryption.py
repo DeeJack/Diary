@@ -1,6 +1,7 @@
 import json
 import secrets
 from pathlib import Path
+
 from typing_extensions import Any
 
 from diary.utils.encryption import SecureEncryption
@@ -17,7 +18,7 @@ def test_encryption():
     encrypted_file = Path("notebook.enc")
 
     # Create test JSON data
-    test_data: dict[str, Any] = {  # pyright: ignore[reportExplicitAny]
+    test_data: dict[str, Any] = {
         "pages": [
             {
                 "id": 1,
@@ -49,7 +50,7 @@ def test_encryption():
     # Encrypt JSON to file
     print("Encrypting JSON to file...")
     SecureEncryption.encrypt_bytes_to_file(
-        json_string, encrypted_file, key_buffer, salt, progress
+        json_string.encode(), encrypted_file, key_buffer, salt, progress
     )
     print(f"\n✓ Encrypted to {encrypted_file}")
     print(f"  Encrypted size: {encrypted_file.stat().st_size} bytes\n")
@@ -65,12 +66,12 @@ def test_encryption():
     print("\n✓ Decrypted JSON string")
 
     # Parse and verify
-    decrypted_data = json.loads(decrypted_json)  # pyright: ignore[reportAny]
+    decrypted_data = json.loads(decrypted_json)
 
     assert decrypted_data == test_data
     if decrypted_data == test_data:
         print("\n✓ SUCCESS: Decrypted data matches original!")
-        print(f"\nDecrypted data has {len(decrypted_data['pages'])} pages")  # pyright: ignore[reportAny]
+        print(f"\nDecrypted data has {len(decrypted_data['pages'])} pages")
         print(f"First page title: '{decrypted_data['pages'][0]['title']}'")
     else:
         print("\n✗ ERROR: Decrypted data does not match!")
@@ -86,15 +87,13 @@ def test_encryption():
     test_salt = secrets.token_bytes(SecureEncryption.SALT_SIZE)
     test_key_buffer = SecureEncryption.derive_key("correct_password", test_salt)
     SecureEncryption.encrypt_bytes_to_file(
-        test_json, Path("test.enc"), test_key_buffer, test_salt
+        test_json.encode(), Path("test.enc"), test_key_buffer, test_salt
     )
 
     try:
         wrong_salt = SecureEncryption.read_salt_from_file(Path("test.enc"))
         wrong_key_buffer = SecureEncryption.derive_key("wrong_password", wrong_salt)
-        _ = SecureEncryption.decrypt_file(
-            Path("test.enc"), wrong_key_buffer
-        )
+        _ = SecureEncryption.decrypt_file(Path("test.enc"), wrong_key_buffer)
         print("✗ ERROR: Should have failed with wrong password!")
         assert False
     except ValueError as e:

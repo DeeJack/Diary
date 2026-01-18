@@ -29,6 +29,10 @@ reportUnknownMemberType=false
 reportUnknownLambdaType=false
 reportUnusedFunction=true
 reportMissingTypeStubs=false
+reportAny = false
+reportExplicitAny = false
+reportUnknownArgumentType = false
+reportUnknownVariableType = false
 
 [[tool.mypy.overrides]]
 module = ["msgpack.*"]

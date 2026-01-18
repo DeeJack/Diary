@@ -31,7 +31,7 @@ def _write_legacy_notebook(
     salt: bytes,
 ) -> None:
     notebook_encoded = msgpack.packb(notebook.to_dict(), use_bin_type=True)
-    compressed_notebook = zstd.ZSTD_compress(notebook_encoded, 3)
+    compressed_notebook = zstd.ZSTD_compress(notebook_encoded, 3)  # pyright: ignore[reportArgumentType]
     SecureEncryption.encrypt_bytes_to_file(
         compressed_notebook, filepath, key, salt, None
     )
@@ -166,7 +166,7 @@ class TestAssetIndex:
             asset1.asset_id: asset1.data,
             asset2.asset_id: asset2.data,
         }
-        restored = AssetIndex.from_manifest_entries(entries, asset_data)
+        restored = AssetIndex.from_manifest_entries(entries, asset_data)  # pyright: ignore[reportArgumentType]
 
         assert len(restored) == 2
         assert asset1.asset_id in restored
@@ -296,7 +296,7 @@ class TestArchiveDAO:
             key = SecureEncryption.derive_key("testpass", salt)
 
             _save_single(notebook, assets, filepath, key, salt)
-            loaded_notebook, loaded_assets = _load_single(filepath, key)
+            loaded_notebook, _ = _load_single(filepath, key)
 
             loaded_video = loaded_notebook.pages[0].elements[0]
             assert isinstance(loaded_video, Video)
@@ -388,8 +388,8 @@ class TestAssetCache:
             )
 
             # Verify file still loads correctly
-            loaded_notebook, loaded_assets = _load_single(filepath, key)
-            assert loaded_assets.get("test_asset").data == b"original data"
+            _, loaded_assets = _load_single(filepath, key)
+            assert loaded_assets.get("test_asset").data == b"original data"  # pyright: ignore[reportOptionalMemberAccess]
 
 
 class TestMigration:
@@ -434,7 +434,7 @@ class TestMigration:
             # Verify asset created
             assert len(assets) == 1
             asset = assets.get(migrated_image.asset_id)
-            assert asset.data == image_data
+            assert asset.data == image_data  # pyright: ignore[reportOptionalMemberAccess]
 
     def test_inject_asset_data(self):
         """Test injecting asset data back into elements"""
@@ -699,7 +699,7 @@ class TestUnencryptedExport:
             assert len(imported_notebook.pages) == 1
             assert len(imported_notebook.pages[0].elements) == 2
             assert len(imported_assets) == 1
-            assert imported_assets.get("img_123").data == asset.data
+            assert imported_assets.get("img_123").data == asset.data  # pyright: ignore[reportOptionalMemberAccess]
 
     def test_export_and_import_tar(self):
         """Test exporting and importing unencrypted TAR archive"""

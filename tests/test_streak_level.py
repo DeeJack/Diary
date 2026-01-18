@@ -139,9 +139,9 @@ def test_long_streak():
 
     # Verify streak levels
     for i, page in enumerate(notebook.pages):
-        assert (
-            page.streak_lvl == i
-        ), f"Page {i} has streak {page.streak_lvl}, expected {i}"
+        assert page.streak_lvl == i, (
+            f"Page {i} has streak {page.streak_lvl}, expected {i}"
+        )
 
     assert notebook.pages[-1].streak_lvl == 6  # 7th day should have streak_lvl 6
     print("✓ Long streak test passed - 7-day streak correctly calculated")
@@ -374,9 +374,7 @@ def test_year_transition_consecutive_days():
     assert notebook.pages[1].streak_lvl == 1  # Dec 31
     assert notebook.pages[2].streak_lvl == 2  # Jan 1 - streak continues!
     assert notebook.pages[3].streak_lvl == 3  # Jan 2
-    print(
-        "✓ Year transition test passed - Streak continues across Dec 31 -> Jan 1"
-    )
+    print("✓ Year transition test passed - Streak continues across Dec 31 -> Jan 1")
 
 
 def test_month_transition_consecutive_days():
@@ -407,9 +405,7 @@ def test_month_transition_consecutive_days():
     assert notebook.pages[1].streak_lvl == 1  # Jan 31
     assert notebook.pages[2].streak_lvl == 2  # Feb 1 - streak continues!
     assert notebook.pages[3].streak_lvl == 3  # Feb 2
-    print(
-        "✓ Month transition test passed - Streak continues across Jan 31 -> Feb 1"
-    )
+    print("✓ Month transition test passed - Streak continues across Jan 31 -> Feb 1")
 
 
 def test_leap_year_transition():

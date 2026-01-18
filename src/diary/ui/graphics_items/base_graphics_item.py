@@ -98,7 +98,7 @@ class BaseGraphicsItem(QGraphicsItem, ABC, metaclass=GraphicsItemABCMeta):
 
         return super().itemChange(change, value)
 
-    def _update_element_position(self, new_position: QPointF) -> None:
+    def _update_element_position(self, new_position: QPointF) -> None:  # pyright: ignore[reportUnusedParameter]
         """Update the underlying element's position (override in subclasses)"""
 
     def _handle_selection_change(self, _: bool) -> None:

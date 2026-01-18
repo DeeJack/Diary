@@ -25,7 +25,6 @@ from diary.config import settings
 from diary.models import Image, Page, Point
 from diary.ui.stroke_beautifier import StrokeBeautifier
 
-
 # Global beautifier instance
 _beautifier: StrokeBeautifier | None = None
 
@@ -256,12 +255,19 @@ def generate_video_thumbnail(
 
 class OneEuroFilter:
     """1€ Filter for adaptive smoothing based on movement speed.
-    
+
     Applies heavy filtering when moving slowly (reduces jitter) and
     light filtering when moving fast (reduces lag).
     """
 
-    def __init__(self, t0: float, x0: float, min_cutoff: float = 1.0, beta: float = 0.007, d_cutoff: float = 1.0):
+    def __init__(
+        self,
+        t0: float,
+        x0: float,
+        min_cutoff: float = 1.0,
+        beta: float = 0.007,
+        d_cutoff: float = 1.0,
+    ):
         """
         Args:
             t0: Initial timestamp
@@ -285,11 +291,11 @@ class OneEuroFilter:
 
     def __call__(self, t: float, x: float) -> float:
         """Apply filter to new value.
-        
+
         Args:
             t: Current timestamp
             x: Current value
-            
+
         Returns:
             Filtered value
         """
@@ -319,40 +325,42 @@ class OneEuroFilter:
         return x_hat
 
 
-def smooth_stroke_one_euro(stroke_points: list[Point], min_cutoff: float = 0.5, beta: float = 0.01) -> list[Point]:
+def smooth_stroke_one_euro(
+    stroke_points: list[Point], min_cutoff: float = 0.5, beta: float = 0.01
+) -> list[Point]:
     """Apply 1€ Filter to smooth stroke points.
-    
+
     The 1€ Filter adapts to movement speed:
     - Moving slowly: Heavy filtering (kills jitter)
     - Moving fast: Light filtering (reduces lag)
-    
+
     Args:
         stroke_points: Original stroke points
         min_cutoff: Lower = more smoothing (0.1-1.0). Default: 0.5
         beta: Higher = more responsive (0.001-0.1). Default: 0.01
-        
+
     Returns:
         Smoothed stroke points
     """
     if len(stroke_points) <= 2:
         return stroke_points
-    
+
     # Generate synthetic timestamps (assume uniform spacing)
     base_time = time.time()
     dt = 0.01  # 10ms between points (100 Hz)
-    
+
     # Initialize filters for x and y
     filter_x = OneEuroFilter(base_time, stroke_points[0].x, min_cutoff, beta)
     filter_y = OneEuroFilter(base_time, stroke_points[0].y, min_cutoff, beta)
-    
+
     smoothed = [stroke_points[0]]  # Keep first point as-is
-    
+
     for i in range(1, len(stroke_points)):
         t = base_time + i * dt
         smoothed_x = filter_x(t, stroke_points[i].x)
         smoothed_y = filter_y(t, stroke_points[i].y)
         smoothed.append(Point(smoothed_x, smoothed_y, stroke_points[i].pressure))
-    
+
     return smoothed
 
 

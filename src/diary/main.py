@@ -17,12 +17,14 @@ from diary.logger import configure_logging
 from diary.ui.main_window import MainWindow
 
 
-def global_exception_handler(exc_type: type, exc_value: Exception, exc_traceback: TracebackType):
+def global_exception_handler(
+    exc_type: type, exc_value: Exception, exc_traceback: TracebackType
+):
     """Handle uncaught exceptions globally."""
     logger = logging.getLogger("GlobalExceptionHandler")
 
     # Format the full traceback
-    error_msg = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+    error_msg = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
 
     # Log the exception
     logger.critical("Uncaught exception:\n%s", error_msg)
@@ -32,8 +34,8 @@ def global_exception_handler(exc_type: type, exc_value: Exception, exc_traceback
         _ = QMessageBox.critical(
             None,
             "Unexpected Error",
-             f"An unexpected error occurred:\n\n{exc_value}\n\nThe error has been logged. "
-             + "Please check the logs for more details."
+            f"An unexpected error occurred:\n\n{exc_value}\n\nThe error has been logged. "
+            + "Please check the logs for more details.",
         )
     except Exception:  # pylint: disable=broad-exception-caught
         # If we can't show the dialog, at least print to stderr
@@ -41,6 +43,7 @@ def global_exception_handler(exc_type: type, exc_value: Exception, exc_traceback
 
     # Call the default exception handler
     sys.__excepthook__(exc_type, exc_value, exc_traceback)
+
 
 if __name__ == "__main__":
     os.makedirs(settings.DATA_DIR_PATH, exist_ok=True)

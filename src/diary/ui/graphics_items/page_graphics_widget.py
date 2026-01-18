@@ -52,7 +52,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self._last_cursor: QtGui.QCursor = self.cursor()
         self._points_since_smooth: int = 0
         self._current_points: list[Point] = []
-        self.bottom_toolbar = bottom_toolbar
+        self.bottom_toolbar: BottomToolbar = bottom_toolbar
         self._smoothed_points: list[Point] = []
 
         # Create the graphics scene and view
@@ -493,7 +493,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             with open(video_file, "rb") as handle:
                 video_bytes = handle.read()
         except (OSError, IOError) as exc:
-            show_error_dialog(self, "Failed to load video", str(exc))
+            _ = show_error_dialog(self, "Failed to load video", str(exc))
             return
 
         # Default to a smaller on-canvas size to keep videos manageable.

@@ -1,6 +1,8 @@
 """Graphics item for rendering video elements using QGraphicsItem architecture."""
 
 import logging
+import os
+import tempfile
 from typing import cast, override
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, QUrl
@@ -151,11 +153,8 @@ class VideoGraphicsItem(ResizableGraphicsItem):
             self._logger.debug("Video data not available for playback")
             return
 
-        import tempfile
-        import os
-
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
-        temp_file.write(self.video_element.video_data)
+        _ = temp_file.write(self.video_element.video_data)
         temp_file.flush()
         temp_file.close()
 
@@ -181,8 +180,8 @@ class VideoGraphicsItem(ResizableGraphicsItem):
             except OSError:
                 pass
 
-        dialog.finished.connect(lambda _: cleanup())
-        dialog.exec()
+        _ = dialog.finished.connect(lambda _: cleanup())
+        _ = dialog.exec()
 
     @override
     def _update_element_position(self, new_position: QPointF) -> None:

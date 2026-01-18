@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from datetime import date, datetime
-from typing import Any, cast
+from typing import Any, cast, override
 
 from PyQt6.QtCore import QDate, QRect, Qt, pyqtSlot
 from PyQt6.QtGui import QAction, QBrush, QColor, QPainter, QShowEvent
@@ -23,7 +23,7 @@ class DiaryCalendarWidget(QCalendarWidget):
 
     def __init__(self, notebook_widget: NotebookWidget, parent: QWidget | None = None):
         super().__init__(parent)
-        self.notebook_widget = notebook_widget
+        self.notebook_widget: NotebookWidget = notebook_widget
         self.entry_dates: dict[date, list[int]] = defaultdict(list)
         self._build_entry_dates()
 
@@ -39,7 +39,8 @@ class DiaryCalendarWidget(QCalendarWidget):
         self._build_entry_dates()
         self.updateCells()
 
-    def paintCell(self, painter: QPainter | None, rect: QRect, date: QDate) -> None:
+    @override
+    def paintCell(self, painter: QPainter | None, rect: QRect, date: QDate) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Override to draw red dots on days with entries"""
         if painter is None:
             return
@@ -69,7 +70,7 @@ class DaysSidebar(QDockWidget):
 
     def __init__(self, parent: QWidget | None, notebook_widget: NotebookWidget):
         super().__init__("Navigation", parent)
-        self.notebook_widget = notebook_widget
+        self.notebook_widget: NotebookWidget = notebook_widget
         self._populated = False
 
         self.setAllowedAreas(
@@ -77,15 +78,15 @@ class DaysSidebar(QDockWidget):
         )
 
         # Create splitter for entry list (top) and calendar (bottom)
-        self.splitter = QSplitter(Qt.Orientation.Vertical)
+        self.splitter: QSplitter = QSplitter(Qt.Orientation.Vertical)
 
         # Entry list (top)
-        self.entry_list = QListWidget()
+        self.entry_list: QListWidget = QListWidget()
         self._style_entry_list()
         _ = self.entry_list.itemClicked.connect(self.on_entry_selected)
 
         # Calendar (bottom)
-        self.calendar = DiaryCalendarWidget(notebook_widget, self)
+        self.calendar: DiaryCalendarWidget = DiaryCalendarWidget(notebook_widget, self)
         self._style_calendar()
         _ = self.calendar.clicked.connect(self._on_calendar_date_clicked)
         _ = self.notebook_widget.current_page_changed.connect(self._on_page_changed)
@@ -99,14 +100,15 @@ class DaysSidebar(QDockWidget):
         self.setWidget(self.splitter)
         self.setMinimumWidth(280)
 
-    def showEvent(self, event: QShowEvent | None) -> None:
+    @override
+    def showEvent(self, a0: QShowEvent | None) -> None:
         """Populate the list lazily when first shown"""
         if not self._populated:
             self.populate_entry_list()
             self.calendar.refresh_entries()
             self._select_current_page_date()
             self._populated = True
-        super().showEvent(event)
+        super().showEvent(a0)
 
     def populate_entry_list(self):
         """Fill the list with the diary entries"""
@@ -127,7 +129,7 @@ class DaysSidebar(QDockWidget):
         sidebar_action.setShortcut("Ctrl+E")
         return sidebar_action
 
-    @pyqtSlot(QListWidgetItem)
+    @pyqtSlot(QListWidgetItem)  # pyright: ignore[reportUntypedFunctionDecorator]
     def on_entry_selected(self, item: Any):
         """When an entry has been selected, scroll to that page"""
         page_index = cast(int | None, item.data(Qt.ItemDataRole.UserRole))
@@ -152,7 +154,7 @@ class DaysSidebar(QDockWidget):
 
     def _select_current_page_date(self):
         """Select the date of the current page in the calendar"""
-        current_idx = self.notebook_widget._get_current_page_index()
+        current_idx = self.notebook_widget._get_current_page_index()  # pyright: ignore[reportPrivateUsage]
         if 0 <= current_idx < len(self.notebook_widget.notebook.pages):
             page = self.notebook_widget.notebook.pages[current_idx]
             page_date = datetime.fromtimestamp(page.created_at).date()

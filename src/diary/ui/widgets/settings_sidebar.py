@@ -74,7 +74,9 @@ class SettingsSidebar(QDockWidget):
         beautification_checkbox = QCheckBox()
         beautification_checkbox.setText("Shape recognition enabled")
         beautification_checkbox.setChecked(settings.BEAUTIFICATION_ENABLED)
-        _ = beautification_checkbox.checkStateChanged.connect(self._toggle_beautification)
+        _ = beautification_checkbox.checkStateChanged.connect(
+            self._toggle_beautification
+        )
 
         beautification_threshold_label = QLabel(
             f"Recognition Threshold: {settings.BEAUTIFICATION_THRESHOLD:.2f}"
@@ -82,11 +84,15 @@ class SettingsSidebar(QDockWidget):
         beautification_threshold_slider = QSlider(Qt.Orientation.Horizontal)
         beautification_threshold_slider.setMinimum(30)  # 0.30
         beautification_threshold_slider.setMaximum(90)  # 0.90
-        beautification_threshold_slider.setValue(int(settings.BEAUTIFICATION_THRESHOLD * 100))
+        beautification_threshold_slider.setValue(
+            int(settings.BEAUTIFICATION_THRESHOLD * 100)
+        )
         beautification_threshold_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         beautification_threshold_slider.setTickInterval(10)
         _ = beautification_threshold_slider.valueChanged.connect(
-            lambda v: self._update_beautification_threshold(v, beautification_threshold_label)
+            lambda v: self._update_beautification_threshold(
+                v, beautification_threshold_label
+            )
         )
 
         # 1€ Filter
@@ -108,9 +114,7 @@ class SettingsSidebar(QDockWidget):
             lambda v: self._update_one_euro_cutoff(v, one_euro_cutoff_label)
         )
 
-        one_euro_beta_label = QLabel(
-            f"1€ Responsiveness: {settings.ONE_EURO_BETA:.3f}"
-        )
+        one_euro_beta_label = QLabel(f"1€ Responsiveness: {settings.ONE_EURO_BETA:.3f}")
         one_euro_beta_slider = QSlider(Qt.Orientation.Horizontal)
         one_euro_beta_slider.setMinimum(1)  # 0.001
         one_euro_beta_slider.setMaximum(100)  # 0.100

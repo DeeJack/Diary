@@ -14,7 +14,6 @@ from PyQt6.QtWidgets import (
 )
 
 from diary.config import settings
-from diary.ui.input import InputType
 from diary.ui.widgets.tool_selector import Tool
 
 
@@ -157,7 +156,9 @@ class BottomToolbar(QToolBar):
         self.mouse_toggle_btn.setFixedHeight(30)
         self.mouse_toggle_btn.setCheckable(True)
         self.mouse_toggle_btn.setChecked(settings.MOUSE_ENABLED)
-        self.mouse_toggle_btn.setToolTip("Mouse mode: when disabled, mouse/touch acts as drag hand only")
+        self.mouse_toggle_btn.setToolTip(
+            "Mouse mode: when disabled, mouse/touch acts as drag hand only"
+        )
         self._update_mouse_toggle_style()
         _ = self.mouse_toggle_btn.clicked.connect(self._toggle_mouse_mode)
 

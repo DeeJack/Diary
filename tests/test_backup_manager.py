@@ -2,16 +2,16 @@
 Tests for the backup management system
 """
 
-import tempfile
 import json
+import shutil
+import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
-import shutil
 from typing import Any
 from unittest.mock import patch
 
-from diary.utils.backup import BackupManager
 from diary.config import Settings
+from diary.utils.backup import BackupManager
 
 
 class TestBackupManager:
@@ -44,7 +44,7 @@ class TestBackupManager:
 
         # Create test notebook file
         self.test_settings.DATA_DIR_PATH.mkdir(parents=True, exist_ok=True)
-        test_notebook_data: dict[str, Any] = {  # pyright: ignore[reportExplicitAny]
+        test_notebook_data: dict[str, Any] = {
             "pages": [{"strokes": [], "metadata": {}}],
             "metadata": {"title": "Test Notebook"},
         }
@@ -282,7 +282,7 @@ class TestBackupManager:
             test_time = datetime(2024, 1, 1, 14, 30)  # Monday, Jan 1st
 
             with patch("diary.utils.backup.datetime") as mock_datetime:
-                mock_datetime.now.return_value = test_time  # pyright: ignore[reportAny]
+                mock_datetime.now.return_value = test_time
                 mock_datetime.strptime = datetime.strptime
                 mock_datetime.fromtimestamp = datetime.fromtimestamp
 
@@ -350,6 +350,6 @@ class TestBackupManager:
             # Verify backup content matches original
             with open(self.test_settings.NOTEBOOK_FILE_PATH, "r") as original:
                 with open(self.test_settings.CURRENT_BACKUP_PATH, "r") as backup:
-                    original_data = json.load(original)  # pyright: ignore[reportAny]
-                    backup_data = json.load(backup)  # pyright: ignore[reportAny]
+                    original_data = json.load(original)
+                    backup_data = json.load(backup)
                     assert original_data == backup_data

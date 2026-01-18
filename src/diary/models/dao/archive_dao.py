@@ -111,6 +111,7 @@ class ArchiveDAO:
             multi_asset_bytes,
             notebook_order,
         ) = ArchiveDAO._extract_archive_entries(tar_bytes)
+        pages: list[Page] = []
 
         if multi_manifests:
             notebooks: list[Notebook] = []
@@ -127,7 +128,7 @@ class ArchiveDAO:
                 asset_bytes = multi_asset_bytes.get(notebook_id, {})
                 assets = AssetIndex.from_manifest_entries(manifest.assets, asset_bytes)
 
-                pages: list[Page] = []
+                pages = []
                 for page_id in manifest.page_ids:
                     if page_id in pages_data:
                         page_dict = msgpack.unpackb(pages_data[page_id], raw=False)
@@ -150,7 +151,7 @@ class ArchiveDAO:
         assets = AssetIndex.from_manifest_entries(
             single_manifest.assets, single_asset_bytes
         )
-        pages: list[Page] = []
+        pages = []
         for page_id in single_manifest.page_ids:
             if page_id in single_pages_data:
                 page_dict = msgpack.unpackb(single_pages_data[page_id], raw=False)
@@ -455,9 +456,9 @@ class ArchiveDAO:
 
             try:
                 # Write OUR header (DIARYARC02 + version + salt)
-                temp_file.write(ArchiveDAO.MAGIC)
-                temp_file.write(struct.pack("<H", ArchiveDAO.VERSION))
-                temp_file.write(salt)
+                _ = temp_file.write(ArchiveDAO.MAGIC)
+                _ = temp_file.write(struct.pack("<H", ArchiveDAO.VERSION))
+                _ = temp_file.write(salt)
 
                 # Encrypt payload in chunks
                 chunk_number = 0
@@ -478,8 +479,8 @@ class ArchiveDAO:
                     encrypted_chunk = box.encrypt(chunk, nonce=nonce)
 
                     # Write chunk size + encrypted data
-                    temp_file.write(struct.pack("<I", len(encrypted_chunk)))
-                    temp_file.write(encrypted_chunk)
+                    _ = temp_file.write(struct.pack("<I", len(encrypted_chunk)))
+                    _ = temp_file.write(encrypted_chunk)
 
                     bytes_processed += len(chunk)
                     offset = chunk_end
@@ -724,7 +725,7 @@ class ArchiveDAO:
         logger.info("Importing unencrypted archive from %s", filepath)
 
         manifest: ArchiveManifest | None = None
-        pages_data: dict[str, dict] = {}
+        pages_data: dict[str, dict[str, Page]] = {}
         asset_bytes: dict[str, bytes] = {}
         asset_mimes: dict[str, str] = {}
 

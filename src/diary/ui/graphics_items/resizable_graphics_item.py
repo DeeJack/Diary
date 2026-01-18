@@ -4,8 +4,10 @@ from abc import ABC, abstractmethod
 from typing import override
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QPainter, QPen, QColor
-from PyQt6.QtWidgets import QGraphicsSceneMouseEvent
+from PyQt6.QtGui import QColor, QPainter, QPen
+from PyQt6.QtWidgets import QGraphicsItem, QGraphicsSceneMouseEvent
+
+from diary.models.page_element import PageElement
 
 from .base_graphics_item import BaseGraphicsItem
 
@@ -13,11 +15,13 @@ from .base_graphics_item import BaseGraphicsItem
 class ResizableGraphicsItem(BaseGraphicsItem, ABC):
     """Base class that provides corner resize handles and interaction."""
 
-    _HANDLE_SIZE = 8.0
-    _HANDLE_HIT_SIZE = 16.0
-    _MIN_RESIZE_SIZE = 20.0
+    _HANDLE_SIZE: float = 8.0
+    _HANDLE_HIT_SIZE: float = 16.0
+    _MIN_RESIZE_SIZE: float = 20.0
 
-    def __init__(self, element, parent=None) -> None:
+    def __init__(
+        self, element: PageElement, parent: QGraphicsItem | None = None
+    ) -> None:
         super().__init__(element, parent)
         self._resize_handle: str | None = None
         self._resize_start_rect: QRectF | None = None
@@ -28,7 +32,9 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
         """Return the current width/height in local coordinates."""
 
     @abstractmethod
-    def _apply_resize(self, new_size: tuple[float, float], new_scene_pos: QPointF) -> None:
+    def _apply_resize(
+        self, new_size: tuple[float, float], new_scene_pos: QPointF
+    ) -> None:
         """Apply size/position changes to the underlying element and item."""
 
     def _resize_min_size(self) -> float:
@@ -129,7 +135,7 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
 
     def _handle_resize(self, current_pos: QPointF) -> None:
         """Handle resizing based on the active handle."""
-        if not self._resize_handle or not self._resize_start_rect:
+        if not self._resize_handle or self._resize_start_rect is None:
             return
 
         start_rect = self._resize_start_rect

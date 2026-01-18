@@ -346,7 +346,7 @@ class MainWindow(QMainWindow):
         # Start async save
         self.save_manager.save_async()
 
-    def _on_close_save_completed(self, *args) -> None:
+    def _on_close_save_completed(self) -> None:
         """Handle save completion during close"""
         # Disconnect signals to avoid duplicate calls
         try:

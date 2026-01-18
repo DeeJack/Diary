@@ -20,8 +20,8 @@ class StrokeBeautifier:
     Based on: http://depts.washington.edu/acelab/proj/dollar/index.html
     """
 
-    SAMPLE_POINTS = 64
-    SQUARE_SIZE = 250.0
+    SAMPLE_POINTS: int = 64
+    SQUARE_SIZE: float = 250.0
 
     def __init__(self):
         self.templates: list[StrokeTemplate] = []
@@ -203,12 +203,12 @@ class StrokeBeautifier:
         # Find best matching template (try multiple rotations for rotation invariance)
         best_score = 0.0
         best_template: StrokeTemplate | None = None
-        
+
         for template in self.templates:
             # Try fewer rotation angles to avoid false matches
             # Only try 0° and 90° for most shapes
             angles = [0, 90] if "line" not in template.name else [0, 45, 90, 135]
-            
+
             for angle in angles:
                 rotated = self._rotate_points(normalized, angle)
                 score = self._calculate_similarity(rotated, template.points)
@@ -216,7 +216,9 @@ class StrokeBeautifier:
                     best_score = score
                     best_template = template
 
-        print(f"Best match: {best_template.name if best_template else 'None'}, score: {best_score:.3f}")
+        print(
+            f"Best match: {best_template.name if best_template else 'None'}, score: {best_score:.3f}"
+        )
 
         if best_score >= threshold and best_template:
             # Shape was recognized, return beautified version
@@ -302,35 +304,35 @@ class StrokeBeautifier:
         dx = p2.x - p1.x
         dy = p2.y - p1.y
         return math.sqrt(dx * dx + dy * dy)
-    
+
     def _rotate_points(self, points: list[Point], angle_degrees: float) -> list[Point]:
         """Rotate points around center by given angle."""
         if angle_degrees == 0:
             return points
-        
+
         # Calculate center
         cx = sum(p.x for p in points) / len(points)
         cy = sum(p.y for p in points) / len(points)
-        
+
         # Convert to radians
         angle_rad = math.radians(angle_degrees)
         cos_a = math.cos(angle_rad)
         sin_a = math.sin(angle_rad)
-        
+
         # Rotate each point
         rotated = []
         for p in points:
             # Translate to origin
             x = p.x - cx
             y = p.y - cy
-            
+
             # Rotate
             rx = x * cos_a - y * sin_a
             ry = x * sin_a + y * cos_a
-            
+
             # Translate back
             rotated.append(Point(rx + cx, ry + cy, p.pressure))
-        
+
         return rotated
 
     def _calculate_similarity(
@@ -352,30 +354,30 @@ class StrokeBeautifier:
         # At avg_dist=0.5 -> score~0.60
         # At avg_dist=1.0 -> score~0.37
         base_score = math.exp(-avg_dist)
-        
+
         # Add direction variance check for better discrimination
         # Lines should have consistent direction, circles/complex shapes should vary
         direction_variance = self._calculate_direction_variance(stroke)
         template_variance = self._calculate_direction_variance(template)
-        
+
         # Penalize if direction variance doesn't match
         variance_diff = abs(direction_variance - template_variance)
         variance_penalty = math.exp(-variance_diff * 2)
-        
+
         return base_score * (0.7 + 0.3 * variance_penalty)
-    
+
     def _calculate_direction_variance(self, points: list[Point]) -> float:
         """Calculate variance in direction changes along the stroke."""
         if len(points) < 3:
             return 0.0
-        
+
         angles = []
         for i in range(1, len(points) - 1):
-            dx1 = points[i].x - points[i-1].x
-            dy1 = points[i].y - points[i-1].y
-            dx2 = points[i+1].x - points[i].x
-            dy2 = points[i+1].y - points[i].y
-            
+            dx1 = points[i].x - points[i - 1].x
+            dy1 = points[i].y - points[i - 1].y
+            dx2 = points[i + 1].x - points[i].x
+            dy2 = points[i + 1].y - points[i].y
+
             # Calculate angle change
             angle1 = math.atan2(dy1, dx1)
             angle2 = math.atan2(dy2, dx2)
@@ -384,7 +386,7 @@ class StrokeBeautifier:
             if angle_diff > math.pi:
                 angle_diff = 2 * math.pi - angle_diff
             angles.append(angle_diff)
-        
+
         # Return average angle change (higher = more curved/complex)
         return sum(angles) / len(angles) if angles else 0.0
 

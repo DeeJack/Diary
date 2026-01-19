@@ -1,25 +1,32 @@
 """Graphics item for rendering stroke elements using QGraphicsItem architecture"""
 
+import math
 from typing import cast, override
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen
-from PyQt6.QtWidgets import QGraphicsItem, QStyleOptionGraphicsItem, QWidget
+from PyQt6.QtWidgets import (
+    QGraphicsItem,
+    QGraphicsSceneMouseEvent,
+    QStyleOptionGraphicsItem,
+    QWidget,
+)
 
 from diary.config import settings
 from diary.models.elements.stroke import Stroke
 from diary.models.point import Point
 
-from .base_graphics_item import BaseGraphicsItem
+from .resizable_graphics_item import ResizableGraphicsItem
 
 
-class StrokeGraphicsItem(BaseGraphicsItem):
+class StrokeGraphicsItem(ResizableGraphicsItem):
     """Graphics item for rendering stroke elements with smooth curves and pressure sensitivity"""
 
     def __init__(self, stroke: Stroke, parent: QGraphicsItem | None = None):
         super().__init__(stroke, parent)
         self._stroke_path: QPainterPath | None = None
         self._pen: QPen | None = None
+        self._resize_start_points: list[Point] | None = None
 
         # Configure item flags for strokes
         self.setFlag(
@@ -34,6 +41,27 @@ class StrokeGraphicsItem(BaseGraphicsItem):
     @override
     def _calculate_bounding_rect(self) -> QRectF:
         """Calculate the bounding rectangle including stroke thickness"""
+        base_rect = self._unrotated_bounds()
+        if base_rect.isNull():
+            return base_rect
+
+        rotated_rect = self._rotated_bounds(base_rect, self.stroke.rotation)
+
+        padding = 6.0
+        rotate_padding = (
+            self._ROTATE_HANDLE_OFFSET + self._ROTATE_HANDLE_SIZE
+            if self._supports_rotation()
+            else 0.0
+        )
+        return rotated_rect.adjusted(
+            -padding,
+            -(padding + rotate_padding),
+            padding,
+            padding,
+        )
+
+    def _unrotated_bounds(self) -> QRectF:
+        """Calculate stroke bounds without rotation."""
         if not self.stroke.points:
             return QRectF()
 
@@ -53,6 +81,33 @@ class StrokeGraphicsItem(BaseGraphicsItem):
             (max_y - min_y) + 2 * margin,
         )
 
+    def _rotated_bounds(self, rect: QRectF, rotation: float) -> QRectF:
+        if rotation == 0.0:
+            return QRectF(rect)
+
+        center = rect.center()
+        angle = math.radians(rotation)
+        cos_angle = math.cos(angle)
+        sin_angle = math.sin(angle)
+        corners = (
+            rect.topLeft(),
+            rect.topRight(),
+            rect.bottomLeft(),
+            rect.bottomRight(),
+        )
+
+        xs: list[float] = []
+        ys: list[float] = []
+        for corner in corners:
+            dx = corner.x() - center.x()
+            dy = corner.y() - center.y()
+            rotated_x = center.x() + dx * cos_angle - dy * sin_angle
+            rotated_y = center.y() + dx * sin_angle + dy * cos_angle
+            xs.append(rotated_x)
+            ys.append(rotated_y)
+
+        return QRectF(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
+
     @override
     def paint(
         self,
@@ -69,12 +124,36 @@ class StrokeGraphicsItem(BaseGraphicsItem):
 
         # Draw selection highlight if selected
         if self.isSelected():
+            painter.save()
+            self._apply_rotation_transform(painter)
             self._draw_selection_highlight(painter)
+            self._draw_resize_handles(painter)
+            painter.restore()
 
+        painter.save()
+        self._apply_rotation_transform(painter)
         if len(self.stroke.points) <= 2:
             self._paint_single_point(painter)
         else:
             self._paint_stroke_path(painter)
+        painter.restore()
+
+    @override
+    def mousePressEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:
+        if event and event.button() == Qt.MouseButton.LeftButton:
+            handle = self._get_handle_at_point(event.pos())
+            if handle and handle != "rotate":
+                self._resize_start_points = [
+                    Point(point.x, point.y, point.pressure)
+                    for point in self.stroke.points
+                ]
+        super().mousePressEvent(event)
+
+    @override
+    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:
+        if self._resize_start_points is not None:
+            self._resize_start_points = None
+        super().mouseReleaseEvent(event)
 
     def _draw_selection_highlight(self, painter: QPainter) -> None:
         """Draw selection highlight around the stroke"""
@@ -150,6 +229,83 @@ class StrokeGraphicsItem(BaseGraphicsItem):
                 segment_path.lineTo(p2.x, p2.y)
 
             painter.drawPath(segment_path)
+
+    def _apply_rotation_transform(self, painter: QPainter) -> None:
+        if self.stroke.rotation == 0.0:
+            return
+        rect = self._unrotated_bounds()
+        if rect.isNull():
+            return
+        center = rect.center()
+        painter.translate(center)
+        painter.rotate(self.stroke.rotation)
+        painter.translate(-center)
+
+    @override
+    def _resize_rect(self) -> QRectF:
+        """Return the stroke bounds used for resizing handles."""
+        return self._unrotated_bounds()
+
+    @override
+    def _get_current_size(self) -> tuple[float, float]:
+        rect = self._unrotated_bounds()
+        return (rect.width(), rect.height())
+
+    @override
+    def _apply_resize(
+        self, new_size: tuple[float, float], new_scene_pos: QPointF
+    ) -> None:
+        _ = new_scene_pos
+        if not self.stroke.points:
+            return
+
+        start_rect = self._resize_start_rect or self._unrotated_bounds()
+        if start_rect.isNull():
+            return
+
+        start_width = start_rect.width()
+        start_height = start_rect.height()
+        if start_width == 0 or start_height == 0:
+            return
+
+        base_dim = max(start_width, start_height, 1.0)
+        target_dim = max(new_size[0], new_size[1], 1.0)
+        uniform_scale = target_dim / base_dim
+        damped_scale = 1.0 + (uniform_scale - 1.0) * 0.6
+        damped_scale = max(0.2, min(5.0, damped_scale))
+
+        anchor = start_rect.topLeft()
+        if self._resize_handle == "top-left":
+            anchor = start_rect.bottomRight()
+        elif self._resize_handle == "top-right":
+            anchor = start_rect.bottomLeft()
+        elif self._resize_handle == "bottom-left":
+            anchor = start_rect.topRight()
+
+        source_points = self._resize_start_points or self.stroke.points
+        new_points: list[Point] = []
+        for point in source_points:
+            new_x = anchor.x() + (point.x - anchor.x()) * damped_scale
+            new_y = anchor.y() + (point.y - anchor.y()) * damped_scale
+            new_points.append(Point(new_x, new_y, point.pressure))
+
+        self.stroke.points = new_points
+        self._stroke_path = None
+        self.invalidate_cache()
+
+    @override
+    def _supports_rotation(self) -> bool:
+        return True
+
+    @override
+    def _get_rotation(self) -> float:
+        return self.stroke.rotation
+
+    @override
+    def _set_rotation(self, rotation: float) -> None:
+        self.stroke.rotation = rotation
+        self.invalidate_cache()
+        self.update()
 
     def _get_stroke_path(self) -> QPainterPath:
         """Get or create the cached stroke path"""
@@ -253,5 +409,6 @@ class StrokeGraphicsItem(BaseGraphicsItem):
             color=self.stroke.color,
             size=self.stroke.thickness,
             tool=self.stroke.tool,
+            rotation=self.stroke.rotation,
         )
         return StrokeGraphicsItem(new_stroke)

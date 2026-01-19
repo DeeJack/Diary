@@ -18,6 +18,7 @@ class Stroke(PageElement):
         color: str = "black",
         size: float = 1,
         tool: str = "pen",
+        rotation: float = 0.0,
         element_id: str | None = None,
     ):
         super().__init__("stroke", element_id)
@@ -25,6 +26,7 @@ class Stroke(PageElement):
         self.color: str = color
         self.thickness: float = size
         self.tool: str = tool
+        self.rotation: float = rotation
 
     @override
     def to_dict(self) -> dict[str, Any]:
@@ -38,6 +40,7 @@ class Stroke(PageElement):
             settings.SERIALIZATION_KEYS.COLOR.value: self.color,
             settings.SERIALIZATION_KEYS.THICKNESS.value: float(f"{self.thickness:.1f}"),
             settings.SERIALIZATION_KEYS.TOOL.value: self.tool,
+            settings.SERIALIZATION_KEYS.ROTATION.value: self.rotation,
         }
 
     @classmethod
@@ -62,6 +65,7 @@ class Stroke(PageElement):
             color=cast(str, data.get(settings.SERIALIZATION_KEYS.COLOR.value, "black")),
             size=float(data.get(settings.SERIALIZATION_KEYS.THICKNESS.value, 1.0)),
             tool=cast(str, data.get(settings.SERIALIZATION_KEYS.TOOL.value, "pen")),
+            rotation=float(data.get(settings.SERIALIZATION_KEYS.ROTATION.value, 0.0)),
             element_id=data.get(settings.SERIALIZATION_KEYS.ELEMENT_ID.value),
         )
 
@@ -80,5 +84,6 @@ class Stroke(PageElement):
             and self.color == other.color
             and self.thickness == other.thickness
             and self.tool == other.tool
+            and self.rotation == other.rotation
             and self.points == other.points
         )

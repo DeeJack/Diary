@@ -17,7 +17,7 @@ from PyQt6.QtCore import (
     QUrl,
 )
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtMultimedia import QMediaPlayer, QVideoSink
+from PyQt6.QtMultimedia import QMediaPlayer, QVideoFrame, QVideoSink
 from PyQt6.QtPdf import QPdfDocument
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog, QWidget
 
@@ -214,7 +214,7 @@ def generate_video_thumbnail(
     loop = QEventLoop()
     result: bytes | None = None
 
-    def on_frame_changed(frame) -> None:
+    def on_frame_changed(frame: QVideoFrame) -> None:
         nonlocal result
         image = frame.toImage()
         if image.isNull():
@@ -229,9 +229,9 @@ def generate_video_thumbnail(
                 Qt.TransformationMode.SmoothTransformation,
             )
         buffer = QBuffer()
-        buffer.open(QIODevice.OpenModeFlag.WriteOnly)
-        image.save(buffer, "PNG")
-        result = bytes(buffer.data())
+        _ = buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+        _ = image.save(buffer, "PNG")
+        result = buffer.data().data()
         player.stop()
         loop.quit()
 
@@ -247,7 +247,7 @@ def generate_video_thumbnail(
 
     player.play()
     timer.start(timeout_ms)
-    loop.exec()
+    _ = loop.exec()
 
     _ = sink.videoFrameChanged.disconnect(on_frame_changed)
     return result
@@ -276,13 +276,13 @@ class OneEuroFilter:
             beta: Increase to reduce lag (makes responsive). Default: 0.007
             d_cutoff: Cutoff for derivative. Default: 1.0
         """
-        self.frequency = 0.0
-        self.min_cutoff = min_cutoff
-        self.beta = beta
-        self.d_cutoff = d_cutoff
-        self.x_prev = x0
-        self.dx_prev = 0.0
-        self.t_prev = t0
+        self.frequency: float = 0.0
+        self.min_cutoff: float = min_cutoff
+        self.beta: float = beta
+        self.d_cutoff: float = d_cutoff
+        self.x_prev: float = x0
+        self.dx_prev: float = 0.0
+        self.t_prev: float = t0
 
     def alpha(self, cutoff: float) -> float:
         """Calculate smoothing factor based on cutoff frequency."""

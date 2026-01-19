@@ -2,9 +2,10 @@
 
 import logging
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
+    QHBoxLayout,
     QInputDialog,
     QLabel,
     QPushButton,
@@ -13,8 +14,6 @@ from PyQt6.QtWidgets import (
 )
 
 from diary.models import Notebook, Page
-from diary.ui.widgets.save_manager import pyqtSignal
-from diary.ui.widgets.settings_sidebar import QHBoxLayout
 
 
 class NotebookSelector(QWidget):

@@ -1,6 +1,7 @@
 """Graphics item for rendering image elements using QGraphicsItem architecture"""
 
 import logging
+import math
 from typing import cast, override
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
@@ -50,17 +51,48 @@ class ImageGraphicsItem(ResizableGraphicsItem):
     @override
     def _calculate_bounding_rect(self) -> QRectF:
         """Calculate the bounding rectangle for the image"""
-        # Base rectangle in local coordinates (starting from 0,0)
-        rect = QRectF(
-            0,
-            0,
-            self.image_element.width,
-            self.image_element.height,
+        rect = QRectF(0, 0, self.image_element.width, self.image_element.height)
+        rotated_rect = self._rotated_bounds(rect, self.image_element.rotation)
+
+        padding = 10.0
+        rotate_padding = (
+            self._ROTATE_HANDLE_OFFSET + self._ROTATE_HANDLE_SIZE
+            if self._supports_rotation()
+            else 0.0
+        )
+        return rotated_rect.adjusted(
+            -padding,
+            -(padding + rotate_padding),
+            padding,
+            padding,
         )
 
-        # Add padding for selection highlighting and rotation
-        padding = 10.0
-        return rect.adjusted(-padding, -padding, padding, padding)
+    def _rotated_bounds(self, rect: QRectF, rotation: float) -> QRectF:
+        if rotation == 0.0:
+            return QRectF(rect)
+
+        center = rect.center()
+        angle = math.radians(rotation)
+        cos_angle = math.cos(angle)
+        sin_angle = math.sin(angle)
+        corners = (
+            rect.topLeft(),
+            rect.topRight(),
+            rect.bottomLeft(),
+            rect.bottomRight(),
+        )
+
+        xs: list[float] = []
+        ys: list[float] = []
+        for corner in corners:
+            dx = corner.x() - center.x()
+            dy = corner.y() - center.y()
+            rotated_x = center.x() + dx * cos_angle - dy * sin_angle
+            rotated_y = center.y() + dx * sin_angle + dy * cos_angle
+            xs.append(rotated_x)
+            ys.append(rotated_y)
+
+        return QRectF(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
 
     @override
     def paint(
@@ -81,7 +113,15 @@ class ImageGraphicsItem(ResizableGraphicsItem):
 
         # Draw selection highlight if selected
         if self.isSelected():
+            painter.save()
+            if self.image_element.rotation != 0.0:
+                center_x = self.image_element.width / 2
+                center_y = self.image_element.height / 2
+                painter.translate(center_x, center_y)
+                painter.rotate(self.image_element.rotation)
+                painter.translate(-center_x, -center_y)
             self._draw_selection_highlight(painter)
+            painter.restore()
 
         # Save painter state for transformations
         painter.save()
@@ -90,7 +130,6 @@ class ImageGraphicsItem(ResizableGraphicsItem):
         if self.image_element.rotation != 0.0:
             center_x = self.image_element.width / 2
             center_y = self.image_element.height / 2
-
             painter.translate(center_x, center_y)
             painter.rotate(self.image_element.rotation)
             painter.translate(-center_x, -center_y)
@@ -112,7 +151,15 @@ class ImageGraphicsItem(ResizableGraphicsItem):
 
         # Draw resize handles if selected
         if self.isSelected():
+            painter.save()
+            if self.image_element.rotation != 0.0:
+                center_x = self.image_element.width / 2
+                center_y = self.image_element.height / 2
+                painter.translate(center_x, center_y)
+                painter.rotate(self.image_element.rotation)
+                painter.translate(-center_x, -center_y)
             self._draw_resize_handles(painter)
+            painter.restore()
 
     def _draw_placeholder(self, painter: QPainter) -> None:
         """Draw a placeholder when image cannot be loaded"""
@@ -232,6 +279,7 @@ class ImageGraphicsItem(ResizableGraphicsItem):
     def set_rotation(self, rotation: float) -> None:
         """Update the image rotation"""
         self.image_element.rotation = rotation
+        self.invalidate_cache()
         self.update()
 
     def reload_image(self) -> None:
@@ -305,6 +353,18 @@ class ImageGraphicsItem(ResizableGraphicsItem):
                 self.image_element.position.pressure,
             )
             self.setPos(new_scene_pos)
+
+    @override
+    def _supports_rotation(self) -> bool:
+        return True
+
+    @override
+    def _get_rotation(self) -> float:
+        return self.image_element.rotation
+
+    @override
+    def _set_rotation(self, rotation: float) -> None:
+        self.set_rotation(rotation)
 
     def cleanup(self) -> None:
         """Clean up resources to prevent memory leaks.

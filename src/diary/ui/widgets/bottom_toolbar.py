@@ -1,7 +1,9 @@
 """Represents the toolbar on the bottom of the screen"""
 
+from typing import override
+
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QTabletEvent
+from PyQt6.QtGui import QColor, QFont, QMouseEvent, QTabletEvent
 from PyQt6.QtWidgets import (
     QColorDialog,
     QLabel,
@@ -20,7 +22,7 @@ from diary.ui.widgets.tool_selector import Tool
 class ToolButton(QPushButton):
     """Custom button that detects whether it was clicked with pen/tablet or mouse/touch"""
 
-    clicked_with_device = pyqtSignal(str)  # Emits "tablet" or "mouse"
+    clicked_with_device: pyqtSignal = pyqtSignal(str)  # Emits "tablet" or "mouse"
 
     def __init__(self, text: str = ""):
         super().__init__(text)
@@ -40,30 +42,32 @@ class ToolButton(QPushButton):
             }
         """
         )
-        self._tablet_event_active = False
+        self._tablet_event_active: bool = False
 
-    def tabletEvent(self, event: QTabletEvent | None) -> None:
+    @override
+    def tabletEvent(self, a0: QTabletEvent | None) -> None:
         """Handle tablet/pen events"""
-        if event and event.type() in (
+        if a0 and a0.type() in (
             QTabletEvent.Type.TabletPress,
             QTabletEvent.Type.TabletMove,
             QTabletEvent.Type.TabletRelease,
         ):
-            if event.type() == QTabletEvent.Type.TabletPress:
+            if a0.type() == QTabletEvent.Type.TabletPress:
                 self._tablet_event_active = True
                 self.clicked_with_device.emit("tablet")
                 self.click()
-            event.accept()
+            a0.accept()
         else:
-            super().tabletEvent(event)
+            super().tabletEvent(a0)
 
-    def mousePressEvent(self, event) -> None:
+    @override
+    def mousePressEvent(self, e: QMouseEvent | None) -> None:
         """Handle mouse/touch events"""
         # Check if this is a synthesized mouse event from a tablet event
         if not self._tablet_event_active:
             self.clicked_with_device.emit("mouse")
         self._tablet_event_active = False
-        super().mousePressEvent(event)
+        super().mousePressEvent(e)
 
 
 class BottomToolbar(QToolBar):
@@ -299,9 +303,9 @@ class BottomToolbar(QToolBar):
         slider_value = int(round(thickness))
         slider_value = max(self.thickness_slider.minimum(), slider_value)
         slider_value = min(self.thickness_slider.maximum(), slider_value)
-        self.thickness_slider.blockSignals(True)
+        _ = self.thickness_slider.blockSignals(True)
         self.thickness_slider.setValue(slider_value)
-        self.thickness_slider.blockSignals(False)
+        _ = self.thickness_slider.blockSignals(False)
         self.color_dialog.setCurrentColor(color)
 
 

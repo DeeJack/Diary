@@ -18,6 +18,7 @@ class Text(PageElement):
         position: Point,
         color: str = "black",
         size_px: float = 20,
+        rotation: float = 0.0,
         element_id: str | None = None,
     ):
         super().__init__("text", element_id)
@@ -25,6 +26,7 @@ class Text(PageElement):
         self.position: Point = position
         self.color: str = color
         self.size_px: float = size_px
+        self.rotation: float = rotation
 
     @override
     def to_dict(self) -> dict[str, Any]:
@@ -39,6 +41,7 @@ class Text(PageElement):
             settings.SERIALIZATION_KEYS.COLOR.value: self.color,
             settings.SERIALIZATION_KEYS.TEXT.value: self.text,
             settings.SERIALIZATION_KEYS.SIZE_PX.value: self.size_px,
+            settings.SERIALIZATION_KEYS.ROTATION.value: self.rotation,
         }
 
     @classmethod
@@ -54,6 +57,7 @@ class Text(PageElement):
             position=Point(position[0], position[1]),
             color=cast(str, data.get(settings.SERIALIZATION_KEYS.COLOR.value, "black")),
             size_px=float(data.get(settings.SERIALIZATION_KEYS.SIZE_PX.value, 20.0)),
+            rotation=float(data.get(settings.SERIALIZATION_KEYS.ROTATION.value, 0.0)),
         )
 
     @override
@@ -70,5 +74,6 @@ class Text(PageElement):
             and self.text == other.text
             and self.color == other.color
             and self.size_px == other.size_px
+            and self.rotation == other.rotation
             and self.position == other.position
         )

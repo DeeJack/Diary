@@ -1,5 +1,6 @@
 """Graphics item for rendering text elements using QGraphicsItem"""
 
+import math
 from typing import cast, override
 
 from PyQt6.QtCore import QPointF, QRect, QRectF, Qt
@@ -63,8 +64,46 @@ class TextGraphicsItem(ResizableGraphicsItem):
         positioned_rect = self._text_positioned_box(display_text)
 
         # Add some padding for selection highlighting
+        rotated_rect = self._rotated_bounds(positioned_rect, self.text_element.rotation)
         padding = 4.0
-        return positioned_rect.adjusted(-padding, -padding, padding, padding)
+        rotate_padding = (
+            self._ROTATE_HANDLE_OFFSET + self._ROTATE_HANDLE_SIZE
+            if self._supports_rotation()
+            else 0.0
+        )
+        return rotated_rect.adjusted(
+            -padding,
+            -(padding + rotate_padding),
+            padding,
+            padding,
+        )
+
+    def _rotated_bounds(self, rect: QRectF, rotation: float) -> QRectF:
+        if rotation == 0.0:
+            return QRectF(rect)
+
+        center = rect.center()
+        angle = math.radians(rotation)
+        cos_angle = math.cos(angle)
+        sin_angle = math.sin(angle)
+        corners = (
+            rect.topLeft(),
+            rect.topRight(),
+            rect.bottomLeft(),
+            rect.bottomRight(),
+        )
+
+        xs: list[float] = []
+        ys: list[float] = []
+        for corner in corners:
+            dx = corner.x() - center.x()
+            dy = corner.y() - center.y()
+            rotated_x = center.x() + dx * cos_angle - dy * sin_angle
+            rotated_y = center.y() + dx * sin_angle + dy * cos_angle
+            xs.append(rotated_x)
+            ys.append(rotated_y)
+
+        return QRectF(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
 
     @override
     def paint(
@@ -79,8 +118,16 @@ class TextGraphicsItem(ResizableGraphicsItem):
             if painter:
                 self.configure_painter_quality(painter)
                 if self.isSelected():
+                    painter.save()
+                    if self.text_element.rotation != 0.0:
+                        text_rect = self._text_positioned_box(self._get_display_text())
+                        center = text_rect.center()
+                        painter.translate(center)
+                        painter.rotate(self.text_element.rotation)
+                        painter.translate(-center)
                     self._draw_selection_highlight(painter)
                     self._draw_resize_handles(painter)
+                    painter.restore()
                 if not self.text_element.text:
                     self._draw_hint_text(painter)
             return
@@ -93,8 +140,24 @@ class TextGraphicsItem(ResizableGraphicsItem):
 
         # Draw selection highlight if selected
         if self.isSelected():
+            painter.save()
+            if self.text_element.rotation != 0.0:
+                text_rect = self._text_positioned_box(self._get_display_text())
+                center = text_rect.center()
+                painter.translate(center)
+                painter.rotate(self.text_element.rotation)
+                painter.translate(-center)
             self._draw_selection_highlight(painter)
             self._draw_resize_handles(painter)
+            painter.restore()
+
+        painter.save()
+        if self.text_element.rotation != 0.0:
+            text_rect = self._text_positioned_box(self._get_display_text())
+            center = text_rect.center()
+            painter.translate(center)
+            painter.rotate(self.text_element.rotation)
+            painter.translate(-center)
 
         # Set up font and color
         font = self._get_font()
@@ -102,6 +165,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
 
         if not self.text_element.text:
             self._draw_hint_text(painter)
+            painter.restore()
             return
 
         text_color = QColor(self.text_element.color)
@@ -118,6 +182,8 @@ class TextGraphicsItem(ResizableGraphicsItem):
         # Draw cursor if this text is being edited (optional future enhancement)
         if hasattr(self, "_show_cursor") and self._show_cursor:
             self._draw_text_cursor(painter)
+
+        painter.restore()
 
     def _draw_selection_highlight(self, painter: QPainter) -> None:
         """Draw selection highlight behind the text"""
@@ -234,11 +300,25 @@ class TextGraphicsItem(ResizableGraphicsItem):
             (settings.PAGE_WIDTH - self.text_element.position.x) / 2,
             text_rect.height() / 2,
         )
+        self._update_edit_item_rotation()
+
+    @override
+    def _supports_rotation(self) -> bool:
+        return True
+
+    @override
+    def _get_rotation(self) -> float:
+        return self.text_element.rotation
+
+    @override
+    def _set_rotation(self, rotation: float) -> None:
+        self.set_rotation(rotation)
 
     def set_text(self, text: str) -> None:
         """Update the text content"""
         self.text_element.text = text
         self._font_metrics = None  # Invalidate metrics cache
+        self._update_edit_item_rotation()
         self.invalidate_cache()
 
     def set_font_size(self, size: float) -> None:
@@ -246,11 +326,19 @@ class TextGraphicsItem(ResizableGraphicsItem):
         self.text_element.size_px = size
         self._font = None  # Invalidate font cache
         self._font_metrics = None  # Invalidate metrics cache
+        self._update_edit_item_rotation()
         self.invalidate_cache()
 
     def set_color(self, color: str) -> None:
         """Update the text color"""
         self.text_element.color = color
+        self.update()
+
+    def set_rotation(self, rotation: float) -> None:
+        """Update the text rotation."""
+        self.text_element.rotation = rotation
+        self._update_edit_item_rotation()
+        self.invalidate_cache()
         self.update()
 
     def get_text_rect(self) -> QRectF:
@@ -279,6 +367,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
             ),
             color=self.text_element.color,
             size_px=self.text_element.size_px,
+            rotation=self.text_element.rotation,
         )
         return TextGraphicsItem(new_text)
 
@@ -310,6 +399,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
         if document := self._edit_item.document():
             _ = document.contentsChanged.connect(self._on_text_changed)
 
+        self._update_edit_item_rotation()
         self._edit_item.setFocus()
 
         # Hide the painted text
@@ -351,6 +441,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
             # Update the underlying text element in real-time
             new_text = self._edit_item.toPlainText()
             self.text_element.text = new_text
+            self._update_edit_item_rotation()
             self.invalidate_cache()
 
     @override
@@ -383,6 +474,13 @@ class TextGraphicsItem(ResizableGraphicsItem):
             text_rect.height(),
         )
         return positioned_rect
+
+    def _update_edit_item_rotation(self) -> None:
+        if not self._edit_item:
+            return
+        text_rect = self._text_positioned_box(self._get_display_text())
+        self._edit_item.setTransformOriginPoint(text_rect.center())
+        self._edit_item.setRotation(self.text_element.rotation)
 
     def _get_display_text(self) -> str:
         return self.text_element.text or self._HINT_TEXT

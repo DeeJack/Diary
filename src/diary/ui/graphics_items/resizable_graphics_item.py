@@ -1,6 +1,7 @@
 """Shared resizing behavior for graphics items with corner handles."""
 
 from abc import ABC, abstractmethod
+from math import atan2, cos, degrees, radians, sin
 from typing import override
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
@@ -17,6 +18,9 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
 
     _HANDLE_SIZE: float = 8.0
     _HANDLE_HIT_SIZE: float = 16.0
+    _ROTATE_HANDLE_SIZE: float = 8.0
+    _ROTATE_HANDLE_HIT_SIZE: float = 18.0
+    _ROTATE_HANDLE_OFFSET: float = 20.0
     _MIN_RESIZE_SIZE: float = 20.0
 
     def __init__(
@@ -26,6 +30,9 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
         self._resize_handle: str | None = None
         self._resize_start_rect: QRectF | None = None
         self._resize_start_scene_pos: QPointF | None = None
+        self._rotation_active: bool = False
+        self._rotate_start_angle: float | None = None
+        self._rotate_start_rotation: float | None = None
 
     @abstractmethod
     def _get_current_size(self) -> tuple[float, float]:
@@ -40,6 +47,19 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
     def _resize_min_size(self) -> float:
         """Return the minimum size for resizing."""
         return self._MIN_RESIZE_SIZE
+
+    def _supports_rotation(self) -> bool:
+        """Return True if the item supports rotation."""
+        return False
+
+    def _get_rotation(self) -> float:
+        """Return the current rotation in degrees."""
+        return 0.0
+
+    def _set_rotation(self, rotation: float) -> None:
+        """Set the rotation in degrees."""
+        _ = rotation
+        return None
 
     def _resize_rect(self) -> QRectF:
         width, height = self._get_current_size()
@@ -59,6 +79,10 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
             "bottom-left": QPointF(left, bottom),
         }
 
+    def _rotation_handle_position(self) -> QPointF:
+        rect = self._resize_rect()
+        return QPointF(rect.center().x(), rect.top() - self._ROTATE_HANDLE_OFFSET)
+
     def _draw_resize_handles(self, painter: QPainter) -> None:
         """Draw resize handles at the corners when selected."""
         handle_color = QColor(0, 120, 255)
@@ -74,10 +98,34 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
             )
             painter.drawRect(handle_rect)
 
+        if self._supports_rotation():
+            rect = self._resize_rect()
+            rotation_pos = self._rotation_handle_position()
+            painter.drawLine(rect.center(), rotation_pos)
+            rotation_rect = QRectF(
+                rotation_pos.x() - self._ROTATE_HANDLE_SIZE / 2,
+                rotation_pos.y() - self._ROTATE_HANDLE_SIZE / 2,
+                self._ROTATE_HANDLE_SIZE,
+                self._ROTATE_HANDLE_SIZE,
+            )
+            painter.drawEllipse(rotation_rect)
+
     def _get_handle_at_point(self, point: QPointF) -> str | None:
         """Return the resize handle at the point, if any."""
         if not self.isSelected():
             return None
+
+        local_point = self._map_point_to_unrotated(point)
+        if self._supports_rotation():
+            rotation_pos = self._rotation_handle_position()
+            rotation_rect = QRectF(
+                rotation_pos.x() - self._ROTATE_HANDLE_HIT_SIZE / 2,
+                rotation_pos.y() - self._ROTATE_HANDLE_HIT_SIZE / 2,
+                self._ROTATE_HANDLE_HIT_SIZE,
+                self._ROTATE_HANDLE_HIT_SIZE,
+            )
+            if rotation_rect.contains(local_point):
+                return "rotate"
 
         handles = {
             name: QRectF(
@@ -90,7 +138,7 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
         }
 
         for handle_name, handle_rect in handles.items():
-            if handle_rect.contains(point):
+            if handle_rect.contains(local_point):
                 return handle_name
 
         return None
@@ -103,6 +151,16 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
         if event.button() == Qt.MouseButton.LeftButton:
             handle = self._get_handle_at_point(event.pos())
             if handle:
+                if handle == "rotate":
+                    if not self._supports_rotation():
+                        return
+                    local_point = self._map_point_to_unrotated(event.pos())
+                    self._rotation_active = True
+                    self._resize_start_rect = self._resize_rect()
+                    self._rotate_start_angle = self._angle_to_point(local_point)
+                    self._rotate_start_rotation = self._get_rotation()
+                    event.accept()
+                    return
                 self._resize_handle = handle
                 self._resize_start_rect = self._resize_rect()
                 self._resize_start_scene_pos = self.pos()
@@ -116,8 +174,12 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
         """Handle mouse move events for resizing."""
         if not event:
             return
+        if self._rotation_active:
+            self._handle_rotation(self._map_point_to_unrotated(event.pos()))
+            event.accept()
+            return
         if self._resize_handle:
-            self._handle_resize(event.pos())
+            self._handle_resize(self._map_point_to_unrotated(event.pos()))
             event.accept()
             return
 
@@ -126,6 +188,11 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
     @override
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:
         """Handle mouse release events."""
+        if self._rotation_active:
+            self._rotation_active = False
+            self._rotate_start_angle = None
+            self._rotate_start_rotation = None
+            self._resize_start_rect = None
         if self._resize_handle:
             self._resize_handle = None
             self._resize_start_rect = None
@@ -168,3 +235,46 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
             start_scene_pos.x() + delta_x, start_scene_pos.y() + delta_y
         )
         self._apply_resize((new_width, new_height), new_scene_pos)
+
+    def _handle_rotation(self, current_pos: QPointF) -> None:
+        if not self._rotation_active:
+            return
+        if self._rotate_start_angle is None or self._rotate_start_rotation is None:
+            return
+        if self._resize_start_rect is None:
+            return
+
+        center = self._resize_start_rect.center()
+        current_angle = self._angle_to_point(current_pos, center)
+        delta = current_angle - self._rotate_start_angle
+        new_rotation = self._normalize_rotation(self._rotate_start_rotation + delta)
+        self._set_rotation(new_rotation)
+
+    def _angle_to_point(self, point: QPointF, center: QPointF | None = None) -> float:
+        center_point = center if center is not None else self._resize_rect().center()
+        dx = point.x() - center_point.x()
+        dy = point.y() - center_point.y()
+        return degrees(atan2(dy, dx))
+
+    def _normalize_rotation(self, rotation: float) -> float:
+        return (rotation + 180.0) % 360.0 - 180.0
+
+    def _map_point_to_unrotated(self, point: QPointF) -> QPointF:
+        if not self._supports_rotation():
+            return point
+
+        rotation = self._get_rotation()
+        if rotation == 0.0:
+            return point
+
+        center = self._resize_rect().center()
+        angle = radians(-rotation)
+        dx = point.x() - center.x()
+        dy = point.y() - center.y()
+        cos_angle = cos(angle)
+        sin_angle = sin(angle)
+
+        return QPointF(
+            center.x() + dx * cos_angle - dy * sin_angle,
+            center.y() + dx * sin_angle + dy * cos_angle,
+        )

@@ -74,7 +74,7 @@ class PageNavigatorToolbar(QToolBar):
         _ = self.addWidget(save_btn)
         _ = self.addWidget(toggle_settings_btn)
 
-    @pyqtSlot(int, int)
+    @pyqtSlot(int, int)  # pyright: ignore[reportUntypedFunctionDecorator]
     def update_page_display(self, current_page: int, total_pages: int):
         """PyQtSlot to update the page display"""
         self.page_label.setText(f"Page {current_page + 1} / {total_pages}")

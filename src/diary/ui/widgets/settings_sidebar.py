@@ -38,6 +38,7 @@ class SettingsSidebar(QDockWidget):
             Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
         )
         self._notebook: Notebook = notebook
+        self.notebook_path_txt: QLineEdit
 
         main_container = QWidget()
         layout = QVBoxLayout()
@@ -170,7 +171,7 @@ class SettingsSidebar(QDockWidget):
         _ = change_pw_btn.clicked.connect(self._change_password)
 
         path_container = QWidget()
-        self.notebook_path_txt: QLineEdit = QLineEdit()
+        self.notebook_path_txt = QLineEdit()
         self.notebook_path_txt.setText(settings.NOTEBOOK_FILE_PATH.as_posix())
         self.notebook_path_txt.setEnabled(False)
         save_path_btn = QPushButton()

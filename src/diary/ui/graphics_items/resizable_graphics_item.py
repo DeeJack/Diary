@@ -22,6 +22,8 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
     _ROTATE_HANDLE_HIT_SIZE: float = 18.0
     _ROTATE_HANDLE_OFFSET: float = 20.0
     _MIN_RESIZE_SIZE: float = 20.0
+    _ROTATION_SNAP_DEGREES: float = 90.0
+    _ROTATION_SNAP_THRESHOLD_DEGREES: float = 8.0
 
     def __init__(
         self, element: PageElement, parent: QGraphicsItem | None = None
@@ -154,11 +156,14 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
                 if handle == "rotate":
                     if not self._supports_rotation():
                         return
-                    local_point = self._map_point_to_unrotated(event.pos())
+                    start_rotation = self._get_rotation()
+                    local_point = self._map_point_to_unrotated_with_rotation(
+                        event.pos(), start_rotation
+                    )
                     self._rotation_active = True
                     self._resize_start_rect = self._resize_rect()
                     self._rotate_start_angle = self._angle_to_point(local_point)
-                    self._rotate_start_rotation = self._get_rotation()
+                    self._rotate_start_rotation = start_rotation
                     event.accept()
                     return
                 self._resize_handle = handle
@@ -175,7 +180,12 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
         if not event:
             return
         if self._rotation_active:
-            self._handle_rotation(self._map_point_to_unrotated(event.pos()))
+            rotation = self._rotate_start_rotation
+            if rotation is None:
+                rotation = self._get_rotation()
+            self._handle_rotation(
+                self._map_point_to_unrotated_with_rotation(event.pos(), rotation)
+            )
             event.accept()
             return
         if self._resize_handle:
@@ -248,7 +258,8 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
         current_angle = self._angle_to_point(current_pos, center)
         delta = current_angle - self._rotate_start_angle
         new_rotation = self._normalize_rotation(self._rotate_start_rotation + delta)
-        self._set_rotation(new_rotation)
+        snapped_rotation = self._snap_rotation(new_rotation)
+        self._set_rotation(snapped_rotation)
 
     def _angle_to_point(self, point: QPointF, center: QPointF | None = None) -> float:
         center_point = center if center is not None else self._resize_rect().center()
@@ -259,11 +270,29 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
     def _normalize_rotation(self, rotation: float) -> float:
         return (rotation + 180.0) % 360.0 - 180.0
 
+    def _snap_rotation(self, rotation: float) -> float:
+        target = (
+            round(rotation / self._ROTATION_SNAP_DEGREES)
+            * self._ROTATION_SNAP_DEGREES
+        )
+        diff = self._normalize_rotation(rotation - target)
+        if abs(diff) <= self._ROTATION_SNAP_THRESHOLD_DEGREES:
+            return self._normalize_rotation(target)
+        return rotation
+
     def _map_point_to_unrotated(self, point: QPointF) -> QPointF:
         if not self._supports_rotation():
             return point
 
         rotation = self._get_rotation()
+        return self._map_point_to_unrotated_with_rotation(point, rotation)
+
+    def _map_point_to_unrotated_with_rotation(
+        self, point: QPointF, rotation: float
+    ) -> QPointF:
+        if not self._supports_rotation():
+            return point
+
         if rotation == 0.0:
             return point
 

@@ -54,10 +54,10 @@ class StrokeGraphicsItem(ResizableGraphicsItem):
             else 0.0
         )
         return rotated_rect.adjusted(
-            -padding,
             -(padding + rotate_padding),
-            padding,
-            padding,
+            -(padding + rotate_padding),
+            padding + rotate_padding,
+            padding + rotate_padding,
         )
 
     def _unrotated_bounds(self) -> QRectF:

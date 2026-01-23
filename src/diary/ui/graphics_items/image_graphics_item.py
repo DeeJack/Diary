@@ -61,10 +61,10 @@ class ImageGraphicsItem(ResizableGraphicsItem):
             else 0.0
         )
         return rotated_rect.adjusted(
-            -padding,
             -(padding + rotate_padding),
-            padding,
-            padding,
+            -(padding + rotate_padding),
+            padding + rotate_padding,
+            padding + rotate_padding,
         )
 
     def _rotated_bounds(self, rect: QRectF, rotation: float) -> QRectF:

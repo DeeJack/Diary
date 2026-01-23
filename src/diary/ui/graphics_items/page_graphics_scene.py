@@ -117,12 +117,17 @@ class PageGraphicsScene(QGraphicsScene):
         del self._item_elements[graphics_item]
 
         try:
-            # Remove from scene
-            self.removeItem(graphics_item)
-            # Keep reference to prevent GC while Qt processes pending events
-            self._pending_deletion.append(graphics_item)
-            # Clear the pending list after event loop finishes
-            QTimer.singleShot(0, self._clear_pending_deletions)
+            if graphics_item.scene() is self:
+                # Disable the item immediately, defer actual removal until the
+                # current event cycle completes to avoid C++ side use-after-free.
+                graphics_item.setSelected(False)
+                graphics_item.setEnabled(False)
+                graphics_item.setVisible(False)
+                # Keep reference to prevent GC while Qt processes pending events
+                self._pending_deletion.append(graphics_item)
+                QTimer.singleShot(
+                    0, lambda item=graphics_item: self._finalize_item_removal(item)
+                )
         except RuntimeError as e:
             self._logger.error("RuntimeError removing item from scene: %s", e)
         except Exception as e:
@@ -141,6 +146,19 @@ class PageGraphicsScene(QGraphicsScene):
     def _clear_pending_deletions(self) -> None:
         """Clear the pending deletion list after event processing"""
         self._pending_deletion.clear()
+
+    def _finalize_item_removal(self, graphics_item: QGraphicsItem) -> None:
+        """Remove a graphics item after pending events have finished."""
+        try:
+            if graphics_item.scene() is self:
+                self.removeItem(graphics_item)
+        except RuntimeError as e:
+            self._logger.error("RuntimeError finalizing removal: %s", e)
+        except Exception as e:
+            self._logger.error("Unexpected error finalizing removal: %s", e)
+        finally:
+            if graphics_item in self._pending_deletion:
+                self._pending_deletion.remove(graphics_item)
 
     def remove_element_by_item(self, graphics_item: QGraphicsItem) -> bool:
         """Remove an element by its graphics item"""

@@ -29,32 +29,9 @@ class StrokeBeautifier:
 
     def _load_templates(self):
         """Load geometric shape templates."""
-        # Horizontal line
+        # Line (rotation handled during matching)
         self.templates.append(
-            StrokeTemplate(
-                "horizontal_line", [Point(i / 63, 0.5, 1.0) for i in range(64)]
-            )
-        )
-
-        # Vertical line
-        self.templates.append(
-            StrokeTemplate(
-                "vertical_line", [Point(0.5, i / 63, 1.0) for i in range(64)]
-            )
-        )
-
-        # Diagonal line (top-left to bottom-right)
-        self.templates.append(
-            StrokeTemplate(
-                "diagonal_tl_br", [Point(i / 63, i / 63, 1.0) for i in range(64)]
-            )
-        )
-
-        # Diagonal line (bottom-left to top-right)
-        self.templates.append(
-            StrokeTemplate(
-                "diagonal_bl_tr", [Point(i / 63, 1 - i / 63, 1.0) for i in range(64)]
-            )
+            StrokeTemplate("line", [Point(i / 63, 0.5, 1.0) for i in range(64)])
         )
 
         # Circle (clockwise)
@@ -68,118 +45,6 @@ class StrokeBeautifier:
         ]
         self.templates.append(StrokeTemplate("circle", circle_points))
 
-        # Square/Rectangle
-        square_points = []
-        # Top edge
-        for i in range(16):
-            square_points.append(Point(i / 15, 0.0, 1.0))
-        # Right edge
-        for i in range(1, 16):
-            square_points.append(Point(1.0, i / 15, 1.0))
-        # Bottom edge
-        for i in range(15, -1, -1):
-            square_points.append(Point(i / 15, 1.0, 1.0))
-        # Left edge
-        for i in range(15, 0, -1):
-            square_points.append(Point(0.0, i / 15, 1.0))
-        self.templates.append(StrokeTemplate("square", square_points))
-
-        # Triangle (equilateral, pointing up)
-        triangle_points = []
-        # Right edge (top to bottom-right)
-        for i in range(22):
-            t = i / 21
-            triangle_points.append(Point(0.5 + 0.5 * t, 0.0 + 1.0 * t, 1.0))
-        # Bottom edge (right to left)
-        for i in range(22):
-            t = i / 21
-            triangle_points.append(Point(1.0 - 1.0 * t, 1.0, 1.0))
-        # Left edge (bottom-left to top)
-        for i in range(22):
-            t = i / 21
-            triangle_points.append(Point(0.0 + 0.5 * t, 1.0 - 1.0 * t, 1.0))
-        self.templates.append(StrokeTemplate("triangle", triangle_points))
-
-        # Right arrow (→)
-        arrow_right = []
-        # Main shaft
-        for i in range(32):
-            arrow_right.append(Point(i / 63, 0.5, 1.0))
-        # Top of arrowhead
-        for i in range(16):
-            t = i / 15
-            arrow_right.append(Point(1.0 - 0.3 * t, 0.5 - 0.3 * t, 1.0))
-        # Back to tip
-        for i in range(16):
-            t = i / 15
-            arrow_right.append(Point(0.7 + 0.3 * t, 0.2 + 0.3 * t, 1.0))
-        # Bottom of arrowhead
-        for i in range(16):
-            t = i / 15
-            arrow_right.append(Point(1.0 - 0.3 * t, 0.5 + 0.3 * t, 1.0))
-        self.templates.append(StrokeTemplate("arrow_right", arrow_right))
-
-        # Left arrow (←)
-        arrow_left = []
-        # Arrowhead top
-        for i in range(16):
-            t = i / 15
-            arrow_left.append(Point(0.3 * t, 0.2 + 0.3 * t, 1.0))
-        # Arrowhead bottom
-        for i in range(16):
-            t = i / 15
-            arrow_left.append(Point(0.3 - 0.3 * t, 0.5 + 0.3 * t, 1.0))
-        # Back to tip
-        for i in range(16):
-            t = i / 15
-            arrow_left.append(Point(0.0 + 0.3 * t, 0.8 - 0.3 * t, 1.0))
-        # Main shaft
-        for i in range(32):
-            arrow_left.append(Point(0.3 + (i / 63) * 0.7, 0.5, 1.0))
-        self.templates.append(StrokeTemplate("arrow_left", arrow_left))
-
-        # Star (5-pointed)
-        star_points = []
-        angles = [math.pi / 2 + i * 4 * math.pi / 5 for i in range(5)]
-        points_outer = [
-            (0.5 + 0.45 * math.cos(a), 0.5 - 0.45 * math.sin(a)) for a in angles
-        ]
-        # Draw star by connecting every other point
-        order = [0, 2, 4, 1, 3, 0]
-        for i in range(len(order) - 1):
-            start = points_outer[order[i]]
-            end = points_outer[order[i + 1]]
-            # Interpolate between points
-            for j in range(13):
-                t = j / 12
-                x = start[0] + t * (end[0] - start[0])
-                y = start[1] + t * (end[1] - start[1])
-                star_points.append(Point(x, y, 1.0))
-        self.templates.append(StrokeTemplate("star", star_points))
-
-        # Check mark
-        check_points = []
-        # Down stroke
-        for i in range(32):
-            t = i / 31
-            check_points.append(Point(0.2 + 0.2 * t, 0.5 + 0.5 * t, 1.0))
-        # Up stroke
-        for i in range(32):
-            t = i / 31
-            check_points.append(Point(0.4 + 0.6 * t, 1.0 - 1.0 * t, 1.0))
-        self.templates.append(StrokeTemplate("check", check_points))
-
-        # X mark
-        x_points = []
-        # First diagonal
-        for i in range(32):
-            t = i / 31
-            x_points.append(Point(t, t, 1.0))
-        # Second diagonal
-        for i in range(32):
-            t = i / 31
-            x_points.append(Point(t, 1.0 - t, 1.0))
-        self.templates.append(StrokeTemplate("x_mark", x_points))
 
     def beautify_stroke(
         self, stroke_points: list[Point], threshold: float = 0.70
@@ -207,7 +72,11 @@ class StrokeBeautifier:
         for template in self.templates:
             # Try fewer rotation angles to avoid false matches
             # Only try 0° and 90° for most shapes
-            angles = [0, 90] if "line" not in template.name else [0, 45, 90, 135]
+            angles = (
+                [0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165]
+                if "line" in template.name
+                else [0, 90]
+            )
 
             for angle in angles:
                 rotated = self._rotate_points(normalized, angle)
@@ -221,6 +90,20 @@ class StrokeBeautifier:
         )
 
         if best_score >= threshold and best_template:
+            if best_template.name == "circle":
+                min_x = min(p.x for p in stroke_points)
+                max_x = max(p.x for p in stroke_points)
+                min_y = min(p.y for p in stroke_points)
+                max_y = max(p.y for p in stroke_points)
+                width = max_x - min_x
+                height = max_y - min_y
+                min_dim = min(width, height)
+                max_dim = max(width, height)
+                if min_dim == 0 or max_dim == 0:
+                    return stroke_points, None
+                aspect_ratio = min_dim / max_dim
+                if aspect_ratio < 0.9:
+                    return stroke_points, None
             # Shape was recognized, return beautified version
             beautified = self._generate_beautified_stroke(stroke_points, best_template)
             return beautified, best_template.name
@@ -252,7 +135,15 @@ class StrokeBeautifier:
             ny = (p.y - min_y) / scale if scale > 0 else 0.5
             normalized.append(Point(nx, ny, p.pressure))
 
-        return normalized
+        # Translate to center to make line orientation/position comparable
+        cx = sum(p.x for p in normalized) / len(normalized)
+        cy = sum(p.y for p in normalized) / len(normalized)
+        centered = [
+            Point(p.x + (0.5 - cx), p.y + (0.5 - cy), p.pressure)
+            for p in normalized
+        ]
+
+        return centered
 
     def _resample(self, points: list[Point], n: int) -> list[Point]:
         """Resample stroke to n evenly-spaced points."""
@@ -394,6 +285,19 @@ class StrokeBeautifier:
         self, original: list[Point], template: StrokeTemplate
     ) -> list[Point]:
         """Generate beautified stroke maintaining original bounds and position."""
+        if template.name == "line":
+            start = original[0]
+            end = original[-1]
+            avg_pressure = sum(p.pressure for p in original) / len(original)
+            count = len(template.points)
+            beautified = []
+            for i in range(count):
+                t = i / (count - 1) if count > 1 else 0.0
+                x = start.x + t * (end.x - start.x)
+                y = start.y + t * (end.y - start.y)
+                beautified.append(Point(x, y, avg_pressure))
+            return beautified
+
         # Get original bounding box
         min_x = min(p.x for p in original)
         max_x = max(p.x for p in original)
@@ -402,6 +306,14 @@ class StrokeBeautifier:
 
         width = max_x - min_x
         height = max_y - min_y
+        if template.name == "circle":
+            size = min(width, height)
+            center_x = (min_x + max_x) / 2
+            center_y = (min_y + max_y) / 2
+            min_x = center_x - size / 2
+            min_y = center_y - size / 2
+            width = size
+            height = size
 
         # Average pressure from original
         avg_pressure = sum(p.pressure for p in original) / len(original)

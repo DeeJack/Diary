@@ -409,6 +409,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             self._is_drawing = False
         QtWidgets.QApplication.setOverrideCursor(self._last_cursor)
 
+
     def handle_tablet_event(self, event: QtGui.QTabletEvent, position: QPointF) -> bool:
         """Handle tablet (pen) events"""
         pressure = event.pressure() if event.pressure() > 0 else 1.0
@@ -574,9 +575,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             selected_elements = self.get_selected_elements()
             self._logger.info("Deleting elements %s", selected_elements)
             for element in selected_elements:
-                self.page.remove_element(element)
-            for item in self._scene.selectedItems():
-                item.hide()
+                _ = self._scene.remove_element(element.element_id)
         return super().keyPressEvent(event)
 
     def change_date(self):

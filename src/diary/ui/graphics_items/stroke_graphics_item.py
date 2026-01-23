@@ -4,7 +4,7 @@ import math
 from typing import cast, override
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen
+from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPainterPathStroker, QPen, QTransform
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsSceneMouseEvent,
@@ -25,6 +25,7 @@ class StrokeGraphicsItem(ResizableGraphicsItem):
     def __init__(self, stroke: Stroke, parent: QGraphicsItem | None = None):
         super().__init__(stroke, parent)
         self._stroke_path: QPainterPath | None = None
+        self._stroke_shape: QPainterPath | None = None
         self._pen: QPen | None = None
         self._resize_start_points: list[Point] | None = None
 
@@ -313,6 +314,42 @@ class StrokeGraphicsItem(ResizableGraphicsItem):
             self._stroke_path = self._create_stroke_path()
         return self._stroke_path
 
+    @override
+    def shape(self) -> QPainterPath:
+        """Return a precise hit shape for selection/eraser."""
+        if not self.stroke.points:
+            return QPainterPath()
+
+        if self._stroke_shape is None:
+            path = self._get_stroke_path()
+            if path.isEmpty():
+                return QPainterPath()
+
+            width = self.stroke.thickness
+            if settings.USE_PRESSURE:
+                max_pressure = max(p.pressure for p in self.stroke.points)
+                width *= max_pressure
+
+            stroker = QPainterPathStroker()
+            stroker.setWidth(max(1.0, width + 2.0))
+            stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
+            stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            shape = stroker.createStroke(path)
+
+            if self.stroke.rotation != 0.0:
+                rect = self._unrotated_bounds()
+                if not rect.isNull():
+                    center = rect.center()
+                    transform = QTransform()
+                    transform.translate(center.x(), center.y())
+                    transform.rotate(self.stroke.rotation)
+                    transform.translate(-center.x(), -center.y())
+                    shape = transform.map(shape)
+
+            self._stroke_shape = shape
+
+        return self._stroke_shape
+
     def _create_stroke_path(self) -> QPainterPath:
         """Create a smooth path through all stroke points"""
         if not self.stroke.points:
@@ -386,6 +423,7 @@ class StrokeGraphicsItem(ResizableGraphicsItem):
 
         # Invalidate caches
         self._stroke_path = None
+        self._stroke_shape = None
         self.invalidate_cache()
 
     def set_points(self, points: list[Point]) -> None:
@@ -394,6 +432,7 @@ class StrokeGraphicsItem(ResizableGraphicsItem):
 
         # Invalidate caches
         self._stroke_path = None
+        self._stroke_shape = None
         self.invalidate_cache()
 
     @override

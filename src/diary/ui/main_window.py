@@ -326,6 +326,8 @@ class MainWindow(QMainWindow):
             # Clean up the notebook widget to prevent segfaults during Qt destruction
             if hasattr(self, "notebook_widget"):
                 self.notebook_widget.cleanup()
+            if hasattr(self, "save_manager"):
+                self.save_manager.stop_save_thread()
             a0.accept()
             return
 
@@ -370,6 +372,9 @@ class MainWindow(QMainWindow):
 
         # Mark that we're ready to close
         self._closing = True
+
+        # Ensure the save thread is fully stopped before closing
+        self.save_manager.stop_save_thread()
 
         # Actually close the window
         _ = self.close()

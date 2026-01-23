@@ -334,7 +334,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
 
         self._is_drawing = True
         self._points_since_smooth = 0
-        self._current_points = []
+        self._current_points = [point]
         self._smoothed_points = []
         self._logger.debug("Started new stroke at %s", scene_pos)
         if device == InputType.TABLET:
@@ -357,45 +357,14 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         point = Point(scene_pos.x(), scene_pos.y(), pressure)
 
         self._current_points.append(point)
-        self._points_since_smooth += 1
-
-        if (
-            settings.SMOOTHING_ENABLED
-            and self._points_since_smooth >= 4
-            and len(self._current_points) > 6
-        ):
-            # Get the last 7 points for smoothing
-            window_start = max(0, len(self._smoothed_points) - 3)
-            # Last 3 smoothed points + last 4 current points
-            window_points = (
-                self._smoothed_points[window_start:] + self._current_points[-4:]
-            )
-
-            newly_smoothed = smooth_stroke_advanced(window_points)
-
-            # Only add the new smoothed points
-            if len(self._smoothed_points) > 0:
-                self._smoothed_points = (
-                    self._smoothed_points[:window_start] + newly_smoothed
-                )
-            else:
-                self._smoothed_points = newly_smoothed
-
-            self._current_stroke_item.set_points(self._smoothed_points)
-            self._points_since_smooth = 0
-            self._current_points = []
-        else:
-            # Always show the stroke, even if not smoothing yet
-            # Display smoothed points + current raw points
-            display_points = self._smoothed_points + self._current_points
-            self._current_stroke_item.set_points(display_points)
+        self._current_stroke_item.set_points(self._current_points)
 
     def _finish_current_stroke(self, device: InputType) -> None:
         """Finish the current stroke"""
         _ = device  # Mark parameter as used to avoid warnings
         if self._current_stroke and self._current_stroke_item:
             # Get all points (smoothed + remaining current)
-            final_points = self._smoothed_points + self._current_points
+            final_points = self._current_points
 
             # Apply beautification - try to recognize and beautify shapes
             if len(final_points) > 0:

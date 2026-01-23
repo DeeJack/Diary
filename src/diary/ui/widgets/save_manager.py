@@ -160,3 +160,11 @@ class SaveManager(QObject):
     def start_auto_save(self) -> None:
         """Start the auto-save timer"""
         self.auto_save_timer.start()
+
+    def stop_save_thread(self, wait_ms: int = 5000) -> None:
+        """Stop any active save thread to prevent QThread teardown crashes."""
+        if not self.save_thread:
+            return
+        if self.save_thread.isRunning():
+            self.save_thread.quit()
+            self.save_thread.wait(wait_ms)

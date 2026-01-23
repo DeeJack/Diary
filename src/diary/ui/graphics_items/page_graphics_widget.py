@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import override
 
 from PyQt6 import QtGui, QtWidgets
-from PyQt6.QtCore import QEvent, QPointF, Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, QPointF, Qt, QTimer, pyqtSignal
 
 from diary.config import settings
 from diary.models import PageElement
@@ -54,6 +54,7 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         self._current_points: list[Point] = []
         self.bottom_toolbar: BottomToolbar = bottom_toolbar
         self._smoothed_points: list[Point] = []
+        self._pending_eraser_removals: set[str] = set()
 
         # Create the graphics scene and view
         self._scene: PageGraphicsScene = PageGraphicsScene(page)
@@ -291,8 +292,15 @@ class PageGraphicsWidget(QtWidgets.QWidget):
 
                 for element in elements:
                     if isinstance(element, (Stroke, Text)):
-                        _ = self._scene.remove_element(element.element_id)
-                        self._logger.debug("Erased element %s", element.element_id)
+                        if element.element_id in self._pending_eraser_removals:
+                            continue
+                        self._pending_eraser_removals.add(element.element_id)
+                        QTimer.singleShot(
+                            0,
+                            lambda element_id=element.element_id: self._remove_element_deferred(
+                                element_id
+                            ),
+                        )
             except Exception as e:
                 self._logger.error("Error during eraser operation: %s", e)
         else:
@@ -408,6 +416,14 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             self._current_stroke_item = None
             self._is_drawing = False
         QtWidgets.QApplication.setOverrideCursor(self._last_cursor)
+
+    def _remove_element_deferred(self, element_id: str) -> None:
+        """Remove an element after the current event cycle completes."""
+        try:
+            _ = self._scene.remove_element(element_id)
+            self._logger.debug("Erased element %s", element_id)
+        finally:
+            self._pending_eraser_removals.discard(element_id)
 
 
     def handle_tablet_event(self, event: QtGui.QTabletEvent, position: QPointF) -> bool:

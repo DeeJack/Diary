@@ -10,6 +10,9 @@ from PyQt6.QtGui import (
     QFontMetrics,
     QPainter,
     QPen,
+    QTextCharFormat,
+    QTextDocument,
+    QTextCursor,
 )
 from PyQt6.QtWidgets import (
     QGraphicsItem,
@@ -39,6 +42,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
         self._show_cursor: bool = False
         self._edit_item: QGraphicsTextItem | None = None
         self._resize_start_font_size: float | None = None
+        self._document: QTextDocument | None = None
 
         # Configure item flags for text
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
@@ -171,13 +175,13 @@ class TextGraphicsItem(ResizableGraphicsItem):
         text_color = QColor(self.text_element.color)
         painter.setPen(QPen(text_color))
 
-        # Draw the text at the element's position
+        # Draw the Markdown-rendered text using a QTextDocument.
+        document = self._get_text_document()
         text_rect = self._text_positioned_box()
-        _ = painter.drawText(
-            text_rect,
-            Qt.TextFlag.TextWordWrap,
-            self.text_element.text,
-        )
+        painter.save()
+        painter.translate(text_rect.topLeft())
+        document.drawContents(painter)
+        painter.restore()
 
         # Draw cursor if this text is being edited (optional future enhancement)
         if hasattr(self, "_show_cursor") and self._show_cursor:
@@ -233,6 +237,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
             and 0 <= new_position.y() <= settings.PAGE_HEIGHT
         ):
             self.text_element.position = Point(new_position.x(), new_position.y(), 0)
+            self._document = None
             self.invalidate_cache()
 
     @override
@@ -294,6 +299,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
                 self.text_element.position.pressure,
             )
             self.setPos(new_scene_pos)
+            self._document = None
 
         text_rect = self._text_positioned_box(self._get_display_text())
         self.setTransformOriginPoint(
@@ -318,6 +324,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
         """Update the text content"""
         self.text_element.text = text
         self._font_metrics = None  # Invalidate metrics cache
+        self._document = None
         self._update_edit_item_rotation()
         self.invalidate_cache()
 
@@ -326,12 +333,14 @@ class TextGraphicsItem(ResizableGraphicsItem):
         self.text_element.size_px = size
         self._font = None  # Invalidate font cache
         self._font_metrics = None  # Invalidate metrics cache
+        self._document = None
         self._update_edit_item_rotation()
         self.invalidate_cache()
 
     def set_color(self, color: str) -> None:
         """Update the text color"""
         self.text_element.color = color
+        self._document = None
         self.update()
 
     def set_rotation(self, rotation: float) -> None:
@@ -457,23 +466,51 @@ class TextGraphicsItem(ResizableGraphicsItem):
         font_metrics = QFontMetrics(font)
         display_text = text if text is not None else self.text_element.text
 
-        text_bound_rect = QRect(
-            0,
-            0,
-            int(settings.PAGE_WIDTH - self.text_element.position.x),
-            int(settings.PAGE_HEIGHT - self.text_element.position.y),
-        )
-        # Get text dimensions
-        text_rect = font_metrics.boundingRect(
-            text_bound_rect, Qt.TextFlag.TextWordWrap, display_text
-        )
-        positioned_rect = QRectF(
+        if display_text == self._HINT_TEXT and not self.text_element.text:
+            text_bound_rect = QRect(
+                0,
+                0,
+                int(settings.PAGE_WIDTH - self.text_element.position.x),
+                int(settings.PAGE_HEIGHT - self.text_element.position.y),
+            )
+            text_rect = font_metrics.boundingRect(
+                text_bound_rect, Qt.TextFlag.TextWordWrap, display_text
+            )
+            return QRectF(
+                0,
+                -font_metrics.ascent(),
+                text_rect.width(),
+                text_rect.height(),
+            )
+
+        document = self._get_text_document()
+        document_size = document.size()
+        return QRectF(
             0,
             -font_metrics.ascent(),
-            text_rect.width(),
-            text_rect.height(),
+            document_size.width(),
+            document_size.height(),
         )
-        return positioned_rect
+
+    def _get_text_document(self) -> QTextDocument:
+        if self._document is None:
+            document = QTextDocument()
+            document.setDocumentMargin(0.0)
+            document.setDefaultFont(self._get_font())
+            max_width = max(1.0, settings.PAGE_WIDTH - self.text_element.position.x)
+            document.setTextWidth(max_width)
+            color = QColor(self.text_element.color).name()
+            document.setDefaultStyleSheet(
+                f"* {{ color: {color}; }} a {{ color: {color}; }}"
+            )
+            document.setMarkdown(self.text_element.text)
+            cursor = QTextCursor(document)
+            cursor.select(QTextCursor.SelectionType.Document)
+            format_color = QTextCharFormat()
+            format_color.setForeground(QColor(self.text_element.color))
+            cursor.mergeCharFormat(format_color)
+            self._document = document
+        return self._document
 
     def _update_edit_item_rotation(self) -> None:
         if not self._edit_item:

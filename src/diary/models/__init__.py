@@ -11,12 +11,8 @@ __all__ = [
     "Text",
 ]
 
-from .elements import Image
-from .elements import VoiceMemo
-from .elements import Stroke
-from .elements import Text
-
-from .point import Point
+from .elements import Image, Stroke, Text, VoiceMemo
 from .notebook import Notebook
 from .page import Page
 from .page_element import PageElement
+from .point import Point

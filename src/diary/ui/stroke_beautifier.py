@@ -45,7 +45,6 @@ class StrokeBeautifier:
         ]
         self.templates.append(StrokeTemplate("circle", circle_points))
 
-
     def beautify_stroke(
         self, stroke_points: list[Point], threshold: float = 0.70
     ) -> tuple[list[Point], str | None]:
@@ -139,8 +138,7 @@ class StrokeBeautifier:
         cx = sum(p.x for p in normalized) / len(normalized)
         cy = sum(p.y for p in normalized) / len(normalized)
         centered = [
-            Point(p.x + (0.5 - cx), p.y + (0.5 - cy), p.pressure)
-            for p in normalized
+            Point(p.x + (0.5 - cx), p.y + (0.5 - cy), p.pressure) for p in normalized
         ]
 
         return centered

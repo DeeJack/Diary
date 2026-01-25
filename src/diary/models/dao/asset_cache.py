@@ -31,7 +31,9 @@ class AssetCache:
         """Get cached checksum for an asset"""
         return self._checksums.get(asset_id)
 
-    def set_asset_bytes(self, asset_id: str, data: bytes, checksum: str | None = None) -> None:
+    def set_asset_bytes(
+        self, asset_id: str, data: bytes, checksum: str | None = None
+    ) -> None:
         """Cache asset bytes"""
         self._asset_bytes[asset_id] = data
         if checksum:
@@ -46,8 +48,8 @@ class AssetCache:
 
     def remove_asset(self, asset_id: str) -> None:
         """Remove asset from cache"""
-        self._asset_bytes.pop(asset_id, None)
-        self._checksums.pop(asset_id, None)
+        _ = self._asset_bytes.pop(asset_id, None)
+        _ = self._checksums.pop(asset_id, None)
 
     def clear(self) -> None:
         """Clear all cached data"""

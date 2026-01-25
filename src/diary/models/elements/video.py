@@ -97,10 +97,16 @@ class Video(PageElement):
         video = cls(
             position=position,
             width=cast(float, data.get(settings.SERIALIZATION_KEYS.WIDTH.value, 320.0)),
-            height=cast(float, data.get(settings.SERIALIZATION_KEYS.HEIGHT.value, 240.0)),
+            height=cast(
+                float, data.get(settings.SERIALIZATION_KEYS.HEIGHT.value, 240.0)
+            ),
             asset_id=asset_id,
-            rotation=cast(float, data.get(settings.SERIALIZATION_KEYS.ROTATION.value, 0.0)),
-            duration=cast(float, data.get(settings.SERIALIZATION_KEYS.DURATION.value, 0.0)),
+            rotation=cast(
+                float, data.get(settings.SERIALIZATION_KEYS.ROTATION.value, 0.0)
+            ),
+            duration=cast(
+                float, data.get(settings.SERIALIZATION_KEYS.DURATION.value, 0.0)
+            ),
             thumbnail_data=thumbnail_data,
             thumbnail_asset_id=data.get("thumb"),
             element_id=data.get(settings.SERIALIZATION_KEYS.ELEMENT_ID.value),

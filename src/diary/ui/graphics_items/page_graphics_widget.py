@@ -21,7 +21,6 @@ from diary.ui.ui_utils import (
     generate_video_thumbnail,
     read_image,
     show_error_dialog,
-    smooth_stroke_advanced,
 )
 from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.tool_selector import Tool
@@ -393,7 +392,6 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             self._logger.debug("Erased element %s", element_id)
         finally:
             self._pending_eraser_removals.discard(element_id)
-
 
     def handle_tablet_event(self, event: QtGui.QTabletEvent, position: QPointF) -> bool:
         """Handle tablet (pen) events"""

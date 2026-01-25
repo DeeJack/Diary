@@ -11,8 +11,8 @@ from PyQt6.QtGui import (
     QPainter,
     QPen,
     QTextCharFormat,
-    QTextDocument,
     QTextCursor,
+    QTextDocument,
 )
 from PyQt6.QtWidgets import (
     QGraphicsItem,

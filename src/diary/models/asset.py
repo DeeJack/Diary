@@ -76,7 +76,9 @@ class Asset:
         }
 
     @classmethod
-    def from_manifest_entry(cls, entry: dict[str, Any], data: bytes | None = None) -> "Asset":
+    def from_manifest_entry(
+        cls, entry: dict[str, Any], data: bytes | None = None
+    ) -> "Asset":
         """Reconstruct Asset from manifest entry and optional binary data"""
         return cls(
             asset_id=entry["aid"],

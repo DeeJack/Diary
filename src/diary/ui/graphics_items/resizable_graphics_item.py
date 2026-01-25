@@ -272,8 +272,7 @@ class ResizableGraphicsItem(BaseGraphicsItem, ABC):
 
     def _snap_rotation(self, rotation: float) -> float:
         target = (
-            round(rotation / self._ROTATION_SNAP_DEGREES)
-            * self._ROTATION_SNAP_DEGREES
+            round(rotation / self._ROTATION_SNAP_DEGREES) * self._ROTATION_SNAP_DEGREES
         )
         diff = self._normalize_rotation(rotation - target)
         if abs(diff) <= self._ROTATION_SNAP_THRESHOLD_DEGREES:

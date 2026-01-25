@@ -4,7 +4,14 @@ import math
 from typing import cast, override
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPainterPathStroker, QPen, QTransform
+from PyQt6.QtGui import (
+    QColor,
+    QPainter,
+    QPainterPath,
+    QPainterPathStroker,
+    QPen,
+    QTransform,
+)
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsSceneMouseEvent,

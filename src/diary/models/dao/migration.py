@@ -271,7 +271,13 @@ class ArchiveMigration:
         logger.info("Extracted %d assets from notebooks", total_assets)
 
         ArchiveDAO.save_all(
-            notebooks, assets_by_notebook, new_filepath, key_buffer, salt, None, progress
+            notebooks,
+            assets_by_notebook,
+            new_filepath,
+            key_buffer,
+            salt,
+            None,
+            progress,
         )
         logger.info("Migration completed for all notebooks")
 

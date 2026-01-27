@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -m py_compile:*)"
+      "Bash(python -m py_compile:*)",
+      "Bash(ls -la \"C:\\\\Users\\\\loren\\\\Documents\\\\projects\\\\diary\\\\src\\\\diary\\\\utils\"\" | grep -E \"backup)",
+      "Bash(move)",
+      "Bash(encryption \")"
     ]
   }
 }

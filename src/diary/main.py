@@ -39,7 +39,8 @@ def global_exception_handler(
         )
     except Exception:  # pylint: disable=broad-exception-caught
         # If we can't show the dialog, at least print to stderr
-        print(error_msg, file=sys.stderr)
+        if sys.stderr is not None:
+            print(error_msg, file=sys.stderr)
 
     # Call the default exception handler
     sys.__excepthook__(exc_type, exc_value, exc_traceback)
@@ -51,7 +52,8 @@ if __name__ == "__main__":
     logging.debug("Starting the application...")
 
     # Enable faulthandler to catch segmentation faults
-    faulthandler.enable()
+    if sys.stderr is not None:
+        faulthandler.enable()
 
     # Set up global exception handler
     sys.excepthook = global_exception_handler

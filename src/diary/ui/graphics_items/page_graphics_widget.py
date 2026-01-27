@@ -149,6 +149,17 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             QtGui.QPainter.RenderHint.TextAntialiasing, True
         )
 
+        # Performance optimizations
+        self._graphics_view.setOptimizationFlag(
+            QtWidgets.QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing, True
+        )
+        self._graphics_view.setOptimizationFlag(
+            QtWidgets.QGraphicsView.OptimizationFlag.DontSavePainterState, True
+        )
+        self._graphics_view.setViewportUpdateMode(
+            QtWidgets.QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate
+        )
+
         # Set fixed size to match page dimensions
         self._graphics_view.setFixedSize(settings.PAGE_WIDTH, settings.PAGE_HEIGHT)
 
@@ -356,7 +367,8 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         point = Point(scene_pos.x(), scene_pos.y(), pressure)
 
         self._current_points.append(point)
-        self._current_stroke_item.set_points(self._current_points)
+        # Use add_point for incremental updates instead of set_points
+        self._current_stroke_item.add_point(point)
 
     def _finish_current_stroke(self, device: InputType) -> None:
         """Finish the current stroke"""

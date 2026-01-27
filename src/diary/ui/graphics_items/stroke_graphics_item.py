@@ -35,6 +35,9 @@ class StrokeGraphicsItem(ResizableGraphicsItem):
         self._stroke_shape: QPainterPath | None = None
         self._pen: QPen | None = None
         self._resize_start_points: list[Point] | None = None
+        self._last_path_point_count: int = 0
+        self._cached_bounds: QRectF | None = None
+        self._bounds_point_count: int = 0
 
         # Configure item flags for strokes
         self.setFlag(
@@ -71,7 +74,16 @@ class StrokeGraphicsItem(ResizableGraphicsItem):
     def _unrotated_bounds(self) -> QRectF:
         """Calculate stroke bounds without rotation."""
         if not self.stroke.points:
+            self._cached_bounds = None
+            self._bounds_point_count = 0
             return QRectF()
+
+        # Return cached bounds if point count hasn't changed
+        if (
+            self._cached_bounds is not None
+            and self._bounds_point_count == len(self.stroke.points)
+        ):
+            return self._cached_bounds
 
         # Find the extremities of all points
         min_x = min(point.x for point in self.stroke.points)
@@ -82,12 +94,14 @@ class StrokeGraphicsItem(ResizableGraphicsItem):
         # Add margin for stroke thickness
         margin = self.stroke.thickness / 2.0 + 2.0  # Extra 2px for antialiasing
 
-        return QRectF(
+        self._cached_bounds = QRectF(
             min_x - margin,
             min_y - margin,
             (max_x - min_x) + 2 * margin,
             (max_y - min_y) + 2 * margin,
         )
+        self._bounds_point_count = len(self.stroke.points)
+        return self._cached_bounds
 
     def _rotated_bounds(self, rect: QRectF, rotation: float) -> QRectF:
         if rotation == 0.0:
@@ -319,7 +333,38 @@ class StrokeGraphicsItem(ResizableGraphicsItem):
         """Get or create the cached stroke path"""
         if self._stroke_path is None:
             self._stroke_path = self._create_stroke_path()
+            self._last_path_point_count = len(self.stroke.points)
         return self._stroke_path
+
+    def _append_point_to_path(self, point: Point) -> None:
+        """Incrementally append a point to the existing path"""
+        if self._stroke_path is None or len(self.stroke.points) < 2:
+            # Path doesn't exist yet or stroke is too short, rebuild it
+            self._stroke_path = None
+            self._last_path_point_count = 0
+            return
+
+        points = self.stroke.points
+        num_points = len(points)
+
+        # Only add the new segment to the existing path
+        if num_points >= 3:
+            # Get the last few points to create a smooth connection
+            p1 = points[-3]
+            p2 = points[-2]
+            p3 = points[-1]
+
+            # Calculate midpoint between second-to-last and new point
+            mid_x = (p2.x + p3.x) / 2.0
+            mid_y = (p2.y + p3.y) / 2.0
+
+            # Add curve segment to existing path
+            self._stroke_path.quadTo(p2.x, p2.y, mid_x, mid_y)
+        elif num_points == 2:
+            # Just draw a line for the second point
+            self._stroke_path.lineTo(points[-1].x, points[-1].y)
+
+        self._last_path_point_count = num_points
 
     @override
     def shape(self) -> QPainterPath:
@@ -428,18 +473,51 @@ class StrokeGraphicsItem(ResizableGraphicsItem):
         """Add a point to the stroke and update the graphics"""
         self.stroke.points.append(point)
 
-        # Invalidate caches
-        self._stroke_path = None
+        # Incrementally update path instead of invalidating
+        self._append_point_to_path(point)
+
+        # Only invalidate shape cache (used for hit testing)
         self._stroke_shape = None
-        self.invalidate_cache()
+
+        # Update the item's display
+        self.prepareGeometryChange()
+        self.update()
 
     def set_points(self, points: list[Point]) -> None:
         """Set all points for the stroke"""
-        self.stroke.points = points
+        old_count = len(self.stroke.points)
+        new_count = len(points)
 
-        # Invalidate caches
+        # Check if we're just appending points (common during drawing)
+        if new_count > old_count and new_count - old_count <= 5:
+            # Likely just adding a few points - try incremental update
+            is_appending = (
+                old_count > 0
+                and new_count > old_count
+                and all(
+                    self.stroke.points[i] == points[i] for i in range(min(old_count, 10))
+                )
+            )
+            if is_appending:
+                # Only append the new points
+                for i in range(old_count, new_count):
+                    self.stroke.points.append(points[i])
+                    self._append_point_to_path(points[i])
+
+                self._stroke_shape = None
+                self._cached_bounds = None
+                self._bounds_point_count = 0
+                self.prepareGeometryChange()
+                self.update()
+                return
+
+        # Full replacement - invalidate everything
+        self.stroke.points = points
         self._stroke_path = None
         self._stroke_shape = None
+        self._last_path_point_count = 0
+        self._cached_bounds = None
+        self._bounds_point_count = 0
         self.invalidate_cache()
 
     @override

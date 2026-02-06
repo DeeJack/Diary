@@ -75,10 +75,11 @@ class BaseGraphicsItem(QGraphicsItem, ABC, metaclass=GraphicsItemABCMeta):
         self.update()
 
     def configure_painter_quality(self, painter: QPainter) -> None:
-        """Configure painter for high-quality rendering"""
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+        """Configure painter for high-quality rendering (skips if already set at view level)"""
+        if not painter.testRenderHint(QPainter.RenderHint.Antialiasing):
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
 
     @override
     def type(self) -> int:

@@ -476,8 +476,9 @@ class StrokeGraphicsItem(ResizableGraphicsItem):
         # Incrementally update path instead of invalidating
         self._append_point_to_path(point)
 
-        # Only invalidate shape cache (used for hit testing)
+        # Invalidate shape and bounding rect caches
         self._stroke_shape = None
+        self._cached_bounding_rect = None
 
         # Update the item's display
         self.prepareGeometryChange()

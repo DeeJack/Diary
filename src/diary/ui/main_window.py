@@ -30,6 +30,7 @@ from diary.ui.widgets.page_navigator import PageNavigatorToolbar
 from diary.ui.widgets.pen_preset_toolbar import PenPreset, PenPresetToolbar
 from diary.ui.widgets.save_manager import SaveManager
 from diary.ui.widgets.settings_sidebar import SettingsSidebar
+from diary.ui.widgets.streak_celebration import ConfettiOverlay, StreakToastWidget
 from diary.ui.widgets.tool_selector import Tool
 from diary.utils.encryption import SecureBuffer, SecureEncryption
 from src.diary.ui.notebook_selector import NotebookSelector
@@ -423,6 +424,7 @@ class MainWindow(QMainWindow):
         view_menu.addAction(sidebar_action)
         view_menu.addAction(settings_action)
 
+        _ = self.notebook_widget.streak_milestone.connect(self._show_streak_celebration)
         self.connect_signals(sidebar_action, settings_action)
         self.notebook_widget.update_navbar()
         self.navbar.set_back_button_visible(True)
@@ -447,3 +449,13 @@ class MainWindow(QMainWindow):
         self.notebook_widget.select_tool(Tool.PEN, "mouse")
         self.bottom_toolbar.set_active_tool(Tool.PEN)
         self.bottom_toolbar.update_pen_controls(preset.color, preset.width)
+
+    def _show_streak_celebration(self, streak: int) -> None:
+        """Show a toast and confetti for a streak milestone."""
+        toast = StreakToastWidget(streak, self)
+        toast.reposition(self.width())
+        toast.show_animated()
+
+        confetti = ConfettiOverlay(self)
+        confetti.setGeometry(0, 0, self.width(), self.height())
+        confetti.start()

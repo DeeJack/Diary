@@ -14,6 +14,7 @@ from diary.ui.ui_utils import show_info_dialog
 from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.save_manager import SaveManager
 from diary.ui.widgets.tool_selector import Tool
+from diary.ui.widgets.streak_celebration import is_milestone
 from diary.utils.encryption import SecureBuffer
 
 
@@ -23,6 +24,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
     current_page_changed: QtCore.pyqtSignal = QtCore.pyqtSignal(
         int, int
     )  # current_page_index, total_pages
+    streak_milestone: QtCore.pyqtSignal = QtCore.pyqtSignal(int)  # streak level
     current_zoom: float = 1.0
     min_zoom: float = 0.6
     max_zoom: float = 1.7
@@ -56,9 +58,19 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         self.this_scene: QtWidgets.QGraphicsScene = QtWidgets.QGraphicsScene()
         self._cleaning_up: bool = False
 
+        # Scroll debounce timer
+        self._scroll_timer: QtCore.QTimer = QtCore.QTimer()
+        self._scroll_timer.setSingleShot(True)
+        self._scroll_timer.setInterval(50)
+        _ = self._scroll_timer.timeout.connect(self._process_scroll)
+
+        # Staggered page loading
+        self._pages_to_load: list[int] = []
+        self._loading_in_progress: bool = False
+
         self._setup_notebook_widget()
         self._layout_page_backgrounds()
-        self._on_scroll()  # Initial load
+        self._process_scroll()  # Initial load (direct, no debounce)
 
     def cleanup(self) -> None:
         """Clean up all resources before application close to prevent segfaults.
@@ -69,7 +81,8 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         self._cleaning_up = True
         self._logger.debug("Cleaning up NotebookWidget")
 
-        # Stop the auto-save timer first
+        # Stop timers
+        self._scroll_timer.stop()
         self.save_manager.stop_auto_save()
 
         # Disconnect scroll handler to prevent callbacks during cleanup
@@ -125,8 +138,14 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         self._update_scene_rect()
 
     def _on_scroll(self, value: int = 0) -> None:
-        """Handle scroll events to lazy load pages and backgrounds"""
+        """Handle scroll events with debouncing"""
         _ = value
+        if self._cleaning_up:
+            return
+        self._scroll_timer.start()
+
+    def _process_scroll(self) -> None:
+        """Process scroll: unload distant pages and queue new pages for staggered loading"""
         if self._cleaning_up:
             return
         # Determine which pages should be visible
@@ -140,15 +159,15 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         )
 
         # Add buffer pages above and below for smoother scrolling
-        buffer_pages = 6
+        buffer_pages = 3
         first_visible_page = max(0, first_visible_page - buffer_pages)
         last_visible_page = min(
             len(self.notebook.pages) - 1, last_visible_page + buffer_pages
         )
 
         # Determine pages to load and unload
-        pages_to_load = set(range(first_visible_page, last_visible_page + 1))
-        pages_to_unload = set(self.active_page_widgets.keys()) - pages_to_load
+        desired_pages = set(range(first_visible_page, last_visible_page + 1))
+        pages_to_unload = set(self.active_page_widgets.keys()) - desired_pages
 
         # Unload old widgets
         for page_index in pages_to_unload:
@@ -157,7 +176,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
                 self._cleanup_proxy_widget(proxy_widget, page_index)
 
         # Unload backgrounds outside the buffer range
-        backgrounds_to_unload = set(self.page_backgrounds.keys()) - pages_to_load
+        backgrounds_to_unload = set(self.page_backgrounds.keys()) - desired_pages
         for page_index in backgrounds_to_unload:
             background = self.page_backgrounds.pop(page_index, None)
             if background:
@@ -166,17 +185,39 @@ class NotebookWidget(QtWidgets.QGraphicsView):
                 except RuntimeError:
                     pass
 
-        # Load new backgrounds and widgets
-        for page_index in pages_to_load:
-            # Create background if not exists
+        # Create backgrounds immediately (lightweight)
+        for page_index in desired_pages:
             if page_index not in self.page_backgrounds:
                 self._create_page_background(page_index)
-            # Create widget if not exists
-            if page_index not in self.active_page_widgets:
-                page_data = self.notebook.pages[page_index]
-                self._load_and_position_page(page_index, page_data)
+
+        # Queue pages for staggered loading
+        self._pages_to_load = sorted(
+            idx for idx in desired_pages if idx not in self.active_page_widgets
+        )
+        if self._pages_to_load and not self._loading_in_progress:
+            self._load_next_page()
+
         # Update current page indicator
         self.update_navbar()
+
+    def _load_next_page(self) -> None:
+        """Load one queued page, then schedule the next via event loop"""
+        if self._cleaning_up or not self._pages_to_load:
+            self._loading_in_progress = False
+            return
+        self._loading_in_progress = True
+        page_index = self._pages_to_load.pop(0)
+        # Page may have been loaded already or index may be out of range
+        if (
+            page_index not in self.active_page_widgets
+            and 0 <= page_index < len(self.notebook.pages)
+        ):
+            page_data = self.notebook.pages[page_index]
+            self._load_and_position_page(page_index, page_data)
+        if self._pages_to_load:
+            QtCore.QTimer.singleShot(0, self._load_next_page)
+        else:
+            self._loading_in_progress = False
 
     def _add_page_to_scene(
         self, page_data: Page, page_index: int
@@ -384,6 +425,10 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         self.save_manager.mark_dirty()
         self.update_navbar()
 
+        # Check for streak milestone
+        if is_milestone(new_page.streak_lvl):
+            self.streak_milestone.emit(new_page.streak_lvl)
+
     def _update_pages_after_deletion(self, page_idx: int):
         """Update indices and positions for pages after a deletion."""
         self._reindex_pages(page_idx, direction=-1)
@@ -500,7 +545,7 @@ class NotebookWidget(QtWidgets.QGraphicsView):
         self._layout_page_backgrounds()
 
         # Trigger scroll handler to reload visible pages
-        self._on_scroll()
+        self._process_scroll()
 
         # Update navigation bar
         self.update_navbar()

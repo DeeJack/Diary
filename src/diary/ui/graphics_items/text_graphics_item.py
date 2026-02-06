@@ -43,6 +43,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
         self._edit_item: QGraphicsTextItem | None = None
         self._resize_start_font_size: float | None = None
         self._document: QTextDocument | None = None
+        self._cached_text_box: QRectF | None = None
 
         # Configure item flags for text
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
@@ -117,26 +118,28 @@ class TextGraphicsItem(ResizableGraphicsItem):
         widget: QWidget | None = None,
     ) -> None:
         """Paint the text with high-quality font rendering"""
-        # If editing, skip custom painting
-        if self._edit_item is not None:
-            if painter:
-                self.configure_painter_quality(painter)
-                if self.isSelected():
-                    painter.save()
-                    if self.text_element.rotation != 0.0:
-                        text_rect = self._text_positioned_box(self._get_display_text())
-                        center = text_rect.center()
-                        painter.translate(center)
-                        painter.rotate(self.text_element.rotation)
-                        painter.translate(-center)
-                    self._draw_selection_highlight(painter)
-                    self._draw_resize_handles(painter)
-                    painter.restore()
-                if not self.text_element.text:
-                    self._draw_hint_text(painter)
+        if not painter:
             return
 
-        if not painter:
+        # Compute these once for the entire paint cycle
+        text_box = self._text_positioned_box(self._get_display_text())
+        has_rotation = self.text_element.rotation != 0.0
+
+        # If editing, skip custom painting
+        if self._edit_item is not None:
+            self.configure_painter_quality(painter)
+            if self.isSelected():
+                painter.save()
+                if has_rotation:
+                    center = text_box.center()
+                    painter.translate(center)
+                    painter.rotate(self.text_element.rotation)
+                    painter.translate(-center)
+                self._draw_selection_highlight(painter, text_box)
+                self._draw_resize_handles(painter)
+                painter.restore()
+            if not self.text_element.text:
+                self._draw_hint_text(painter)
             return
 
         # Configure painter for high-quality text rendering
@@ -145,20 +148,18 @@ class TextGraphicsItem(ResizableGraphicsItem):
         # Draw selection highlight if selected
         if self.isSelected():
             painter.save()
-            if self.text_element.rotation != 0.0:
-                text_rect = self._text_positioned_box(self._get_display_text())
-                center = text_rect.center()
+            if has_rotation:
+                center = text_box.center()
                 painter.translate(center)
                 painter.rotate(self.text_element.rotation)
                 painter.translate(-center)
-            self._draw_selection_highlight(painter)
+            self._draw_selection_highlight(painter, text_box)
             self._draw_resize_handles(painter)
             painter.restore()
 
         painter.save()
-        if self.text_element.rotation != 0.0:
-            text_rect = self._text_positioned_box(self._get_display_text())
-            center = text_rect.center()
+        if has_rotation:
+            center = text_box.center()
             painter.translate(center)
             painter.rotate(self.text_element.rotation)
             painter.translate(-center)
@@ -177,9 +178,8 @@ class TextGraphicsItem(ResizableGraphicsItem):
 
         # Draw the Markdown-rendered text using a QTextDocument.
         document = self._get_text_document()
-        text_rect = self._text_positioned_box()
         painter.save()
-        painter.translate(text_rect.topLeft())
+        painter.translate(text_box.topLeft())
         document.drawContents(painter)
         painter.restore()
 
@@ -189,10 +189,9 @@ class TextGraphicsItem(ResizableGraphicsItem):
 
         painter.restore()
 
-    def _draw_selection_highlight(self, painter: QPainter) -> None:
+    def _draw_selection_highlight(self, painter: QPainter, text_box: QRectF | None = None) -> None:
         """Draw selection highlight behind the text"""
-        # Get text bounds without padding
-        positioned_rect = self._text_positioned_box(self._get_display_text())
+        positioned_rect = text_box if text_box is not None else self._text_positioned_box(self._get_display_text())
 
         # Draw semi-transparent selection background
         selection_color = QColor(0, 120, 255, 64)  # Semi-transparent blue
@@ -212,7 +211,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
         painter.setPen(cursor_pen)
 
         # Calculate cursor position (at end of text for now)
-        font_metrics = QFontMetrics(self._get_font())
+        font_metrics = self._get_font_metrics()
         text_width = font_metrics.horizontalAdvance(self.text_element.text)
 
         cursor_x = self.text_element.position.x + text_width
@@ -229,6 +228,12 @@ class TextGraphicsItem(ResizableGraphicsItem):
 
         return self._font
 
+    def _get_font_metrics(self) -> QFontMetrics:
+        """Get or create cached font metrics for this text element"""
+        if self._font_metrics is None:
+            self._font_metrics = QFontMetrics(self._get_font())
+        return self._font_metrics
+
     @override
     def _update_element_position(self, new_position: QPointF) -> None:
         """Update the text element's position when the graphics item moves"""
@@ -238,6 +243,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
         ):
             self.text_element.position = Point(new_position.x(), new_position.y(), 0)
             self._document = None
+            self._cached_text_box = None
             self.invalidate_cache()
 
     @override
@@ -300,6 +306,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
             )
             self.setPos(new_scene_pos)
             self._document = None
+            self._cached_text_box = None
 
         text_rect = self._text_positioned_box(self._get_display_text())
         self.setTransformOriginPoint(
@@ -325,6 +332,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
         self.text_element.text = text
         self._font_metrics = None  # Invalidate metrics cache
         self._document = None
+        self._cached_text_box = None
         self._update_edit_item_rotation()
         self.invalidate_cache()
 
@@ -334,6 +342,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
         self._font = None  # Invalidate font cache
         self._font_metrics = None  # Invalidate metrics cache
         self._document = None
+        self._cached_text_box = None
         self._update_edit_item_rotation()
         self.invalidate_cache()
 
@@ -341,6 +350,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
         """Update the text color"""
         self.text_element.color = color
         self._document = None
+        self._cached_text_box = None
         self.update()
 
     def set_rotation(self, rotation: float) -> None:
@@ -392,7 +402,7 @@ class TextGraphicsItem(ResizableGraphicsItem):
         self._edit_item.setDefaultTextColor(QColor(self.text_element.color))
         self._edit_item.setPos(
             0,
-            -QFontMetrics(font).ascent(),
+            -self._get_font_metrics().ascent(),
         )
 
         # Set width constraint for word wrap
@@ -450,8 +460,13 @@ class TextGraphicsItem(ResizableGraphicsItem):
             # Update the underlying text element in real-time
             new_text = self._edit_item.toPlainText()
             self.text_element.text = new_text
+            # During editing, only invalidate document/text box caches.
+            # The QGraphicsTextItem edit overlay handles its own rendering.
+            # Skip full invalidate_cache() which calls expensive prepareGeometryChange().
+            # Full cache rebuild happens in stop_editing() via set_text().
+            self._document = None
+            self._cached_text_box = None
             self._update_edit_item_rotation()
-            self.invalidate_cache()
 
     @override
     def _handle_selection_change(self, _: bool) -> None:
@@ -462,8 +477,12 @@ class TextGraphicsItem(ResizableGraphicsItem):
         return super()._handle_selection_change(_)
 
     def _text_positioned_box(self, text: str | None = None) -> QRectF:
-        font = self._get_font()
-        font_metrics = QFontMetrics(font)
+        # Use cache when called with element's own text (or None)
+        use_cache = text is None or text == self.text_element.text
+        if use_cache and self._cached_text_box is not None:
+            return self._cached_text_box
+
+        font_metrics = self._get_font_metrics()
         display_text = text if text is not None else self.text_element.text
 
         if display_text == self._HINT_TEXT and not self.text_element.text:
@@ -476,21 +495,27 @@ class TextGraphicsItem(ResizableGraphicsItem):
             text_rect = font_metrics.boundingRect(
                 text_bound_rect, Qt.TextFlag.TextWordWrap, display_text
             )
-            return QRectF(
+            result = QRectF(
                 0,
                 -font_metrics.ascent(),
                 text_rect.width(),
                 text_rect.height(),
             )
+            if use_cache:
+                self._cached_text_box = result
+            return result
 
         document = self._get_text_document()
         document_size = document.size()
-        return QRectF(
+        result = QRectF(
             0,
             -font_metrics.ascent(),
             document_size.width(),
             document_size.height(),
         )
+        if use_cache:
+            self._cached_text_box = result
+        return result
 
     def _get_text_document(self) -> QTextDocument:
         if self._document is None:

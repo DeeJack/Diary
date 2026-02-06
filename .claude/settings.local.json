@@ -4,7 +4,10 @@
       "Bash(python -m py_compile:*)",
       "Bash(ls -la \"C:\\\\Users\\\\loren\\\\Documents\\\\projects\\\\diary\\\\src\\\\diary\\\\utils\"\" | grep -E \"backup)",
       "Bash(move)",
-      "Bash(encryption \")"
+      "Bash(encryption \")",
+      "Bash(python -m pytest:*)",
+      "Bash(poetry run pytest:*)",
+      "Bash(pip show:*)"
     ]
   }
 }

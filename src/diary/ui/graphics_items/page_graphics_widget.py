@@ -25,6 +25,8 @@ from diary.ui.ui_utils import (
 from diary.ui.widgets.bottom_toolbar import BottomToolbar
 from diary.ui.widgets.tool_selector import Tool
 
+from diary.ui.widgets.streak_celebration import streak_color
+
 from .page_graphics_scene import PageGraphicsScene
 from .stroke_graphics_item import StrokeGraphicsItem
 
@@ -166,18 +168,12 @@ class PageGraphicsWidget(QtWidgets.QWidget):
     def _setup_layout(self) -> None:
         """Setup the widget layout with page info and controls"""
         # Create page title
-        page_date = datetime.fromtimestamp(
-            self.page.created_at if self.page else 0
-        ).strftime("%Y-%m-%d %a")
-        streak_info = ""
-        if self.page and self.page.streak_lvl > 0:
-            streak_info = f" (Streak: {self.page.streak_lvl})"
-
-        title = f"{page_date}{streak_info}"
-        self.title_label: QtWidgets.QLabel = QtWidgets.QLabel(title)
+        self.title_label: QtWidgets.QLabel = QtWidgets.QLabel()
+        self.title_label.setTextFormat(Qt.TextFormat.RichText)
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.title_label.setFont(QtGui.QFont("Times New Roman", 16))
         self.title_label.setStyleSheet("color: black;")
+        self._update_title_label()
 
         # Create "Add below" button
         btn_below = QtWidgets.QPushButton("+")
@@ -390,7 +386,12 @@ class PageGraphicsWidget(QtWidgets.QWidget):
             self._logger.debug(
                 "Finished stroke with %s points", len(self._current_stroke.points)
             )
-            self._scene.force_background_redraw()
+            if self._current_stroke_item:
+                stroke_rect = self._current_stroke_item.boundingRect()
+                scene_rect = self._current_stroke_item.mapRectToScene(stroke_rect)
+                self._scene.force_partial_redraw(scene_rect.adjusted(-5, -5, 5, 5))
+            else:
+                self._scene.force_background_redraw()
 
             self._current_stroke = None
             self._current_stroke_item = None
@@ -602,10 +603,13 @@ class PageGraphicsWidget(QtWidgets.QWidget):
         page_date = datetime.fromtimestamp(
             self.page.created_at if self.page else 0
         ).strftime("%Y-%m-%d %a")
-        streak_info = ""
+        streak_html = ""
         if self.page and self.page.streak_lvl > 0:
-            streak_info = f" (Streak: {self.page.streak_lvl})"
-        self.title_label.setText(f"{page_date}{streak_info}")
+            color = streak_color(self.page.streak_lvl)
+            streak_html = (
+                f' <span style="color:{color};">(Streak: {self.page.streak_lvl})</span>'
+            )
+        self.title_label.setText(f"{page_date}{streak_html}")
 
     def _confirm_delete(self):
         result = confirm_delete(self.parentWidget())

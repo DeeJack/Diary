@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     SMOOTHING_ENABLED: bool = True
     TEXT_SIZE_PX: int = 12
 
+    # Image import
+    IMAGE_IMPORT_MAX_DIMENSION: int = 2048
+
     # Smoothing parameters
     SMOOTHING_MIN_DISTANCE: float = 1.25
     SMOOTHING_TENSION: float = 0.15

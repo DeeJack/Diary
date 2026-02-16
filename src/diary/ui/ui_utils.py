@@ -404,21 +404,21 @@ def read_image(file_path: str) -> tuple[bytes, int, int]:
     if pixmap.isNull():
         raise ValueError("Couldn't load image")
 
-    MAX_DIMENSION = 1024.0
-    if pixmap.width() > MAX_DIMENSION or pixmap.height() > MAX_DIMENSION:
+    max_dimension = max(1, settings.IMAGE_IMPORT_MAX_DIMENSION)
+    if pixmap.width() > max_dimension or pixmap.height() > max_dimension:
         # Scale the pixmap down, keeping aspect ratio
         pixmap = pixmap.scaled(
-            int(MAX_DIMENSION),
-            int(MAX_DIMENSION),
+            max_dimension,
+            max_dimension,
             Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
 
-    # Compress to JPG, quality 80
+    # Encode the resized image bytes for storage.
     byte_array = QByteArray()
     buffer = QBuffer(byte_array)
     _ = buffer.open(QIODevice.OpenModeFlag.WriteOnly)
-    # Save the pixmap to the buffer in JPEG format, quality 80
+    # PNG keeps visual quality lossless while size reduction comes from resizing.
     _ = pixmap.save(buffer, "PNG", 100)
 
     image_bytes = byte_array.data()
